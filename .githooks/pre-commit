@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+if git diff --cached --name-only | grep -Eq '(^|/)\.env($|\.)'; then
+  echo "Commit blocked: .env files must never be committed. Use .env.example for documented placeholders."
+  exit 1
+fi
+
+if git diff --cached -U0 | grep -Eiq 'sk-(or-)?[a-z0-9_-]{20,}|(api[_-]?key|token|secret)[[:space:]]*[:=][[:space:]]*[a-z0-9_-]{20,}'; then
+  echo "Commit blocked: a possible API key, token, or secret was found in staged changes."
+  echo "Move it to an untracked environment variable or secret manager before committing."
+  exit 1
+fi
