@@ -44,25 +44,26 @@ export function ReportView({ report }: { report: Report }) {
     ['Heating', `${known(facts.heating)}${facts.energySource ? ` · ${facts.energySource}` : ''}`],
     ['Built', known(facts.year)],
   ];
+  const unresolved = report.qualityWarnings?.length || 0;
 
   return <>
     <Sidebar />
     <main className="workspace">
       <header className="report-head">
-        <div><p className="eyebrow">PROPERTY ASSESSMENT</p><h1>{reportTitle(report)}</h1>{subtitle && <p>{subtitle}</p>}</div>
-        <button onClick={() => navigator.clipboard.writeText(location.href)}>↗ Share report</button>
+        <div><p className="eyebrow">GOOD HOMES / PROPERTY BRIEF</p><h1>{reportTitle(report)}</h1>{subtitle && <p>{subtitle}</p>}</div>
+        <button onClick={() => navigator.clipboard.writeText(location.href)}>Copy share link</button>
       </header>
 
       <section className="verdict">
-        <div><small>{(report.scoreTitle || 'Data confidence').toUpperCase()}</small><strong>{report.score.toFixed(1)}<i>/10</i></strong></div>
-        <div><h2>{report.score >= 8 ? 'Strong source coverage—verify the remaining gaps.' : 'Some key particulars still need confirmation.'}</h2><div className="summary-copy">{report.summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div></div>
+        <div><small>SOURCE COVERAGE</small><strong>{Math.round(report.score * 10)}<i>%</i></strong><span>{unresolved ? `${unresolved} open ${unresolved === 1 ? 'detail' : 'details'}` : 'Core details stated'}</span></div>
+        <div><h2>{report.score >= 8 ? `A strong factual base${unresolved ? `, with ${unresolved} ${unresolved === 1 ? 'point' : 'points'} to confirm.` : '.'}` : 'Some key particulars still need confirmation.'}</h2><div className="summary-copy">{report.summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div></div>
       </section>
 
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">AT A GLANCE</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small>{key}</small><b>{value}</b></div>)}</div></section>
           {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">LISTING DETAILS</p><div className="feature-list">{facts.features.map(feature => <span key={feature}>{feature}</span>)}</div></section> : null}
-          <section className="card"><p className="eyebrow">WHAT MATTERS</p>{report.considerations.map((item, index) => <div className="signal" key={item}><span>{index === 0 ? '↑' : '!'}</span><p>{item}</p></div>)}</section>
+          <section className="card"><p className="eyebrow">WHAT MATTERS</p>{report.considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p></div>)}</section>
           {report.qualityWarnings?.length ? <section className="card data-notes"><p className="eyebrow">DATA NOTES</p>{report.qualityWarnings.map(item => <p key={item}>{item}</p>)}</section> : null}
           <LocationCard query={mapQuery} label={mapLabel} />
         </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { reportTitle } from '@/lib/display';
 import type { Report } from '@/lib/types';
+import { Brand } from './Brand';
 
 export function Sidebar() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -53,7 +54,7 @@ export function Sidebar() {
   };
 
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
-    <header><Link href="/" className="side-logo">h <span>habitat</span></Link><button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>‹</button></header>
+    <header><Brand className="side-logo"/><button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>‹</button></header>
     <div className="actions"><Link href="/" className="new">＋ <span>New assessment</span></Link><button className="upgrade" disabled={reports.length < 2}>✦ <span>Upgrade</span></button></div>
     <p className="quota">2 free assessments daily</p><p className="side-label">YOUR ASSESSMENTS</p>
     <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>

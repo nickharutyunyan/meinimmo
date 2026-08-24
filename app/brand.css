@@ -1,0 +1,41 @@
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-mark {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  color: var(--ink);
+  filter: drop-shadow(0 3px 7px rgb(25 51 45 / 12%));
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.brand-word {
+  font: 600 20px/1 Georgia, serif;
+  letter-spacing: -0.35px;
+}
+
+.brand-mark:hover .home-mark {
+  filter: drop-shadow(0 5px 10px rgb(25 51 45 / 18%));
+  transform: translateY(-1px) rotate(-2deg);
+}
+
+.sidebar .brand-mark {
+  min-width: 0;
+}
+
+.sidebar.collapsed .brand-mark {
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  background: transparent;
+}
+
+.sidebar.collapsed .brand-word {
+  display: none;
+}

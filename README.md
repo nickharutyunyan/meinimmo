@@ -1,4 +1,4 @@
-# Habitat
+# Good Homes
 
 An AI-assisted German residential-property assessment app. It validates listing links and Exposé PDFs before analysis, creates a concise buyer-focused report, and provides persistent share and comparison links.
 

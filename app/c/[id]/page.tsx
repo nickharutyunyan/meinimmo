@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { comparison, report } from '@/lib/store';
 import { reportTitle } from '@/lib/display';
+import { Brand } from '@/components/Brand';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 const known = (value?: string) => value && !/not stated|unknown/i.test(value) ? value : '—';
@@ -13,7 +14,7 @@ export default async function Compare({ params }: { params: Promise<{ id: string
   const row = (label: string, first: string, second: string) => <><div className="metric">{label}</div><div>{first}</div><div>{second}</div></>;
 
   return <main className="comparison-page">
-    <a className="logo" href="/">h <span>habitat</span></a>
+    <Brand />
     <p className="eyebrow">PROPERTY COMPARISON</p>
     <h1>Two homes, side by side.</h1>
     <p className="lead">A calm view of the facts that change a decision.</p>
@@ -32,7 +33,7 @@ export default async function Compare({ params }: { params: Promise<{ id: string
       {row('Hausgeld', a.facts.housegeld ? `${money(a.facts.housegeld)} / month` : '—', b.facts.housegeld ? `${money(b.facts.housegeld)} / month` : '—')}
       {row('Advertised return', a.facts.advertisedYield ? `${a.facts.advertisedYield}%` : '—', b.facts.advertisedYield ? `${b.facts.advertisedYield}%` : '—')}
       {row('Energy', `${known(a.facts.energy)}${a.facts.energySource ? ` · ${a.facts.energySource}` : ''}`, `${known(b.facts.energy)}${b.facts.energySource ? ` · ${b.facts.energySource}` : ''}`)}
-      {row('Data confidence', `${a.score.toFixed(1)} / 10`, `${b.score.toFixed(1)} / 10`)}
+      {row('Source coverage', `${Math.round(a.score * 10)}%`, `${Math.round(b.score * 10)}%`)}
     </section>
   </main>;
 }

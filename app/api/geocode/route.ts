@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     url.searchParams.set('countrycodes', 'de');
     url.searchParams.set('q', query);
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'HabitatPropertyAssessment/1.0' },
+      headers: { 'User-Agent': 'GoodHomesPropertyAssessment/1.0' },
       next: { revalidate: 60 * 60 * 24 * 30 },
     });
     if (!response.ok) throw new Error('Geocoding service unavailable');

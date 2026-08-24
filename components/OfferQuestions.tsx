@@ -26,7 +26,7 @@ export function OfferQuestions({ report }: { report: Report }) {
   return <section className="card offer-questions">
     <div className="section-heading">
       <p className="eyebrow">ASK BEFORE YOU OFFER</p>
-      <span className={tailored ? 'ai-badge active' : 'ai-badge'}>{loading ? 'Reviewing…' : tailored ? 'AI tailored' : 'Essential checks'}</span>
+      <span className={tailored ? 'ai-badge active' : 'ai-badge'}>{loading ? 'Reviewing listing' : tailored ? 'Tailored to this listing' : 'Core due diligence'}</span>
     </div>
     <h2>Questions worth getting in writing</h2>
     <ol>{questions.map((question, index) => <li key={`${index}-${question}`}><span>{index + 1}</span><p>{question}</p></li>)}</ol>
