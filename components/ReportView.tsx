@@ -10,6 +10,8 @@ import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
 import { FinanceCalculator } from './FinanceCalculator';
 import { LanguageSwitch } from './LanguageSwitch';
+import { AccountNav } from './AccountNav';
+import { PlanButton } from './PlanButton';
 import { LocationCard } from './LocationCard';
 import { OfferQuestions } from './OfferQuestions';
 import { Sidebar } from './Sidebar';
@@ -80,7 +82,7 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
     <Sidebar locale={locale} />
     <main className="workspace" lang={locale}>
       <header className="report-head">
-        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span aria-live="polite">{copied ? text.copied : text.copyLink}</span></button><LanguageSwitch locale={locale}/></div></div>
+        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span aria-live="polite">{copied ? text.copied : text.copyLink}</span></button><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
         <div className="report-title-block"><p className="eyebrow">{text.brief}</p><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
@@ -107,8 +109,8 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
 
       <section className="plans">
         <div><p className="eyebrow">{text.assessMore}</p><h2>{text.plansTitle}</h2><p>{text.plansCopy}</p></div>
-        <article><span>PRO</span><strong>€10<small>{text.perMonth}</small></strong><p>{text.proLimit}</p><button>{text.proButton}</button></article>
-        <article className="ultra"><span>ULTRA</span><strong>€20<small>{text.perMonth}</small></strong><p>{text.ultraLimit}</p><button>{text.ultraButton}</button></article>
+        <article><span>PRO</span><strong>€10<small>{text.perMonth}</small></strong><p>{text.proLimit}</p><PlanButton plan="pro" locale={locale}>{text.proButton}</PlanButton></article>
+        <article className="ultra"><span>ULTRA</span><strong>€20<small>{text.perMonth}</small></strong><p>{text.ultraLimit}</p><PlanButton plan="ultra" locale={locale}>{text.ultraButton}</PlanButton></article>
       </section>
     </main>
   </>;

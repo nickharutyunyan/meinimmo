@@ -34,6 +34,12 @@
       "database_name": "habitat",
       "database_id": "17b0a2e1-41f5-402e-ba7a-5226265d811b",
       "migrations_dir": "migrations"
+    },
+    {
+      "binding": "AUTH_DB",
+      "database_name": "reviewahouse-auth",
+      "database_id": "2520cbde-a059-4cba-82de-ca1b3eec2598",
+      "migrations_dir": "auth-migrations"
     }
   ],
   "observability": {

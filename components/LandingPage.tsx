@@ -1,21 +1,32 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
 import { copy, localePath, type Locale } from '@/lib/i18n';
+import { QuotaModal } from './QuotaModal';
 
 export function LandingPage({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState('');
+  const [quotaOpen, setQuotaOpen] = useState(false);
   const text = copy[locale].home;
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('daypass') === '1') setQuotaOpen(true);
+  }, []);
 
   async function assess(payload: object) {
     const response = await fetch('/api/assess', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, locale }) });
-    const data = await response.json() as { error?: string; id?: string };
+    const data = await response.json() as { error?: string; id?: string; code?: string };
     if (!response.ok || !data.id) {
+      if (data.code === 'quota_exceeded') {
+        setStatus('');
+        setQuotaOpen(true);
+        return;
+      }
       setStatus(data.error || text.genericError);
       return;
     }
@@ -71,5 +82,9 @@ export function LandingPage({ locale }: { locale: Locale }) {
       <div className="faq-intro"><p className="eyebrow">{text.faqLabel}</p><h2>{text.faqTitle}</h2><p>{text.faqIntro}</p></div>
       <div className="faq-list">{text.faqs.map(([question, answer], index) => <details key={question} open={index === 0}><summary><span>{String(index + 1).padStart(2, '0')}</span>{question}</summary><p>{answer}</p></details>)}</div>
     </section>
+    <QuotaModal open={quotaOpen} locale={locale} onClose={() => {
+      setQuotaOpen(false);
+      if (new URLSearchParams(window.location.search).has('daypass')) history.replaceState(null, '', window.location.pathname);
+    }} />
   </main>;
 }

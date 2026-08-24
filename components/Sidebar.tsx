@@ -63,7 +63,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
 
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
     <header><Brand className="side-logo" locale={locale}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span>‹</span></button></header>
-    <div className="actions"><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link><button className="upgrade" disabled={reports.length < 2}>✦ <span>{text.upgrade}</span></button></div>
+    <div className="actions"><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link><Link href={localePath(locale, '/account')} className={reports.length >= 2 ? 'upgrade ready' : 'upgrade'}>✦ <span>{text.upgrade}</span></Link></div>
     <p className="quota">{text.quota}</p><p className="side-label">{text.yours}</p>
     <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>
       <input aria-label={`${text.select} ${reportTitle(item, locale)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>

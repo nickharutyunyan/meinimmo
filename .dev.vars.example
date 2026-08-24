@@ -1,4 +1,11 @@
-# Copy to .dev.vars for local development. Never commit the real file.
+# Copy to .dev.vars for local development. Never commit the real values.
 NEXTJS_ENV=development
-OPENROUTER_API_KEY=replace_with_your_openrouter_key
+OPENROUTER_API_KEY=
 OPENROUTER_MODEL=openrouter/free
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_DAY_PASS=
+STRIPE_PRICE_PRO=
+STRIPE_PRICE_ULTRA=

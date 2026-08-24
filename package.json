@@ -12,7 +12,9 @@
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "auth-db:migrate:local": "wrangler d1 migrations apply AUTH_DB --local",
+    "auth-db:migrate:remote": "wrangler d1 migrations apply AUTH_DB --remote"
   },
   "engines": {
     "node": ">=20.9"

@@ -3,6 +3,7 @@
 !.dev.vars.example
 .open-next/
 .wrangler/
+*.tsbuildinfo
 data/reports.json
 node_modules/
 .next/
