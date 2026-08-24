@@ -1,5 +1,12 @@
 import type { Report } from './types';
 
+export function displayAddress(address: string) {
+  return address
+    .replace(/^\s*(?:(?:provisionsfrei|courtagefrei|von\s+privat|privatverkauf)[\s·,:-]*)+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function factualLocation(report: Pick<Report, 'address' | 'location' | 'source'>) {
   if (report.location && !/not stated/i.test(report.location)) return report.location;
   const evidence = `${report.address || ''} ${report.source || ''}`;

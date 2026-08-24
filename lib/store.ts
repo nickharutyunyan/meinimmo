@@ -13,6 +13,7 @@ async function write<T>(file: string, items: T[]) { await fs.mkdir(dataDir, { re
 export async function reports() { return read<Report>(reportsFile); }
 export async function report(id: string) { return (await reports()).find(item => item.id === id); }
 export async function saveReport(item: Report) { const all = await reports(); all.push(item); await write(reportsFile, all); }
+export async function replaceReport(item: Report) { const all = await reports(); const index=all.findIndex(report=>report.id===item.id); if(index<0)all.push(item);else all[index]=item; await write(reportsFile, all); }
 export async function comparisons() { return read<Comparison>(comparisonsFile); }
 export async function comparison(id: string) { return (await comparisons()).find(item => item.id === id); }
 export async function saveComparison(item: Comparison) { const all = await comparisons(); all.push(item); await write(comparisonsFile, all); }
