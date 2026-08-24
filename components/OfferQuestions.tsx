@@ -12,7 +12,7 @@ export function OfferQuestions({ report }: { report: Report }) {
     if (report.aiEnriched) return;
     let active = true;
     fetch(`/api/reports/${report.id}/questions`, { method: 'POST' })
-      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((response) => response.ok ? response.json() as Promise<{ offerQuestions?: string[]; aiEnriched?: boolean }> : Promise.reject())
       .then((data) => {
         if (!active) return;
         if (Array.isArray(data.offerQuestions)) setQuestions(data.offerQuestions);

@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development. Never commit the real file.
+NEXTJS_ENV=development
+OPENROUTER_API_KEY=replace_with_your_openrouter_key
+OPENROUTER_MODEL=openrouter/free

@@ -11,7 +11,7 @@ export function LocationCard({ query, label }: { query: string; label: string })
     if (!query) return;
     let active = true;
     fetch(`/api/geocode?q=${encodeURIComponent(query)}`)
-      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((response) => response.ok ? response.json() as Promise<Place> : Promise.reject())
       .then((data) => active && setPlace(data))
       .catch(() => undefined);
     return () => { active = false; };

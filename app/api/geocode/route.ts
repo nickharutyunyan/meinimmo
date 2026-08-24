@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       next: { revalidate: 60 * 60 * 24 * 30 },
     });
     if (!response.ok) throw new Error('Geocoding service unavailable');
-    const [place] = await response.json();
+    const [place] = await response.json() as Array<{ lat: string; lon: string; display_name: string }>;
     if (!place) return NextResponse.json({ error: 'Location not found.' }, { status: 404 });
     return NextResponse.json({ lat: Number(place.lat), lon: Number(place.lon), label: place.display_name });
   } catch {

@@ -1,19 +1,59 @@
 import 'server-only';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { Comparison, Report } from './types';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import type { Comparison, Report } from './types';
 
-const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-const reportsFile = path.join(dataDir, 'reports.json');
-const comparisonsFile = path.join(dataDir, 'comparisons.json');
+type StoredRow = { data: string };
 
-async function read<T>(file: string): Promise<T[]> { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return []; } }
-async function write<T>(file: string, items: T[]) { await fs.mkdir(dataDir, { recursive: true }); await fs.writeFile(file, JSON.stringify(items, null, 2), 'utf8'); }
+async function database() {
+  const { env } = await getCloudflareContext({ async: true });
+  if (!env.DB) throw new Error('The Cloudflare D1 binding "DB" is not configured.');
+  return env.DB;
+}
 
-export async function reports() { return read<Report>(reportsFile); }
-export async function report(id: string) { return (await reports()).find(item => item.id === id); }
-export async function saveReport(item: Report) { const all = await reports(); all.push(item); await write(reportsFile, all); }
-export async function replaceReport(item: Report) { const all = await reports(); const index=all.findIndex(report=>report.id===item.id); if(index<0)all.push(item);else all[index]=item; await write(reportsFile, all); }
-export async function comparisons() { return read<Comparison>(comparisonsFile); }
-export async function comparison(id: string) { return (await comparisons()).find(item => item.id === id); }
-export async function saveComparison(item: Comparison) { const all = await comparisons(); all.push(item); await write(comparisonsFile, all); }
+function parse<T>(row: StoredRow | null) {
+  return row ? JSON.parse(row.data) as T : undefined;
+}
+
+export async function reports() {
+  const db = await database();
+  const result = await db.prepare('SELECT data FROM reports ORDER BY created_at ASC').all<StoredRow>();
+  return result.results.map(row => JSON.parse(row.data) as Report);
+}
+
+export async function report(id: string) {
+  const db = await database();
+  return parse<Report>(await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first<StoredRow>());
+}
+
+export async function saveReport(item: Report) {
+  const db = await database();
+  await db.prepare('INSERT INTO reports (id, data, created_at) VALUES (?1, ?2, ?3)')
+    .bind(item.id, JSON.stringify(item), item.createdAt)
+    .run();
+}
+
+export async function replaceReport(item: Report) {
+  const db = await database();
+  await db.prepare(`
+    INSERT INTO reports (id, data, created_at) VALUES (?1, ?2, ?3)
+    ON CONFLICT(id) DO UPDATE SET data = excluded.data, created_at = excluded.created_at
+  `).bind(item.id, JSON.stringify(item), item.createdAt).run();
+}
+
+export async function comparisons() {
+  const db = await database();
+  const result = await db.prepare('SELECT data FROM comparisons ORDER BY created_at ASC').all<StoredRow>();
+  return result.results.map(row => JSON.parse(row.data) as Comparison);
+}
+
+export async function comparison(id: string) {
+  const db = await database();
+  return parse<Comparison>(await db.prepare('SELECT data FROM comparisons WHERE id = ?1').bind(id).first<StoredRow>());
+}
+
+export async function saveComparison(item: Comparison) {
+  const db = await database();
+  await db.prepare('INSERT INTO comparisons (id, data, created_at) VALUES (?1, ?2, ?3)')
+    .bind(item.id, JSON.stringify(item), item.createdAt)
+    .run();
+}

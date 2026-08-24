@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "habitat-real-estate-evaluator",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-24",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "habitat-real-estate-evaluator"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "habitat",
+      "database_id": "17b0a2e1-41f5-402e-ba7a-5226265d811b",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "OPENROUTER_MODEL": "openrouter/free"
+  }
+}

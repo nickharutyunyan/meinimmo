@@ -37,8 +37,8 @@ export function Sidebar() {
   });
   const compare = async () => {
     const response = await fetch('/api/comparisons', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reportIds: selected }) });
-    const result = await response.json();
-    if (response.ok) location.href = `/c/${result.id}`;
+    const result = await response.json() as { id?: string };
+    if (response.ok && result.id) location.href = `/c/${result.id}`;
   };
 
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>

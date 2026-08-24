@@ -2,7 +2,9 @@ import type { Report } from './types';
 
 export function displayAddress(address: string) {
   return address
-    .replace(/^\s*(?:(?:provisionsfrei|courtagefrei|von\s+privat|privatverkauf)[\s·,:-]*)+/i, '')
+    .replace(/\b(?:provisionsfrei|courtagefrei|von\s+privat|privatverkauf)\b/gi, ' ')
+    .replace(/\s+([,.;])/g, '$1')
+    .replace(/[.;,]+\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
