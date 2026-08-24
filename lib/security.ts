@@ -1,6 +1,8 @@
 const encoder = new TextEncoder();
 
-export const PASSWORD_ITERATIONS = 310_000;
+// Cloudflare Workers' Web Crypto implementation caps PBKDF2 at 100,000 rounds.
+// Store the count with every credential so future algorithms can migrate safely.
+export const PASSWORD_ITERATIONS = 100_000;
 
 export function bytesToBase64Url(bytes: Uint8Array) {
   let binary = '';

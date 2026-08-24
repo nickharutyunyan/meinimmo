@@ -28,13 +28,12 @@ D1 is the authoritative store for reports and comparisons. The old `data/*.json`
 
 Personal account, credential, session and billing records live in the dedicated `AUTH_DB` D1 database. Property report content remains in `DB`; the private database only keeps opaque report IDs when a signed-in user opens or creates a report. Passwords are stored as salted PBKDF2 hashes and session cookies contain opaque tokens whose hashes are stored server-side.
 
-Create these Stripe prices in EUR before enabling billing:
+Create these recurring Stripe prices in EUR before enabling subscriptions:
 
-- `STRIPE_PRICE_DAY_PASS`: €1 one-time payment
 - `STRIPE_PRICE_PRO`: €10 recurring monthly
 - `STRIPE_PRICE_ULTRA`: €20 recurring monthly
 
-Create a Stripe webhook for `/api/billing/webhook` with `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`. Add every secret interactively with `npx wrangler secret put NAME`; never put secret values in this repository.
+The €5 one-day pass is created directly as a one-time Checkout line item, so it does not need a separate Stripe Price ID. Create a Stripe webhook for `/api/billing/webhook` with `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`. Add every secret interactively with `npx wrangler secret put NAME`; never put secret values in this repository.
 
 For Google sign-in, create an OAuth 2.0 web client and register these production redirect URIs:
 

@@ -67,12 +67,12 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
     <section className="quota-modal" role="dialog" aria-modal="true" aria-labelledby="quota-title">
       <button className="modal-close" onClick={onClose} aria-label={de ? 'Schließen' : 'Close'}>×</button>
       <p className="eyebrow">{de ? 'HEUTE WEITERMACHEN' : 'KEEP SEARCHING TODAY'}</p>
-      <h2 id="quota-title">{de ? '50 Berichte. Ein Tag. 1 €.' : '50 reports. One day. €1.'}</h2>
+      <h2 id="quota-title">{de ? '50 Berichte. Ein Tag. 5 €.' : '50 reports. One day. €5.'}</h2>
       <p className="quota-lead">{de ? 'Einmal zahlen, 24 Stunden nutzen. Kein Abo, keine automatische Verlängerung.' : 'One payment, 24 hours of access. No subscription and no automatic renewal.'}</p>
       {user ? <div className="day-pass-checkout">
-        <div><span>{de ? 'TAGESPASS' : 'ONE-DAY PASS'}</span><strong>€1</strong></div>
+        <div><span>{de ? 'TAGESPASS' : 'ONE-DAY PASS'}</span><strong>€5</strong></div>
         <ul><li>{de ? '50 neue Immobilien-Berichte' : '50 new property reports'}</li><li>{de ? 'Gültig für 24 Stunden' : 'Valid for 24 hours'}</li><li>{de ? 'Endet automatisch' : 'Ends automatically'}</li></ul>
-        <button className="primary-action" disabled={busy} onClick={buyPass}>{busy ? (de ? 'Weiter…' : 'Opening…') : (de ? 'Tagespass für 1 € kaufen' : 'Buy the €1 day pass')}</button>
+        <button className="primary-action" disabled={busy} onClick={buyPass}>{busy ? (de ? 'Weiter…' : 'Opening…') : (de ? 'Tagespass für 5 € kaufen' : 'Buy the €5 day pass')}</button>
       </div> : <>
         <p className="account-reason">{de ? 'Für den Pass brauchst du ein Konto, damit deine 50 Berichte sicher bei dir bleiben.' : 'Create an account so your 50 reports stay safely attached to you.'}</p>
         {google ? <a className="google-auth" href={`/api/auth/google/start?locale=${locale}&returnTo=${encodeURIComponent(returnTo)}`}><span>G</span>{de ? 'Mit Google weitermachen' : 'Continue with Google'}</a> : null}

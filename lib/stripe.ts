@@ -9,6 +9,8 @@ type StripeCheckoutSession = {
   customer?: string | null;
   subscription?: string | null;
   payment_status?: string;
+  amount_total?: number | null;
+  currency?: string | null;
   client_reference_id?: string | null;
   metadata?: Record<string, string>;
 };
@@ -25,6 +27,12 @@ type StripeSubscription = {
 
 export type StripeEvent = { id: string; type: string; data: { object: Record<string, unknown> } };
 
+function integrationIdentifier() {
+  const randomBytes = crypto.getRandomValues(new Uint8Array(8));
+  const suffix = Array.from(randomBytes, (byte) => String.fromCharCode(97 + (byte % 26))).join('');
+  return `review_a_house_${suffix}`;
+}
+
 async function stripeRequest<T>(path: string, options: { method?: 'GET' | 'POST'; body?: URLSearchParams } = {}) {
   const env = await appEnvironment();
   if (!env.STRIPE_SECRET_KEY) throw new Error('stripe_not_configured');
@@ -40,19 +48,26 @@ async function stripeRequest<T>(path: string, options: { method?: 'GET' | 'POST'
 
 export async function createCheckout(user: SessionUser, plan: BillingPlan, origin: string, locale: 'en' | 'de') {
   const env = await appEnvironment();
-  const price = plan === 'day_pass' ? env.STRIPE_PRICE_DAY_PASS : plan === 'pro' ? env.STRIPE_PRICE_PRO : env.STRIPE_PRICE_ULTRA;
-  if (!price) throw new Error('stripe_price_not_configured');
+  const price = plan === 'pro' ? env.STRIPE_PRICE_PRO : plan === 'ultra' ? env.STRIPE_PRICE_ULTRA : undefined;
+  if (plan !== 'day_pass' && !price) throw new Error('stripe_price_not_configured');
   const prefix = locale === 'de' ? '/de' : '';
   const body = new URLSearchParams({
     mode: plan === 'day_pass' ? 'payment' : 'subscription',
+    integration_identifier: integrationIdentifier(),
     success_url: `${origin}${prefix}/account?payment=success`,
     cancel_url: `${origin}${prefix}/account?payment=cancelled`,
     client_reference_id: user.id,
-    'line_items[0][price]': price,
     'line_items[0][quantity]': '1',
     'metadata[user_id]': user.id,
     'metadata[plan]': plan,
   });
+  if (plan === 'day_pass') {
+    body.set('line_items[0][price_data][currency]', 'eur');
+    body.set('line_items[0][price_data][unit_amount]', '500');
+    body.set('line_items[0][price_data][product_data][name]', locale === 'de' ? 'Review a House Tagespass' : 'Review a House one-day pass');
+  } else {
+    body.set('line_items[0][price]', price || '');
+  }
   if (plan !== 'day_pass') {
     body.set('subscription_data[metadata][user_id]', user.id);
     body.set('subscription_data[metadata][plan]', plan);
@@ -113,14 +128,14 @@ export async function processStripeEvent(event: StripeEvent) {
   const alreadyProcessed = await db.prepare('SELECT id FROM stripe_events WHERE id = ?1').bind(event.id).first();
   if (alreadyProcessed) return;
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
     const session = event.data.object as StripeCheckoutSession;
     const userId = session.client_reference_id || session.metadata?.user_id;
     const plan = session.metadata?.plan;
     if (userId && session.customer) {
       await db.prepare('UPDATE users SET stripe_customer_id = ?1, updated_at = ?2 WHERE id = ?3').bind(session.customer, new Date().toISOString(), userId).run();
     }
-    if (userId && plan === 'day_pass' && session.payment_status === 'paid') {
+    if (userId && plan === 'day_pass' && session.payment_status === 'paid' && session.amount_total === 500 && session.currency === 'eur') {
       const startsAt = new Date();
       const expiresAt = new Date(startsAt.getTime() + 24 * 60 * 60 * 1000);
       await db.prepare(`

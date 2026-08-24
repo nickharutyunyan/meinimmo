@@ -16,11 +16,15 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
+    const knownError = code === 'username_taken' || code === 'invalid_password' || code === 'invalid_username';
+    if (!knownError) console.error('Credential signup failed', error);
     const message = code === 'username_taken'
       ? (de ? 'Dieser Nutzername ist schon vergeben.' : 'That username is already taken.')
       : code === 'invalid_password'
         ? (de ? 'Nimm mindestens 10 Zeichen sowie einen Buchstaben und eine Zahl.' : 'Use at least 10 characters, including a letter and a number.')
-        : (de ? 'Nutzername: 3–32 Zeichen, nur Buchstaben, Zahlen, Punkt, Minus oder Unterstrich.' : 'Username: 3–32 characters using letters, numbers, dots, dashes or underscores.');
-    return NextResponse.json({ error: message }, { status: code === 'username_taken' ? 409 : 400 });
+        : code === 'invalid_username'
+          ? (de ? 'Nutzername: 3–32 Zeichen, nur Buchstaben, Zahlen, Punkt, Minus oder Unterstrich.' : 'Username: 3–32 characters using letters, numbers, dots, dashes or underscores.')
+          : (de ? 'Das Konto konnte gerade nicht erstellt werden. Versuch es bitte noch einmal.' : 'The account could not be created right now. Please try again.');
+    return NextResponse.json({ error: message }, { status: code === 'username_taken' ? 409 : knownError ? 400 : 500 });
   }
 }

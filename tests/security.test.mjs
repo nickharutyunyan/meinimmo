@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hashPassword, hmacSha256Hex, safeReturnTo, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
+import { PASSWORD_ITERATIONS, hashPassword, hmacSha256Hex, safeReturnTo, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
+
+test('production password hashing stays within the Cloudflare Web Crypto limit', () => {
+  assert.equal(PASSWORD_ITERATIONS, 100_000);
+});
 
 test('password hashes are salted and verify without storing the password', async () => {
   const first = await hashPassword('correct-horse-7', 10_000);

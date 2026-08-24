@@ -12,6 +12,6 @@ export async function GET(request: NextRequest) {
     access,
     reportIds: user ? await userReportIds(user.id) : [],
     googleAvailable: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-    billingAvailable: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_DAY_PASS && env.STRIPE_PRICE_PRO && env.STRIPE_PRICE_ULTRA),
+    billingAvailable: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_PRO && env.STRIPE_PRICE_ULTRA),
   });
 }
