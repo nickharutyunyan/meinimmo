@@ -13,13 +13,19 @@ export function FinanceCalculator({ report }: { report: Report }) {
   const [repayment, setRepayment] = useState(2);
   const result = useMemo(() => {
     const loan = Math.max(0, total - equity);
-    return { loan, monthly: loan * (interest + repayment) / 100 / 12 };
-  }, [equity, interest, repayment, total]);
+    const loanPayment = loan * (interest + repayment) / 100 / 12;
+    return { loan, loanPayment, knownOutlay: loanPayment + (report.facts.housegeld || 0) };
+  }, [equity, interest, repayment, report.facts.housegeld, total]);
 
   return <section className="card finance-calculator">
     <p className="eyebrow">FINANCING SCENARIO</p>
-    <div className="finance-total"><small>Estimated monthly payment</small><strong>{euros(result.monthly)}</strong></div>
-    <div className="finance-meta"><span>Loan <b>{euros(result.loan)}</b></span><span>Total cost <b>{euros(total)}</b></span></div>
+    <div className="finance-total"><small>{report.facts.housegeld ? 'Known monthly outlay before rent' : 'Illustrative loan payment'}</small><strong>{euros(result.knownOutlay)}</strong>{report.facts.housegeld ? <em>{euros(result.loanPayment)} loan + {euros(report.facts.housegeld)} Hausgeld</em> : null}</div>
+    <div className="finance-meta">
+      <span>Loan <b>{euros(result.loan)}</b></span>
+      <span>Purchase price <b>{euros(report.facts.price)}</b></span>
+      {report.facts.buyerCosts ? <span>Buyer costs <b>{euros(report.facts.buyerCosts)}</b></span> : null}
+      <span>Total cost <b>{euros(total)}</b></span>
+    </div>
     <label>
       <span>Equity / down payment <b>{euros(equity)} · {total ? Math.round(equity / total * 100) : 0}%</b></span>
       <input type="range" min="0" max={Math.max(total, 1)} step="1000" value={equity} onChange={(event) => setEquity(Number(event.target.value))} />
@@ -32,6 +38,6 @@ export function FinanceCalculator({ report }: { report: Report }) {
       <span>Initial repayment (Tilgung) <b>{repayment.toFixed(1)}%</b></span>
       <input type="range" min="1" max="5" step="0.1" value={repayment} onChange={(event) => setRepayment(Number(event.target.value))} />
     </label>
-    <small className="finance-note">Illustrative annuity payment. Buyer costs are estimated; confirm rates, Hausgeld and affordability with a lender.</small>
+    <small className="finance-note">Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross; for a rented unit, verify the recoverable and owner-only portions. Confirm the rate, buyer-cost assumptions and affordability with a lender.</small>
   </section>;
 }

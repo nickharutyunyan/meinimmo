@@ -35,6 +35,17 @@ export function Sidebar() {
     localStorage.setItem('habitat-pins', JSON.stringify(next));
     return next;
   });
+  const removeFromHistory = (id: string) => {
+    const historyIds = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
+    const nextHistory = historyIds.filter(value => value !== id);
+    const nextPins = pinned.filter(value => value !== id);
+    localStorage.setItem('habitat-history', JSON.stringify(nextHistory));
+    localStorage.setItem('habitat-pins', JSON.stringify(nextPins));
+    setReports(current => current.filter(item => item.id !== id));
+    setPinned(nextPins);
+    setSelected(current => current.filter(value => value !== id));
+    window.dispatchEvent(new Event('habitat-history-changed'));
+  };
   const compare = async () => {
     const response = await fetch('/api/comparisons', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reportIds: selected }) });
     const result = await response.json() as { id?: string };
@@ -48,7 +59,10 @@ export function Sidebar() {
     <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>
       <input aria-label={`Select ${reportTitle(item)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>
       <Link href={`/r/${item.id}`}>{reportTitle(item)}<small>{new Date(item.createdAt).toLocaleDateString('de-DE')}</small></Link>
-      <button className="pin" aria-label={pinned.includes(item.id) ? 'Unpin assessment' : 'Pin assessment'} aria-pressed={pinned.includes(item.id)} onClick={() => togglePin(item.id)}>{pinned.includes(item.id) ? '●' : '○'}</button>
+      <div className="history-controls">
+        <button className="pin" title={pinned.includes(item.id) ? 'Unpin' : 'Pin'} aria-label={pinned.includes(item.id) ? 'Unpin assessment' : 'Pin assessment'} aria-pressed={pinned.includes(item.id)} onClick={() => togglePin(item.id)}>{pinned.includes(item.id) ? '●' : '○'}</button>
+        <button className="remove" title="Remove from sidebar" aria-label={`Remove ${reportTitle(item)} from sidebar`} onClick={() => removeFromHistory(item.id)}>×</button>
+      </div>
     </div>) : <p className="empty">Your saved assessments will appear here.</p>}</div>
     <button className="compare" onClick={compare} disabled={selected.length !== 2}>Compare selected <b>{selected.length}/2</b></button>
   </aside>;

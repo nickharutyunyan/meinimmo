@@ -23,19 +23,26 @@ export function ReportView({ report }: { report: Report }) {
   const facts = report.facts;
   const areaLabel = factualLocation(report);
   const cleanAddress = displayAddress(report.address);
-  const subtitle = /not stated/i.test(cleanAddress) ? areaLabel : cleanAddress;
+  const publicLocation = [facts.postalCode, facts.city].filter(Boolean).join(' ');
+  const subtitle = /not stated/i.test(cleanAddress) ? publicLocation || areaLabel : cleanAddress;
   const mapLabel = areaLabel || cleanAddress.replace(/,?\s*\d{5}\s+[A-ZÄÖÜ][\p{L}äöüß-]+$/u, '');
-  const mapQuery = /not stated/i.test(cleanAddress) ? `${areaLabel}, Germany` : `${cleanAddress}, Germany`;
-  const glance = [
+  const mapQuery = /not stated/i.test(cleanAddress) ? `${publicLocation || areaLabel}, Germany` : `${cleanAddress}, Germany`;
+  const known = (value?: string) => value && !/not stated|unknown/i.test(value) ? value : 'Not disclosed';
+  const glance: Array<[string, string]> = [
     ['Asking price', euros(facts.price)],
     ['Price per m²', facts.area ? euros(facts.price / facts.area) : 'Not stated'],
     ['Living space', facts.area ? `${facts.area} m²` : 'Not stated'],
-    ['Rooms', facts.rooms],
-    ['Floor', facts.floor],
-    ['Sun / orientation', report.sunOrientation],
-    ['Energy', facts.energy],
-    ['Heating', facts.heating],
-    ['Built', facts.year],
+    ...(facts.usableArea ? [['Usable space', `${facts.usableArea} m²`] as [string, string]] : []),
+    ['Rooms', known(facts.rooms)],
+    ['Floor', known(facts.floor)],
+    ...(facts.tenancy ? [['Current use', known(facts.tenancy)] as [string, string]] : []),
+    ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} / month`] as [string, string]] : []),
+    ...(facts.advertisedYield ? [['Advertised return', `${facts.advertisedYield.toLocaleString('en-GB')}%`] as [string, string]] : []),
+    ['Sun / orientation', known(report.sunOrientation)],
+    ...(report.daylight ? [['Daylight', report.daylight] as [string, string]] : []),
+    ['Energy', `${known(facts.energy)}${facts.energyDemand ? ` · ${facts.energyDemand.toLocaleString('en-GB')} kWh/(m²a)` : ''}`],
+    ['Heating', `${known(facts.heating)}${facts.energySource ? ` · ${facts.energySource}` : ''}`],
+    ['Built', known(facts.year)],
   ];
 
   return <>
@@ -47,14 +54,16 @@ export function ReportView({ report }: { report: Report }) {
       </header>
 
       <section className="verdict">
-        <div><small>HABITAT VIEW</small><strong>{report.score.toFixed(1)}<i>/10</i></strong></div>
-        <div><h2>{report.score >= 7.5 ? 'A considered yes—if the details check out.' : 'Worth a closer look before committing.'}</h2><p>{report.summary}</p></div>
+        <div><small>{(report.scoreTitle || 'Data confidence').toUpperCase()}</small><strong>{report.score.toFixed(1)}<i>/10</i></strong></div>
+        <div><h2>{report.score >= 8 ? 'Strong source coverage—verify the remaining gaps.' : 'Some key particulars still need confirmation.'}</h2><div className="summary-copy">{report.summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div></div>
       </section>
 
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">AT A GLANCE</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small>{key}</small><b>{value}</b></div>)}</div></section>
+          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">LISTING DETAILS</p><div className="feature-list">{facts.features.map(feature => <span key={feature}>{feature}</span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">WHAT MATTERS</p>{report.considerations.map((item, index) => <div className="signal" key={item}><span>{index === 0 ? '↑' : '!'}</span><p>{item}</p></div>)}</section>
+          {report.qualityWarnings?.length ? <section className="card data-notes"><p className="eyebrow">DATA NOTES</p>{report.qualityWarnings.map(item => <p key={item}>{item}</p>)}</section> : null}
           <LocationCard query={mapQuery} label={mapLabel} />
         </div>
         <aside>

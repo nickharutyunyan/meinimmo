@@ -1,10 +1,13 @@
-.history-row{display:grid;grid-template-columns:16px minmax(0,1fr) 26px;align-items:start;gap:8px;padding:10px 7px;border-radius:7px;border:1px solid transparent}
+.history-row{display:grid;grid-template-columns:16px minmax(0,1fr) 48px;align-items:start;gap:8px;padding:10px 7px;border-radius:7px;border:1px solid transparent}
 .history-row:hover{background:#fffdfa;border-color:#e5e1d8}
 .history-row>a{min-width:0;font-size:12px;font-weight:600;text-decoration:none;line-height:1.3}
 .history-row>a small{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:400}
 .history-row>input{margin:2px 0 0;accent-color:var(--ink)}
-.history-row .pin{width:25px;height:25px;border:0;border-radius:6px;background:transparent;color:#a2aca7;font-size:13px;line-height:1}
+.history-controls{display:flex;gap:1px;margin-top:-3px}
+.history-row .pin,.history-row .remove{width:23px;height:25px;padding:0;border:0;border-radius:6px;background:transparent;color:#a2aca7;font-size:13px;line-height:1}
 .history-row .pin:hover{background:#eeece5;color:var(--ink)}
+.history-row .remove{font-size:17px;font-weight:300}
+.history-row .remove:hover{background:#f8e9e5;color:#9d4b3e}
 .history-row .pin[aria-pressed=true]{color:#658039;background:#eff5d4}
 .history-row.pinned{background:#fbfbf4}
 .sidebar.collapsed .history-row,.sidebar.collapsed .quota,.sidebar.collapsed .side-label,.sidebar.collapsed .compare,.sidebar.collapsed .actions{display:none}
