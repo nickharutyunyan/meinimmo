@@ -92,6 +92,47 @@
 .usage-card > div { height: 4px; margin-top: 28px; overflow: hidden; background: #466059; }
 .usage-card > div i { display: block; height: 100%; background: var(--lime); }
 
+.day-pass-offer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  margin-top: 26px;
+  padding: 27px 30px;
+  border: 1px solid #c8d18f;
+  border-radius: 7px;
+  background: #f1f3dc;
+}
+.day-pass-offer h2 { margin: 7px 0 6px; font: 400 29px/1.12 var(--serif); }
+.day-pass-offer p { margin: 0; color: #596a62; line-height: 1.5; }
+.day-pass-offer button,
+.day-pass-inline button {
+  min-height: 44px;
+  padding: 11px 17px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.day-pass-inline {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 17px 18px;
+  border: 1px solid #c8d18f;
+  border-radius: 5px;
+  background: #f1f3dc;
+  text-align: left;
+}
+.day-pass-inline span { display: block; margin-bottom: 5px; color: #667653; font: 10px var(--mono); letter-spacing: .12em; }
+.day-pass-inline strong { display: block; font: 400 20px/1.2 var(--serif); }
+.day-pass-inline p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
 .account-plans {
   display: grid;
   grid-template-columns: minmax(260px, 1.35fr) repeat(2, minmax(210px, .8fr));
@@ -179,12 +220,16 @@
   .account-shell { margin-top: 60px; }
   .account-grid,
   .account-plans { grid-template-columns: 1fr; }
+  .day-pass-offer { grid-template-columns: 1fr; gap: 18px; }
+  .day-pass-offer button { width: 100%; }
   .account-plans > div,
   .account-plans article { border: 0; border-bottom: 1px solid var(--line); }
   .account-plans article:last-child { border: 0; }
   .quota-modal { padding: 34px 22px 26px; }
   .quota-modal h2 { font-size: 34px; }
   .report-action-controls .account-nav { display: none; }
+  .day-pass-inline { align-items: stretch; flex-direction: column; gap: 14px; }
+  .day-pass-inline button { width: 100%; }
 }
 
 @media (max-width: 600px) {

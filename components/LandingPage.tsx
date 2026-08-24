@@ -12,10 +12,14 @@ export function LandingPage({ locale }: { locale: Locale }) {
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState('');
   const [quotaOpen, setQuotaOpen] = useState(false);
+  const [dayPassEligible, setDayPassEligible] = useState(false);
   const text = copy[locale].home;
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('daypass') === '1') setQuotaOpen(true);
+    fetch('/api/auth/me').then(async (response) => await response.json() as { access?: { kind: string; remaining: number } }).then((data) => {
+      setDayPassEligible(data.access?.kind === 'free' && data.access.remaining === 0);
+    }).catch(() => undefined);
   }, []);
 
   async function assess(payload: object) {
@@ -24,6 +28,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
     if (!response.ok || !data.id) {
       if (data.code === 'quota_exceeded') {
         setStatus('');
+        setDayPassEligible(true);
         setQuotaOpen(true);
         return;
       }
@@ -73,6 +78,10 @@ export function LandingPage({ locale }: { locale: Locale }) {
         <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} type="url" required/></label><button>{text.assess}</button></form>
         <div className="upload-row"><span>{text.or}</span><label>{text.upload} <input onChange={upload} accept="application/pdf" type="file"/></label></div>
         {status ? <p className={isReading ? 'hint' : 'error'}>{status}</p> : null}
+        {dayPassEligible ? <div className="day-pass-inline">
+          <div><span>{locale === 'de' ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</span><strong>{locale === 'de' ? 'Heute weitersuchen?' : 'Keep searching today?'}</strong><p>{locale === 'de' ? '50 Berichte für 24 Stunden.' : '50 reports for the next 24 hours.'}</p></div>
+          <button type="button" onClick={() => setQuotaOpen(true)}>{locale === 'de' ? 'Tagespass für 5 €' : '€5 day pass'}</button>
+        </div> : null}
       </div>
     </section>
     <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><h2>{text.approachTitle}</h2></section>

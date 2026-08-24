@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { SiteNav } from './SiteNav';
 import { PlanButton } from './PlanButton';
+import { QuotaModal } from './QuotaModal';
 import { localePath, type Locale } from '@/lib/i18n';
 
 type AccountState = {
@@ -18,6 +19,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [dayPassOpen, setDayPassOpen] = useState(false);
   const refresh = () => fetch('/api/auth/me').then(async (response) => await response.json() as AccountState).then(setData);
   useEffect(() => { refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden.' : 'The account could not be loaded.')); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -59,6 +61,10 @@ export function AccountPage({ locale }: { locale: Locale }) {
         <section className="account-card usage-card"><span>{data.access.kind === 'day_pass' ? (de ? 'Tagespass' : 'Day pass') : data.access.kind.toUpperCase()}</span><strong>{data.access.remaining}<small> / {data.access.limit}</small></strong><p>{de ? 'Berichte übrig' : 'reports remaining'}</p><div><i style={{ width: `${Math.max(0, Math.min(100, data.access.remaining / data.access.limit * 100))}%` }} /></div></section>
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label><button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
+      {data.access.kind === 'free' && data.access.remaining === 0 ? <section className="day-pass-offer">
+        <div><p className="eyebrow">{de ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</p><h2>{de ? '50 weitere Berichte für heute.' : '50 more reports for today.'}</h2><p>{de ? 'Einmal 5 € zahlen, 24 Stunden nutzen. Der Pass endet automatisch.' : 'Pay €5 once and use them for 24 hours. The pass ends automatically.'}</p></div>
+        <button onClick={() => setDayPassOpen(true)}>{de ? 'Tagespass für 5 € kaufen' : 'Buy the €5 day pass'}</button>
+      </section> : null}
       <section className="account-plans"><div><p className="eyebrow">{de ? 'MEHR BERICHTE' : 'MORE REPORTS'}</p><h2>{de ? 'Für die aktive Suche.' : 'For an active search.'}</h2><p>{de ? 'Monatlich kündbar. Dein Tageslimit wird jeden Morgen zurückgesetzt.' : 'Cancel monthly. Your daily allowance resets each morning.'}</p></div>
         <article><span>PRO</span><strong>€10<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '10 Berichte pro Tag' : '10 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="pro" locale={locale}>{de ? 'Pro wählen' : 'Choose Pro'}</PlanButton>}</article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '100 Berichte pro Tag' : '100 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="ultra" locale={locale}>{de ? 'Ultra wählen' : 'Choose Ultra'}</PlanButton>}</article>
@@ -77,8 +83,9 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : mode === 'signup' ? (de ? 'Konto erstellen' : 'Create account') : (de ? 'Anmelden' : 'Sign in')}</button>
         </form>
         <button className="auth-mode" onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}>{mode === 'signup' ? (de ? 'Schon ein Konto? Anmelden' : 'Already have an account? Sign in') : (de ? 'Noch kein Konto? Erstellen' : 'New here? Create an account')}</button>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
       </div>
     </section>}
+    <QuotaModal open={dayPassOpen} locale={locale} onClose={() => setDayPassOpen(false)} />
   </main>;
 }

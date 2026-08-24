@@ -12,13 +12,17 @@ export function Sidebar({ locale }: { locale: Locale }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [access, setAccess] = useState<{ kind: string; remaining: number } | null>(null);
   const text = copy[locale].sidebar;
 
   useEffect(() => {
     const load = async () => {
       const historyIds = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
       const pinIds = JSON.parse(localStorage.getItem('habitat-pins') || '[]') as string[];
-      const all = await fetch('/api/reports').then(response => response.json()) as Report[];
+      const [all, account] = await Promise.all([
+        fetch('/api/reports').then(response => response.json()) as Promise<Report[]>,
+        fetch('/api/auth/me').then(response => response.json()) as Promise<{ access?: { kind: string; remaining: number } }>,
+      ]);
       const visible = all.filter(item => historyIds.includes(item.id));
       const unique = new Map<string, Report>();
       [...visible].reverse().forEach((item) => unique.set(/^https?:/i.test(item.source) ? canonicalSource(item.source) : item.id, item));
@@ -27,6 +31,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
       if (uniqueIds.length !== historyIds.length) localStorage.setItem('habitat-history', JSON.stringify(uniqueIds));
       setReports(deduplicated);
       setPinned(pinIds.filter((id) => uniqueIds.includes(id)));
+      setAccess(account.access || null);
     };
     load();
     window.addEventListener('habitat-history-changed', load);
@@ -37,6 +42,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
     const pinDifference = Number(pinned.includes(b.id)) - Number(pinned.includes(a.id));
     return pinDifference || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }), [reports, pinned]);
+  const dayPassEligible = access?.kind === 'free' && access.remaining === 0;
 
   const toggleSelect = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : current.length === 2 ? current : [...current, id]);
   const togglePin = (id: string) => setPinned(current => {
@@ -63,7 +69,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
 
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
     <header><Brand className="side-logo" locale={locale}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span>‹</span></button></header>
-    <div className="actions"><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link><Link href={localePath(locale, '/account')} className={reports.length >= 2 ? 'upgrade ready' : 'upgrade'}>✦ <span>{text.upgrade}</span></Link></div>
+    <div className="actions"><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link><Link href={dayPassEligible ? `${localePath(locale)}?daypass=1` : localePath(locale, '/account')} className={dayPassEligible ? 'upgrade ready' : 'upgrade'}>✦ <span>{dayPassEligible ? text.dayPass : text.upgrade}</span></Link></div>
     <p className="quota">{text.quota}</p><p className="side-label">{text.yours}</p>
     <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>
       <input aria-label={`${text.select} ${reportTitle(item, locale)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>
