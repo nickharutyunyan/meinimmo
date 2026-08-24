@@ -1,6 +1,6 @@
-# Good Homes
+# Review a House
 
-An AI-assisted German residential-property assessment app. It validates listing links and Exposé PDFs before analysis, creates a concise buyer-focused report, and provides persistent share and comparison links.
+An AI-assisted German residential-property report app. It validates listing links and Exposé PDFs before analysis, creates a concise buyer-focused report, and provides persistent share and comparison links.
 
 ## Local Cloudflare development
 
@@ -22,4 +22,4 @@ Never put the OpenRouter key in `.env.example`, `.dev.vars.example`, `wrangler.j
 
 Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
 
-D1 is the authoritative store for assessments and comparisons. The old `data/*.json` files are no longer used at runtime.
+D1 is the authoritative store for reports and comparisons. The old `data/*.json` files are no longer used at runtime.

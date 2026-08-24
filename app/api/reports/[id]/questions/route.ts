@@ -6,7 +6,7 @@ export async function POST(_: Request, context: { params: Promise<{ id: string }
   const { id } = await context.params;
   const current = await findReport(id);
 
-  if (!current) return NextResponse.json({ error: 'Assessment not found.' }, { status: 404 });
+  if (!current) return NextResponse.json({ error: 'Report not found.' }, { status: 404 });
   if (current.aiEnriched && current.offerQuestions?.length) {
     return NextResponse.json({
       offerQuestions: current.offerQuestions,

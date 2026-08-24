@@ -73,6 +73,6 @@ test('uses year as the next safe title fallback and accepts property-scoped JSON
     }</script>`;
 
   const report = parseListing(html, 'https://example.test/house');
-  assert.equal(report.title, '2019-built house · Potsdam');
+  assert.equal(report.title, '2019-built house · Testweg 12');
   assert.equal(report.address, 'Testweg 12, 14467 Potsdam');
 });

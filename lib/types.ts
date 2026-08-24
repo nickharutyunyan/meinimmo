@@ -21,6 +21,26 @@ export type Facts = {
   postalCode?: string;
   city?: string;
   district?: string;
+  transitStop?: string;
+  neighborhood?: {
+    transitMinutes?: number;
+    parkMinutes?: number;
+    dailyNeedsMinutes?: number;
+    transitMentioned?: boolean;
+    parkMentioned?: boolean;
+    dailyNeedsMentioned?: boolean;
+  };
+};
+
+export type ScoreBreakdown = {
+  price: number;
+  neighborhood: number;
+  space: number;
+  building: number;
+  energy: number;
+  light: number;
+  costs: number;
+  source: number;
 };
 
 export type Report = {
@@ -34,6 +54,7 @@ export type Report = {
   facts: Facts;
   score: number;
   scoreTitle?: string;
+  scoreBreakdown?: ScoreBreakdown;
   summary: string;
   considerations: string[];
   offerQuestions?: string[];

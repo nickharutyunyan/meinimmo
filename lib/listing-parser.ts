@@ -1,4 +1,6 @@
 import type { Report } from './types';
+import { calculatePropertyScore } from './property-score.ts';
+import { reportTitle } from './display.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -108,13 +110,24 @@ function jsonAddress(raw: string) {
 
 function visibleLocation(lines: string[], title: string) {
   const text = lines.slice(0, 500).join(' \n ');
-  const postal = text.match(/\b(\d{5})\s+([A-ZÄÖÜ][\p{L}äöüß.-]+(?:\s+[A-ZÄÖÜ][\p{L}äöüß.-]+){0,2})(?:\s*\(([^)\n]{2,50})\))?/u);
+  const cityNames = [
+    'Berlin', 'Hamburg', 'München', 'Köln', 'Frankfurt am Main', 'Stuttgart', 'Düsseldorf', 'Leipzig', 'Dortmund', 'Essen',
+    'Bremen', 'Dresden', 'Hannover', 'Nürnberg', 'Duisburg', 'Bochum', 'Wuppertal', 'Bielefeld', 'Bonn', 'Münster',
+    'Mannheim', 'Karlsruhe', 'Augsburg', 'Wiesbaden', 'Gelsenkirchen', 'Mönchengladbach', 'Braunschweig', 'Kiel', 'Aachen',
+    'Chemnitz', 'Halle', 'Magdeburg', 'Freiburg', 'Krefeld', 'Lübeck', 'Mainz', 'Erfurt', 'Oberhausen', 'Rostock',
+    'Kassel', 'Potsdam', 'Saarbrücken', 'Oldenburg', 'Osnabrück', 'Heidelberg', 'Darmstadt', 'Regensburg', 'Würzburg',
+    'Ingolstadt', 'Ulm', 'Wolfsburg', 'Göttingen', 'Koblenz', 'Jena', 'Trier', 'Coburg', 'Reinbek',
+  ];
+  const cityEvidence = `${title} ${lines.slice(0, 80).join(' ')}`;
+  const namedCity = cityNames.find((cityName) => new RegExp(`\\b${cityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(cityEvidence)) || '';
+  const postal = lines.slice(0, 500).map((line) => line.match(/\b(\d{5})\s+([^(),|·]{2,65})(?:\s*\(([^)\n]{2,50})\))?/u)).find(Boolean);
   const labeledDistrict = text.match(/\b(?:Stadtteil|Ortsteil|Bezirk|Kiez|Mikrolage)\s*[:\-]?\s*([A-ZÄÖÜ][\p{L}äöüß-]{2,}(?:\s+[A-ZÄÖÜ][\p{L}äöüß-]{2,})?)/u)?.[1];
-  const titleArea = title.match(/\bin\s+([A-ZÄÖÜ][\p{L}äöüß]+)-([A-ZÄÖÜ][\p{L}äöüß-]+)/u);
+  const city = namedCity || tidy(postal?.[2] || '').match(/^([A-ZÄÖÜ][\p{L}äöüß.-]+)/u)?.[1] || '';
+  const titleArea = city ? title.match(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*([\\p{L}ÄÖÜäöüß][\\p{L}ÄÖÜäöüß -]{1,45}?)(?:\\s*[|·–—]|$)`, 'iu')) : undefined;
   return {
     postalCode: postal?.[1] || '',
-    city: tidy(postal?.[2] || titleArea?.[1] || ''),
-    district: tidy(postal?.[3] || labeledDistrict || titleArea?.[2] || ''),
+    city: tidy(city),
+    district: tidy(postal?.[3] || labeledDistrict || titleArea?.[1] || ''),
   };
 }
 
@@ -123,19 +136,27 @@ function visibleAddress(lines: string[]) {
   return tidy(top.match(/\b([A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|str\.|allee|weg|platz|gasse)\s+\d{1,4}[a-z]?)\s*,?\s+(\d{5})\s+([A-ZÄÖÜ][\p{L}äöüß.-]+)/iu)?.[0] || '');
 }
 
+function namedTransitStop(lines: string[]) {
+  const relevant = lines.filter((line) => /\b(?:U-?Bahnhof|S-?Bahnhof|Bahnhof|Tramhaltestelle|Straßenbahnhaltestelle|Haltestelle)\b/i.test(line)).slice(0, 40);
+  const patterns = [
+    /\b(?:U-?Bahnhof|S-?Bahnhof|Bahnhof|Tramhaltestelle|Straßenbahnhaltestelle|Haltestelle)\s+[„"']?([A-ZÄÖÜ][\p{L}äöüß.-]+(?:[ -][A-ZÄÖÜ][\p{L}äöüß.-]+){0,3})/u,
+    /\b([A-ZÄÖÜ][\p{L}äöüß.-]+(?:[ -][A-ZÄÖÜ][\p{L}äöüß.-]+){0,3})\s+(?:U-?Bahnhof|S-?Bahnhof|Bahnhof|Haltestelle)\b/u,
+  ];
+  for (const line of relevant) {
+    for (const pattern of patterns) {
+      const candidate = tidy(line.match(pattern)?.[1] || '').replace(/[„“"']+/g, '');
+      if (candidate && !/^(?:der|die|das|ein|eine|nächste|nahe|fußläufig|wenige)$/i.test(candidate)) return candidate;
+    }
+  }
+  return '';
+}
+
 function normalizedTenancy(value: string, text: string) {
   const evidence = `${value} ${text}`;
   if (/vermietet|tenant(?:ed)?|rented/i.test(evidence)) return 'Rented';
   if (/leerstehend|bezugsfrei|vacant/i.test(evidence)) return 'Vacant';
   if (/eigennutzung|selbst genutzt|owner.?occupied/i.test(evidence)) return 'Owner-occupied';
   return UNKNOWN;
-}
-
-function titleDescriptor(rooms: string, area: number, year: string, propertyType: Report['propertyType']) {
-  if (rooms !== UNKNOWN) return `${rooms.replace(',', '.')}-room ${propertyType}`;
-  if (area) return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(area)} m² ${propertyType}`;
-  if (year !== UNKNOWN) return `${year}-built ${propertyType}`;
-  return propertyType === 'flat' ? 'Flat' : 'House';
 }
 
 function inferredBuyerCosts(price: number, city: string, brokerFee: number | undefined) {
@@ -174,6 +195,23 @@ function considerationsFor(report: Pick<Report, 'facts' | 'sunOrientation' | 'da
   if (facts.features?.some(feature => /terrasse|garten/i.test(feature))) items.push('Confirm that terrace and garden rights are recorded in the Teilungserklärung and clarify maintenance responsibility.');
   if (!items.length) items.push('Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
   return items.slice(0, 4);
+}
+
+function proximityEvidence(lines: string[], subject: RegExp) {
+  const candidates = lines
+    .flatMap(line => line.split(/[,;|•]|\.\s+/))
+    .filter(fragment => subject.test(fragment))
+    .slice(0, 20);
+  const minutes = candidates.flatMap(line => {
+    const subjectIndex = line.match(subject)?.index ?? 0;
+    const values = [...line.matchAll(/\b(\d{1,2})\s*(?:gehmin(?:uten)?|min(?:\.|uten)?|minutes?)\b/gi)].map(match => ({ value: Number(match[1]), index: match.index }));
+    const metres = [...line.matchAll(/\b(\d{2,4})\s*(?:m|meter)\b/gi)].map(match => ({ value: Math.max(1, Math.round(Number(match[1]) / 80)), index: match.index }));
+    return [...values, ...metres].sort((a, b) => Math.abs(a.index - subjectIndex) - Math.abs(b.index - subjectIndex)).slice(0, 1).map(item => item.value);
+  }).filter(value => value > 0 && value <= 90);
+  return {
+    mentioned: candidates.length > 0,
+    minutes: minutes.length ? Math.min(...minutes) : undefined,
+  };
 }
 
 export function parseListing(raw: string, source: string): Report {
@@ -225,6 +263,10 @@ export function parseListing(raw: string, source: string): Report {
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'
     : firstMatch(lines, /((?:viel|reichlich)\s+Tageslicht[^.]{0,80})/i) || undefined;
+  const transit = proximityEvidence(lines, /\b(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|public transport)\b/i);
+  const transitStop = namedTransitStop(lines);
+  const park = proximityEvidence(lines, /\b(?:Park|Grünanlage|Volkspark|Stadtpark|green space)\b/i);
+  const dailyNeeds = proximityEvidence(lines, /\b(?:Supermarkt|Einkauf|Nahversorgung|Bäcker|Apotheke|Schule|Kita|daily needs|grocer)\b/i);
 
   const calculatedBuyerCosts = buyerCosts || inferredBuyerCosts(price, city, brokerFee);
   const totalCost = explicitTotal || (price ? price + calculatedBuyerCosts : 0);
@@ -234,10 +276,17 @@ export function parseListing(raw: string, source: string): Report {
     buyerCosts: calculatedBuyerCosts || undefined, brokerFee, housegeld: housegeld || undefined,
     tenancy, advertisedYield: advertisedYield || undefined, condition, features,
     postalCode: postalCode || undefined, city: city || undefined, district: district || undefined,
+    transitStop: transitStop || undefined,
+    neighborhood: {
+      transitMinutes: transit.minutes,
+      parkMinutes: park.minutes,
+      dailyNeedsMinutes: dailyNeeds.minutes,
+      transitMentioned: transit.mentioned,
+      parkMentioned: park.mentioned,
+      dailyNeedsMentioned: dailyNeeds.mentioned,
+    },
   };
 
-  const known = [price, area, rooms !== UNKNOWN, year !== UNKNOWN, location, energy !== UNKNOWN, heating !== UNKNOWN, totalCost, floor !== UNKNOWN].filter(Boolean).length;
-  const score = Math.round((4 + (known / 9) * 5.5) * 10) / 10;
   const qualityWarnings = [
     !statedAddress ? 'Exact street address is not disclosed in the listing.' : '',
     floor === UNKNOWN ? 'The listing does not disclose an exact floor.' : '',
@@ -247,15 +296,14 @@ export function parseListing(raw: string, source: string): Report {
 
   const report: Report = {
     id: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
-    title: `${titleDescriptor(rooms, area, year, propertyType)}${location ? ` · ${location}` : ''}`,
+    title: '',
     address,
     location,
     propertyType,
     source,
     createdAt: new Date().toISOString(),
     facts,
-    score,
-    scoreTitle: 'Data confidence',
+    score: 0,
     summary: '',
     considerations: [],
     sunOrientation,
@@ -263,8 +311,13 @@ export function parseListing(raw: string, source: string): Report {
     qualityWarnings,
     aiEnriched: false,
   };
+  report.title = reportTitle(report);
   report.summary = summaryFor(report);
   report.considerations = considerationsFor(report);
+  const calculation = calculatePropertyScore(report);
+  report.score = calculation.total;
+  report.scoreTitle = calculation.title;
+  report.scoreBreakdown = calculation.breakdown;
   return report;
 }
 

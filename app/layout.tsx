@@ -5,5 +5,12 @@ import './report-extras.css';
 import './assessment-details.css';
 import './brand.css';
 import './editorial.css';
-export const metadata: Metadata = { applicationName: 'Good Homes', title: 'Good Homes — Property clarity', description: 'Clear German property assessments.' };
+import './guide.css';
+export const metadata: Metadata = {
+  metadataBase: new URL('https://reviewahouse.com'),
+  applicationName: 'Review a House',
+  title: 'Review a House — Property clarity',
+  description: 'Clear German property reports, comparisons and practical buyer guides.',
+  alternates: { canonical: '/', languages: { en: '/', de: '/de' } },
+};
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body>{children}</body></html>; }

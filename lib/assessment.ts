@@ -2,6 +2,7 @@ import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
 import { looksLikePropertyListing, parseListing } from './listing-parser';
+import { offerQuestionsFor } from './report-copy';
 
 const UNKNOWN = 'not stated';
 
@@ -9,36 +10,7 @@ export const looksLikeListing = looksLikePropertyListing;
 export const deterministicAssessment = parseListing;
 
 export function defaultOfferQuestions(report: Report) {
-  const { facts } = report;
-  const questions: string[] = [];
-
-  if (facts.tenancy === 'Rented') {
-    questions.push(`Please provide the signed lease, current annual net cold rent, tenant deposit, payment history${facts.features?.some(feature => /möbliert|furnished/i.test(feature)) ? ' and the signed furnishings inventory' : ''}; how does this support the advertised ${facts.advertisedYield ? `${facts.advertisedYield.toLocaleString('en-GB')}% return` : 'return'}?`);
-  } else {
-    questions.push('What is the exact occupancy and handover status, and are any leases, occupancy rights or other third-party rights registered or agreed?');
-  }
-
-  if (facts.housegeld) {
-    questions.push(`Please itemize the €${facts.housegeld.toLocaleString('de-DE')} monthly Hausgeld into recoverable and owner-only costs, and provide the current WEG reserve, Wirtschaftsplan, three latest meeting minutes and any planned Sonderumlagen.`);
-  } else if (report.propertyType === 'flat') {
-    questions.push('Please provide the current Hausgeld breakdown, WEG reserve, Wirtschaftsplan, three latest meeting minutes and details of planned Sonderumlagen.');
-  }
-
-  if (facts.floor === UNKNOWN) {
-    const outsideRights = facts.features?.filter(feature => /terrasse|garten/i.test(feature)).join(' and ');
-    questions.push(`Which exact floor and building position is the unit on, what is the barrier-free route, and ${outsideRights ? `are the ${outsideRights} rights recorded in the Teilungserklärung` : 'is there lift access and documented sound insulation'}?`);
-  } else {
-    questions.push(`For the ${facts.floor} position, what are the measured noise, direct-light and access conditions at different times of day?`);
-  }
-
-  if (facts.energy !== UNKNOWN) {
-    questions.push(`Please provide the complete ${facts.energyCertificate || 'energy certificate'}, the last three annual energy bills and the current ${facts.energySource || facts.heating} tariff and metering arrangement${facts.tenancy === 'Rented' ? ', including which heating costs are recoverable from the tenant' : ''}.`);
-  } else {
-    questions.push('Please provide the valid Energieausweis, the last three annual energy bills and details of the heating system, tariff and planned upgrades.');
-  }
-
-  if (questions.length < 4) questions.push('Are there any easements, building permits, defects, insurance claims or pending legal disputes that are not disclosed in the Exposé?');
-  return questions.slice(0, 4);
+  return offerQuestionsFor(report, 'en');
 }
 
 function validatedQuestions(value: unknown, report: Report) {

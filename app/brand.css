@@ -16,7 +16,8 @@
 }
 
 .brand-word {
-  font: 600 20px/1 Georgia, serif;
+  white-space: nowrap;
+  font: 600 19px/1 Georgia, serif;
   letter-spacing: -0.35px;
 }
 
