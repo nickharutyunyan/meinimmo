@@ -1086,6 +1086,74 @@ input:focus-visible {
   border-color: var(--ink);
 }
 
+.private-note {
+  padding: 23px 0 0;
+  border-color: var(--ink);
+}
+
+.private-note-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.private-note-heading .eyebrow { margin: 0 0 8px; }
+.private-note-heading h2 { margin: 0; font: 400 21px/1.15 var(--serif); letter-spacing: -.015em; }
+.private-label { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; margin-top: 1px; color: #68766f; font-size: 11px; }
+.private-label i { color: #78964d; font-size: 7px; font-style: normal; }
+
+.private-note textarea {
+  display: block;
+  width: 100%;
+  min-height: 116px;
+  padding: 13px 14px;
+  resize: vertical;
+  border: 1px solid #cbc8bd;
+  border-radius: 3px;
+  outline: none;
+  background: #fffefa;
+  color: var(--ink);
+  font: 14px/1.55 var(--sans);
+}
+
+.private-note textarea::placeholder { color: #8b948f; }
+.private-note textarea:focus { border-color: #6f877e; box-shadow: 0 0 0 3px rgb(100 127 117 / 10%); }
+.private-note-actions { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 10px; }
+.private-note-actions small { color: #7c8782; font-size: 10px; }
+.private-note-actions > span { color: #65766e; font-size: 11px; text-align: right; }
+.private-note-actions button {
+  min-height: 35px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.private-note-actions button:disabled { cursor: default; opacity: .48; }
+
+.note-auth-gate { margin-top: 14px; padding: 14px; border: 1px solid #d1d7ac; background: #f2f3df; }
+.note-auth-gate p { margin: 0; color: #53625a; font-size: 12.5px; line-height: 1.5; }
+.note-auth-gate strong { color: var(--ink); }
+.note-auth-gate > div { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.note-auth-gate a { color: #49645b; font-size: 12px; font-weight: 700; text-underline-offset: 3px; }
+.note-auth-gate .note-signup { padding: 9px 11px; border-radius: 3px; background: var(--ink); color: #fff; text-decoration: none; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .ai-badge {
   padding: 4px 7px;
   border-radius: 2px;

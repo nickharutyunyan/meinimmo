@@ -21,9 +21,14 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [dayPassOpen, setDayPassOpen] = useState(false);
+  const [returnTo, setReturnTo] = useState('');
   const resumedCheckout = useRef(false);
   const refresh = () => fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as AccountState).then(setData);
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedReturn = params.get('returnTo');
+    setReturnTo(requestedReturn && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') && !/[\r\n]/.test(requestedReturn) ? requestedReturn : '');
+    if (params.get('mode') === 'login') setMode('login');
     const load = () => refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden.' : 'The account could not be loaded.'));
     load();
     window.addEventListener('focus', load);
@@ -50,6 +55,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
     const response = await fetch(`/api/auth/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: values.get('username'), password: values.get('password'), name: values.get('name'), locale }) });
     const result = await response.json() as { error?: string };
     if (!response.ok) { setError(result.error || (de ? 'Das hat nicht geklappt.' : 'That did not work.')); setBusy(false); return; }
+    if (returnTo) { window.location.href = returnTo; return; }
     await refresh(); setBusy(false);
   }
 
@@ -101,7 +107,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
     </section> : <section className="account-shell auth-shell">
       <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'signup' ? (de ? 'In einer Minute startklar.' : 'Ready in a minute.') : (de ? 'Willkommen zurück.' : 'Welcome back.')}</h1><p>{de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.'}</p></div>
       <div className="auth-card">
-        {data.googleAvailable ? <a className="google-auth" href={`/api/auth/google/start?locale=${locale}&returnTo=${encodeURIComponent(localePath(locale, '/account'))}`}><span>G</span>{de ? 'Mit Google weitermachen' : 'Continue with Google'}</a> : null}
+        {data.googleAvailable ? <a className="google-auth" href={`/api/auth/google/start?locale=${locale}&returnTo=${encodeURIComponent(returnTo || localePath(locale, '/account'))}`}><span>G</span>{de ? 'Mit Google weitermachen' : 'Continue with Google'}</a> : null}
         {data.googleAvailable ? <div className="auth-divider"><span>{de ? 'oder' : 'or'}</span></div> : null}
         <form className="credential-form" onSubmit={submit}>
           {mode === 'signup' ? <label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" autoComplete="name" /></label> : null}

@@ -17,6 +17,7 @@ import { OfferQuestions } from './OfferQuestions';
 import { Sidebar } from './Sidebar';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
+import { ReportNote } from './ReportNote';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -105,6 +106,7 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
         </div>
         <aside>
           <FinanceCalculator report={report} locale={locale} />
+          <ReportNote reportId={report.id} locale={locale} />
           <OfferQuestions report={report} locale={locale} />
           <AdSlot locale={locale} kind="finance" compact />
           <section className="card source"><p className="eyebrow">{text.source}</p>{report.source.startsWith('http') ? <a href={report.source} target="_blank" rel="noreferrer">{text.original}</a> : <p>{report.source}</p>}<small>{text.saved} · {new Date(report.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></section>

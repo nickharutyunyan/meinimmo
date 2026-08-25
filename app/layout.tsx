@@ -10,10 +10,22 @@ import './guide.css';
 import './account.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),
-  applicationName: 'Review a House',
-  title: 'Review a House — Property clarity',
-  description: 'Clear German property reports, comparisons and practical buyer guides.',
+  applicationName: 'ReviewAHouse',
+  title: 'ReviewAHouse — German Property Reports & Comparisons',
+  description: 'Analyze German real estate listings with clear property reports, location and energy facts, side-by-side comparisons, and an editable mortgage calculator.',
   alternates: { canonical: '/', languages: { en: '/', de: '/de' } },
+  openGraph: {
+    type: 'website',
+    url: '/',
+    siteName: 'ReviewAHouse',
+    title: 'ReviewAHouse — German Property Reports & Comparisons',
+    description: 'Analyze German real estate listings with clear reports, comparisons, location and energy facts, and an editable mortgage calculator.',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'ReviewAHouse — German Property Reports & Comparisons',
+    description: 'Analyze German real estate listings with clear reports, comparisons, location and energy facts, and an editable mortgage calculator.',
+  },
 };
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en"><body>{children}
