@@ -3,6 +3,8 @@ import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
 import { guideArticles, guideCopy } from '../lib/guide';
 import { localePath, type Locale } from '../lib/i18n';
+import { SiteFooter } from './SiteFooter';
+import { GlossaryText } from './GlossaryText';
 
 export default function GuideIndex({ locale }: { locale: Locale }) {
   const de = locale === 'de';
@@ -23,7 +25,7 @@ export default function GuideIndex({ locale }: { locale: Locale }) {
           <div>
             <p className="eyebrow">{copy.kicker}</p>
             <h2><Link href={localePath(locale, `/guide/${article.slug}`)}>{copy.title}</Link></h2>
-            <p>{copy.dek}</p>
+            <p><GlossaryText>{copy.dek}</GlossaryText></p>
             <Link className="guide-read" href={localePath(locale, `/guide/${article.slug}`)}>
               {de ? 'Artikel lesen' : 'Read the story'} <span>↗</span>
             </Link>
@@ -36,5 +38,6 @@ export default function GuideIndex({ locale }: { locale: Locale }) {
       })}
     </section>
     <AdSlot locale={locale} kind="local" />
+    <SiteFooter locale={locale} />
   </main>;
 }

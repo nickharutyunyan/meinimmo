@@ -3,37 +3,33 @@
 import { useEffect, useState } from 'react';
 import type { Report } from '@/lib/types';
 import { copy, type Locale } from '@/lib/i18n';
-import { offerQuestionsFor } from '@/lib/report-copy';
+import { offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
+import { GlossaryText } from './GlossaryText';
 
 export function OfferQuestions({ report, locale }: { report: Report; locale: Locale }) {
-  const translatedQuestions = locale === 'de' ? offerQuestionsFor(report, 'de') : (report.offerQuestions || offerQuestionsFor(report));
+  const storedQuestions = locale === 'de' ? report.offerQuestionsDe : report.offerQuestions;
+  const translatedQuestions = questionsAreConcise(storedQuestions) ? storedQuestions : offerQuestionsFor(report, locale);
   const [questions, setQuestions] = useState(translatedQuestions);
-  const [tailored, setTailored] = useState(locale === 'en' && report.aiEnriched);
-  const [loading, setLoading] = useState(locale === 'en' && !report.aiEnriched);
   const text = copy[locale].questions;
+  const storedQuestionsAreCurrent = questionsAreConcise(report.offerQuestions) && questionsAreConcise(report.offerQuestionsDe);
 
   useEffect(() => {
-    if (locale === 'de' || report.aiEnriched) return;
+    if (report.aiEnriched && storedQuestionsAreCurrent) return;
     let active = true;
     fetch(`/api/reports/${report.id}/questions`, { method: 'POST' })
-      .then((response) => response.ok ? response.json() as Promise<{ offerQuestions?: string[]; aiEnriched?: boolean }> : Promise.reject())
+      .then((response) => response.ok ? response.json() as Promise<{ offerQuestions?: string[]; offerQuestionsDe?: string[]; aiEnriched?: boolean }> : Promise.reject())
       .then((data) => {
         if (!active) return;
-        if (Array.isArray(data.offerQuestions)) setQuestions(data.offerQuestions);
-        setTailored(Boolean(data.aiEnriched));
+        const localized = locale === 'de' ? data.offerQuestionsDe : data.offerQuestions;
+        if (Array.isArray(localized)) setQuestions(localized);
       })
-      .catch(() => undefined)
-      .finally(() => active && setLoading(false));
+      .catch(() => undefined);
     return () => { active = false; };
-  }, [locale, report.aiEnriched, report.id]);
+  }, [locale, report.aiEnriched, report.id, storedQuestionsAreCurrent]);
 
   return <section className="card offer-questions">
-    <div className="section-heading">
-      <p className="eyebrow">{text.label}</p>
-      <span className={tailored ? 'ai-badge active' : 'ai-badge'}>{loading ? text.reviewing : tailored ? text.tailored : text.core}</span>
-    </div>
+    <p className="eyebrow">{text.label}</p>
     <h2>{text.title}</h2>
-    <ol>{questions.map((question, index) => <li key={`${index}-${question}`}><span>{index + 1}</span><p>{question}</p></li>)}</ol>
-    <small>{text.note}</small>
+    <ol>{questions.map((question, index) => <li key={`${index}-${question}`}><span>{index + 1}</span><p><GlossaryText>{question}</GlossaryText></p></li>)}</ol>
   </section>;
 }

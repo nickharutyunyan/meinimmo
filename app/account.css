@@ -89,6 +89,7 @@
 .usage-card > strong { display: block; margin: 24px 0 2px; font: 400 62px/1 var(--serif); }
 .usage-card > strong small { font-size: 24px; color: #adc0b8; }
 .usage-card > p { color: #c8d8d1; }
+.usage-card > .usage-note { display: block; margin-top: 7px; color: #9fb3aa; font-size: 13px; }
 .usage-card > div { height: 4px; margin-top: 28px; overflow: hidden; background: #466059; }
 .usage-card > div i { display: block; height: 100%; background: var(--lime); }
 

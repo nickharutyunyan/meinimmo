@@ -1,10 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { SiteNav } from './SiteNav';
 import { PlanButton } from './PlanButton';
 import { QuotaModal } from './QuotaModal';
 import { localePath, type Locale } from '@/lib/i18n';
+import { SiteFooter } from './SiteFooter';
 
 type AccountState = {
   user: { username: string | null; email: string | null; name: string | null } | null;
@@ -20,8 +21,28 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [dayPassOpen, setDayPassOpen] = useState(false);
-  const refresh = () => fetch('/api/auth/me').then(async (response) => await response.json() as AccountState).then(setData);
-  useEffect(() => { refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden.' : 'The account could not be loaded.')); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const resumedCheckout = useRef(false);
+  const refresh = () => fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as AccountState).then(setData);
+  useEffect(() => {
+    const load = () => refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden.' : 'The account could not be loaded.'));
+    load();
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!data?.user || resumedCheckout.current) return;
+    const plan = new URLSearchParams(window.location.search).get('plan');
+    if (plan !== 'pro' && plan !== 'ultra') return;
+    resumedCheckout.current = true;
+    setBusy(true);
+    fetch('/api/billing/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan, locale }) })
+      .then(async response => ({ response, result: await response.json() as { url?: string; error?: string } }))
+      .then(({ response, result }) => {
+        if (response.ok && result.url) { window.location.href = result.url; return; }
+        throw new Error(result.error || 'checkout_failed');
+      })
+      .catch(() => { setError(de ? 'Das Abo konnte gerade nicht geöffnet werden.' : 'The subscription checkout could not be opened.'); setBusy(false); });
+  }, [data?.user, de, locale]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
@@ -58,7 +79,13 @@ export function AccountPage({ locale }: { locale: Locale }) {
     {!data ? <section className="account-shell"><p>{de ? 'Konto wird geladen…' : 'Loading account…'}</p></section> : data.user ? <section className="account-shell">
       <div className="account-heading"><p className="eyebrow">{de ? 'DEIN KONTO' : 'YOUR ACCOUNT'}</p><h1>{de ? 'Schön, dass du da bist.' : 'Good to have you here.'}</h1><p>{data.user.email || `@${data.user.username}`}</p></div>
       <div className="account-grid">
-        <section className="account-card usage-card"><span>{data.access.kind === 'day_pass' ? (de ? 'Tagespass' : 'Day pass') : data.access.kind.toUpperCase()}</span><strong>{data.access.remaining}<small> / {data.access.limit}</small></strong><p>{de ? 'Berichte übrig' : 'reports remaining'}</p><div><i style={{ width: `${Math.max(0, Math.min(100, data.access.remaining / data.access.limit * 100))}%` }} /></div></section>
+        <section className="account-card usage-card">
+          <span>{data.access.kind === 'day_pass' ? (de ? 'TAGESPASS' : 'DAY PASS') : data.access.kind.toUpperCase()}</span>
+          <strong>{data.access.used}<small> / {data.access.limit}</small></strong>
+          <p>{data.access.kind === 'day_pass' ? (de ? 'Berichte mit diesem Pass erstellt' : 'reports created with this pass') : (de ? 'Berichte heute erstellt' : 'reports created today')}</p>
+          <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
+          <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
+        </section>
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label><button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {data.access.kind === 'free' && data.access.remaining === 0 ? <section className="day-pass-offer">
@@ -87,5 +114,6 @@ export function AccountPage({ locale }: { locale: Locale }) {
       </div>
     </section>}
     <QuotaModal open={dayPassOpen} locale={locale} onClose={() => setDayPassOpen(false)} />
+    <SiteFooter locale={locale} />
   </main>;
 }

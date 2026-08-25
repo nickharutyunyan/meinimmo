@@ -62,7 +62,7 @@ test('uses living area in a title when room count is absent', () => {
   assert.doesNotMatch(report.title, /not stated-room/i);
 });
 
-test('uses year as the next safe title fallback and accepts property-scoped JSON-LD only', () => {
+test('keeps the title simple when size is absent and accepts property-scoped JSON-LD only', () => {
   const html = `
     <title>Haus zum Kauf</title><main><h1>Haus zum Kauf</h1>
     <div>Kaufpreis</div><div>750.000 €</div><div>Baujahr</div><div>2019</div>
@@ -73,6 +73,52 @@ test('uses year as the next safe title fallback and accepts property-scoped JSON
     }</script>`;
 
   const report = parseListing(html, 'https://example.test/house');
-  assert.equal(report.title, '2019-built house · Testweg 12');
+  assert.equal(report.title, 'House · Testweg 12');
   assert.equal(report.address, 'Testweg 12, 14467 Potsdam');
+});
+
+test('uses explicit occupancy and condition evidence without inferring from generic rental language', () => {
+  const available = parseListing(`
+    <title>3-Zimmer-Wohnung in Köln-Ehrenfeld</title><main>
+    <p>50823 Köln (Ehrenfeld)</p><div>Kaufpreis</div><div>420.000 €</div>
+    <div>Wohnfläche</div><div>78 m²</div><div>Aktuelle Nutzung</div><div>Bezugsfrei</div>
+    <div>Zustand</div><div>Renovierungsbedürftig</div><div>Baujahr</div><div>1962</div>
+    <div>Energieeffizienzklasse</div><div>F</div><div>Heizung</div><div>Gas</div>
+    </main>`, 'https://example.test/available');
+  assert.equal(available.facts.tenancy, 'Available to move in');
+  assert.equal(available.facts.condition, 'Needs renovation');
+
+  const unknown = parseListing(`
+    <title>2-Zimmer-Wohnung in Leipzig-Südvorstadt</title><main>
+    <p>Ideal zur Vermietung oder Eigennutzung. Ein vermieteter Stellplatz kann separat erworben werden.</p>
+    <p>04275 Leipzig (Südvorstadt)</p><div>Kaufpreis</div><div>310.000 €</div>
+    <div>Wohnfläche</div><div>55 m²</div><div>Baujahr</div><div>1995</div>
+    <div>Energieeffizienzklasse</div><div>C</div><div>Heizung</div><div>Fernwärme</div>
+    </main>`, 'https://example.test/unknown');
+  assert.equal(unknown.facts.tenancy, undefined);
+  assert.equal(unknown.facts.buyerCosts, undefined);
+  assert.equal(unknown.facts.totalCost, 0);
+  assert.doesNotMatch(unknown.summary, /sold rented|available to move|owner-occupied/i);
+});
+
+test('normalizes a numeric labeled floor without pulling unrelated text', () => {
+  const report = parseListing(`
+    <title>2-Zimmer-Wohnung in München-Sendling</title><main>
+    <p>81371 München (Sendling)</p><div>Kaufpreis</div><div>510.000 €</div>
+    <div>Wohnfläche</div><div>61 m²</div><div>Etage</div><div>2</div>
+    <div>Baujahr</div><div>2012</div><div>Energieeffizienzklasse</div><div>A+</div>
+    <div>Heizung</div><div>Fernwärme</div></main>`, 'https://example.test/floor');
+  assert.equal(report.facts.floor, '2. OG');
+  assert.equal(report.facts.energy, 'A+');
+});
+
+test('treats first occupancy after renovation as renovated, not a new build', () => {
+  const report = parseListing(`
+    <title>Sanierter Altbau in Berlin</title><main><p>13359 Berlin</p>
+    <div>Kaufpreis</div><div>409.000 €</div><div>Wohnfläche</div><div>68 m²</div>
+    <div>2</div><div>Zimmer</div><div>Zustand</div><div>Erstbezug nach Sanierung</div>
+    <div>Baujahr</div><div>1913</div><div>Energieeffizienzklasse</div><div>E</div>
+    <div>Heizung</div><div>Zentralheizung</div></main>`, 'https://example.test/renovated');
+  assert.equal(report.facts.rooms, '2');
+  assert.equal(report.facts.condition, 'Renovated');
 });

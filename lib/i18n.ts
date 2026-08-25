@@ -47,23 +47,23 @@ export const copy = {
       ],
     },
     sidebar: {
-      expand: 'Expand sidebar', collapse: 'Collapse sidebar', newAssessment: 'New report', upgrade: 'Upgrade', dayPass: '€5 day pass', quota: '2 free reports daily',
+      expand: 'Expand sidebar', collapse: 'Collapse sidebar', newAssessment: 'New report', upgrade: 'Upgrade', dayPass: '€5 day pass', quota: '2 free reports daily', todayUsage: 'REPORTS TODAY', passUsage: 'DAY PASS USAGE', remaining: 'remaining', freePlan: 'Free', dayPassName: 'Day pass', loadingUsage: 'Loading usage…',
       yours: 'YOUR REPORTS', empty: 'Your saved reports will appear here.', select: 'Select', pin: 'Pin', unpin: 'Unpin',
       remove: 'Remove from sidebar', removeAssessment: 'Remove report from sidebar', compare: 'Compare selected',
     },
     report: {
       brief: 'REVIEW A HOUSE / PROPERTY REPORT', copyLink: 'Copy share link', copied: 'Link copied', score: 'OUR SCORE',
-      deterministic: 'Built consistently from listing facts', scoreDetails: 'View score details', scoreExplainer: 'The score combines the property details below using the same rules for every report.', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Current use', monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
+      deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'The score combines the property details below using the same rules for every report.', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Availability', condition: 'Condition', monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
       atGlance: 'AT A GLANCE', details: 'LISTING DETAILS', matters: 'WHAT MATTERS', notes: 'DATA NOTES', notDisclosed: 'Not disclosed',
       components: { price: 'Price', neighborhood: 'Neighborhood', space: 'Space', building: 'Building', energy: 'Energy', light: 'Light', costs: 'Costs', source: 'Source' },
       source: 'SOURCE', original: 'View original listing ↗', saved: 'Report saved', assessMore: 'CREATE MORE REPORTS', plansTitle: 'Keep the decision process moving.', plansCopy: 'Two reports per day are free. Upgrade when you are actively searching.', perMonth: '/month', proLimit: '10 reports per day', ultraLimit: '100 reports per day', proButton: 'Upgrade to Pro', ultraButton: 'Choose Ultra',
     },
     finance: {
-      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', note: 'Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross; for a rented unit, verify the recoverable and owner-only portions. Confirm the rate, buyer-cost assumptions and affordability with a lender.',
+      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', estimatedBuyerCosts: 'Estimated buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', note: 'Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross; for a rented unit, verify the recoverable and owner-only portions. Confirm the rate, buyer-cost assumptions and affordability with a lender.',
     },
-    questions: { label: 'ASK BEFORE YOU OFFER', reviewing: 'Reviewing listing', tailored: 'Tailored to this listing', core: 'Core due diligence', title: 'Questions worth getting in writing', note: 'Answers and supporting documents matter more than verbal assurances.' },
+    questions: { label: 'ASK BEFORE YOU OFFER', reviewing: 'Reviewing listing', tailored: 'Tailored to this listing', core: '', title: 'Questions worth asking', note: '' },
     map: { label: 'NEIGHBORHOOD', intro: 'Use the map to verify walking routes to U-Bahn, S-Bahn, trams, parks and daily essentials—not just straight-line distance.', loading: 'Locating the neighborhood…', explore: 'Explore on OpenStreetMap ↗', approximate: 'The listing does not disclose an exact address. The map is centered on the most precise stated area:', exact: 'The listing provides an exact street address.' },
-    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', intro: 'A calm view of the facts that change a decision.', property: 'PROPERTY', option: 'OPTION', asking: 'Asking price', acquisition: 'Total acquisition cost', perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Current use', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', score: 'Our score' },
+    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', intro: 'A calm view of the facts that change a decision.', property: 'PROPERTY', option: 'OPTION', asking: 'Asking price', acquisition: 'Total acquisition cost', perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Availability', condition: 'Condition', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', score: 'Our score' },
     ads: { partner: 'PARTNER SPACE', note: 'A quiet place for a useful partner—not a distraction.', finance: 'Financing, survey or buyer-service partner', local: 'Local agent, architect or home partner' },
   },
   de: {
@@ -104,23 +104,23 @@ export const copy = {
       ],
     },
     sidebar: {
-      expand: 'Seitenleiste öffnen', collapse: 'Seitenleiste schließen', newAssessment: 'Neuer Bericht', upgrade: 'Upgrade', dayPass: '5-€-Tagespass', quota: '2 kostenlose Berichte pro Tag',
+      expand: 'Seitenleiste öffnen', collapse: 'Seitenleiste schließen', newAssessment: 'Neuer Bericht', upgrade: 'Upgrade', dayPass: '5-€-Tagespass', quota: '2 kostenlose Berichte pro Tag', todayUsage: 'BERICHTE HEUTE', passUsage: 'TAGESPASS-NUTZUNG', remaining: 'übrig', freePlan: 'Kostenlos', dayPassName: 'Tagespass', loadingUsage: 'Nutzung wird geladen…',
       yours: 'DEINE BERICHTE', empty: 'Deine gespeicherten Berichte erscheinen hier.', select: 'Auswählen', pin: 'Anpinnen', unpin: 'Loslösen',
       remove: 'Aus Seitenleiste entfernen', removeAssessment: 'Bericht aus Seitenleiste entfernen', compare: 'Auswahl vergleichen',
     },
     report: {
       brief: 'REVIEW A HOUSE / IMMOBILIEN-BERICHT', copyLink: 'Link kopieren', copied: 'Link kopiert', score: 'UNSER SCORE',
-      deterministic: 'Einheitlich aus den Angaben im Angebot', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Der Score verbindet die folgenden Immobilienmerkmale bei jedem Bericht nach denselben Regeln.', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Aktuelle Nutzung', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
+      deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Der Score verbindet die folgenden Immobilienmerkmale bei jedem Bericht nach denselben Regeln.', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Verfügbarkeit', condition: 'Zustand', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
       atGlance: 'AUF EINEN BLICK', details: 'ANGABEN IM EXPOSÉ', matters: 'WAS WICHTIG IST', notes: 'HINWEISE ZU DEN DATEN', notDisclosed: 'Nicht angegeben',
       components: { price: 'Preis', neighborhood: 'Lage', space: 'Platz', building: 'Gebäude', energy: 'Energie', light: 'Licht', costs: 'Kosten', source: 'Quelle' },
       source: 'QUELLE', original: 'Originalangebot öffnen ↗', saved: 'Bericht gespeichert', assessMore: 'MEHR BERICHTE ERSTELLEN', plansTitle: 'Bleib bei deiner Suche im Fluss.', plansCopy: 'Zwei Berichte pro Tag sind kostenlos. Wenn du gerade aktiv suchst, kannst du dein Limit erhöhen.', perMonth: '/Monat', proLimit: '10 Berichte pro Tag', ultraLimit: '100 Berichte pro Tag', proButton: 'Pro wählen', ultraButton: 'Ultra wählen',
     },
     finance: {
-      label: 'GROBE FINANZIERUNG', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Sollzins', repayment: 'Anfängliche Tilgung', note: 'Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto angegeben; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Zinssatz, Kaufnebenkosten und Leistbarkeit bitte mit einer Bank klären.',
+      label: 'GROBE FINANZIERUNG', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', estimatedBuyerCosts: 'Geschätzte Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Sollzins', repayment: 'Anfängliche Tilgung', note: 'Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto angegeben; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Zinssatz, Kaufnebenkosten und Leistbarkeit bitte mit einer Bank klären.',
     },
-    questions: { label: 'VOR DEM ANGEBOT FRAGEN', reviewing: 'Angebot wird geprüft', tailored: 'Auf dieses Angebot zugeschnitten', core: 'Wichtige Grundfragen', title: 'Diese Antworten solltest du schriftlich haben', note: 'Unterlagen und klare Antworten zählen mehr als mündliche Zusagen.' },
+    questions: { label: 'VOR DEM ANGEBOT FRAGEN', reviewing: 'Angebot wird geprüft', tailored: 'Auf dieses Angebot zugeschnitten', core: '', title: 'Fragen, die sich lohnen', note: '' },
     map: { label: 'LAGE', intro: 'Prüfe auf der Karte echte Wege zu U-Bahn, S-Bahn, Tram, Parks und Dingen des täglichen Lebens – nicht nur die Luftlinie.', loading: 'Lage wird gesucht…', explore: 'Auf OpenStreetMap öffnen ↗', approximate: 'Im Angebot steht keine genaue Adresse. Die Karte zeigt den genauesten genannten Bereich:', exact: 'Im Angebot steht eine genaue Straßenadresse.' },
-    compare: { label: 'IMMOBILIENVERGLEICH', title: 'Zwei Immobilien, direkt nebeneinander.', intro: 'Eine ruhige Ansicht der Fakten, die eine Entscheidung verändern.', property: 'IMMOBILIE', option: 'OPTION', asking: 'Kaufpreis', acquisition: 'Gesamte Kaufkosten', perSqm: 'Preis pro Wohn-m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Aktuelle Nutzung', housegeld: 'Hausgeld', monthly: '/ Monat', return: 'Angegebene Rendite', energy: 'Energie', score: 'Unser Score' },
+    compare: { label: 'IMMOBILIENVERGLEICH', title: 'Zwei Immobilien, direkt nebeneinander.', intro: 'Eine ruhige Ansicht der Fakten, die eine Entscheidung verändern.', property: 'IMMOBILIE', option: 'OPTION', asking: 'Kaufpreis', acquisition: 'Gesamte Kaufkosten', perSqm: 'Preis pro Wohn-m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Verfügbarkeit', condition: 'Zustand', housegeld: 'Hausgeld', monthly: '/ Monat', return: 'Angegebene Rendite', energy: 'Energie', score: 'Unser Score' },
     ads: { partner: 'PLATZ FÜR PARTNER', note: 'Ein ruhiger Platz für einen hilfreichen Partner – ohne Ablenkung.', finance: 'Finanzierung, Gutachten oder Kaufberatung', local: 'Makler, Architekt oder Partner fürs Zuhause' },
   },
 } as const;
@@ -130,6 +130,8 @@ export function localizedValue(value: string | undefined, locale: Locale) {
   if (locale === 'en') return value;
   const translations: Record<string, string> = {
     Rented: 'Vermietet', Vacant: 'Frei', 'Owner-occupied': 'Selbst genutzt',
+    'Available to move in': 'Bezugsfrei', 'Needs renovation': 'Renovierungsbedürftig', 'Needs modernization': 'Modernisierungsbedürftig',
+    'Under construction': 'Im Bau', 'New build': 'Neubau', Renovated: 'Renoviert', 'Well maintained': 'Gepflegt',
     'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
   };
   return translations[value] || value;

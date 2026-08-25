@@ -21,7 +21,9 @@ export type Facts = {
   postalCode?: string;
   city?: string;
   district?: string;
+  street?: string;
   transitStop?: string;
+  locationPrecision?: 'address' | 'street' | 'neighborhood' | 'postal' | 'transit' | 'city';
   neighborhood?: {
     transitMinutes?: number;
     parkMinutes?: number;
@@ -58,9 +60,13 @@ export type Report = {
   summary: string;
   considerations: string[];
   offerQuestions?: string[];
+  offerQuestionsDe?: string[];
   sunOrientation: string;
   daylight?: string;
   qualityWarnings?: string[];
   aiEnriched: boolean;
+  aiLocationChecked?: boolean;
+  aiFactChecked?: boolean;
+  locationEvidence?: string;
 };
 export type Comparison = { id: string; reportIds: [string, string]; createdAt: string };

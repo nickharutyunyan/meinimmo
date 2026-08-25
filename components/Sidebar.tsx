@@ -12,7 +12,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState(false);
-  const [access, setAccess] = useState<{ kind: string; remaining: number } | null>(null);
+  const [access, setAccess] = useState<{ kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string } | null>(null);
   const text = copy[locale].sidebar;
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
       const pinIds = JSON.parse(localStorage.getItem('habitat-pins') || '[]') as string[];
       const [all, account] = await Promise.all([
         fetch('/api/reports').then(response => response.json()) as Promise<Report[]>,
-        fetch('/api/auth/me').then(response => response.json()) as Promise<{ access?: { kind: string; remaining: number } }>,
+        fetch('/api/auth/me', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string } }>,
       ]);
       const visible = all.filter(item => historyIds.includes(item.id));
       const unique = new Map<string, Report>();
@@ -35,7 +35,11 @@ export function Sidebar({ locale }: { locale: Locale }) {
     };
     load();
     window.addEventListener('habitat-history-changed', load);
-    return () => window.removeEventListener('habitat-history-changed', load);
+    window.addEventListener('focus', load);
+    return () => {
+      window.removeEventListener('habitat-history-changed', load);
+      window.removeEventListener('focus', load);
+    };
   }, []);
 
   const ordered = useMemo(() => [...reports].sort((a, b) => {
@@ -43,6 +47,16 @@ export function Sidebar({ locale }: { locale: Locale }) {
     return pinDifference || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }), [reports, pinned]);
   const dayPassEligible = access?.kind === 'free' && access.remaining === 0;
+  const accessLabel = access?.kind === 'day_pass'
+    ? text.passUsage
+    : text.todayUsage;
+  const planLabel = access?.kind === 'day_pass'
+    ? text.dayPassName
+    : access?.kind === 'pro'
+      ? 'Pro'
+      : access?.kind === 'ultra'
+        ? 'Ultra'
+        : text.freePlan;
 
   const toggleSelect = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : current.length === 2 ? current : [...current, id]);
   const togglePin = (id: string) => setPinned(current => {
@@ -70,7 +84,11 @@ export function Sidebar({ locale }: { locale: Locale }) {
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
     <header><Brand className="side-logo" locale={locale}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span>‹</span></button></header>
     <div className="actions"><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link><Link href={dayPassEligible ? `${localePath(locale)}?daypass=1` : localePath(locale, '/account')} className={dayPassEligible ? 'upgrade ready' : 'upgrade'}>✦ <span>{dayPassEligible ? text.dayPass : text.upgrade}</span></Link></div>
-    <p className="quota">{text.quota}</p><p className="side-label">{text.yours}</p>
+    <div className="quota" aria-live="polite">
+      <span>{accessLabel}</span>
+      <strong>{access ? access.used : '—'}<small> / {access ? access.limit : '—'}</small></strong>
+      <p>{access ? `${access.remaining} ${text.remaining} · ${planLabel}` : text.loadingUsage}</p>
+    </div><p className="side-label">{text.yours}</p>
     <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>
       <input aria-label={`${text.select} ${reportTitle(item, locale)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>
       <Link href={localePath(locale, `/r/${item.id}`)}>{reportTitle(item, locale)}<small>{new Date(item.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></Link>

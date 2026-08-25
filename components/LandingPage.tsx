@@ -6,6 +6,8 @@ import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
 import { copy, localePath, type Locale } from '@/lib/i18n';
 import { QuotaModal } from './QuotaModal';
+import { SiteFooter } from './SiteFooter';
+import { GlossaryText } from './GlossaryText';
 
 export function LandingPage({ locale }: { locale: Locale }) {
   const router = useRouter();
@@ -85,15 +87,16 @@ export function LandingPage({ locale }: { locale: Locale }) {
       </div>
     </section>
     <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><h2>{text.approachTitle}</h2></section>
-    <section className="steps">{text.steps.map(([title, description], index) => <div key={title}><b>{String(index + 1).padStart(2, '0')}</b><h2>{title}</h2><p>{description}</p></div>)}</section>
+    <section className="steps">{text.steps.map(([title, description], index) => <div key={title}><b>{String(index + 1).padStart(2, '0')}</b><h2>{title}</h2><p><GlossaryText>{description}</GlossaryText></p></div>)}</section>
     <AdSlot locale={locale} kind="finance" />
     <section id="faq" className="faq-section">
       <div className="faq-intro"><p className="eyebrow">{text.faqLabel}</p><h2>{text.faqTitle}</h2><p>{text.faqIntro}</p></div>
-      <div className="faq-list">{text.faqs.map(([question, answer], index) => <details key={question} open={index === 0}><summary><span>{String(index + 1).padStart(2, '0')}</span>{question}</summary><p>{answer}</p></details>)}</div>
+      <div className="faq-list">{text.faqs.map(([question, answer], index) => <details key={question} open={index === 0}><summary><span>{String(index + 1).padStart(2, '0')}</span>{question}</summary><p><GlossaryText>{answer}</GlossaryText></p></details>)}</div>
     </section>
     <QuotaModal open={quotaOpen} locale={locale} onClose={() => {
       setQuotaOpen(false);
       if (new URLSearchParams(window.location.search).has('daypass')) history.replaceState(null, '', window.location.pathname);
     }} />
+    <SiteFooter locale={locale} />
   </main>;
 }

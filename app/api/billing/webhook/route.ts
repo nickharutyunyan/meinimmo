@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { appEnvironment } from '@/lib/auth-db';
-import { processStripeEvent, type StripeEvent } from '@/lib/stripe';
+import { processStripeEvent } from '@/lib/stripe';
 import { verifyStripeSignature } from '@/lib/security';
 
 export async function POST(request: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
   }
   try {
-    await processStripeEvent(JSON.parse(payload) as StripeEvent);
+    await processStripeEvent(JSON.parse(payload));
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Stripe webhook processing failed', error);

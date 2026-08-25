@@ -15,6 +15,8 @@ import { PlanButton } from './PlanButton';
 import { LocationCard } from './LocationCard';
 import { OfferQuestions } from './OfferQuestions';
 import { Sidebar } from './Sidebar';
+import { SiteFooter } from './SiteFooter';
+import { GlossaryText } from './GlossaryText';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -39,21 +41,23 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
   const location = resolveLocation(report);
   const subtitle = reportSubtitle(report);
   const known = (value?: string) => localizedValue(value, locale);
+  const stated = (value?: string) => known(value) !== text.notDisclosed;
   const glance: Array<[string, string]> = [
-    [text.asking, euros(facts.price)],
-    [text.perSqm, facts.area ? euros(facts.price / facts.area) : text.notDisclosed],
-    [text.living, facts.area ? `${facts.area} m²` : text.notDisclosed],
+    ...(facts.price ? [[text.asking, euros(facts.price)] as [string, string]] : []),
+    ...(facts.price && facts.area ? [[text.perSqm, euros(facts.price / facts.area)] as [string, string]] : []),
+    ...(facts.area ? [[text.living, `${facts.area} m²`] as [string, string]] : []),
     ...(facts.usableArea ? [[text.usable, `${facts.usableArea} m²`] as [string, string]] : []),
-    [text.rooms, known(facts.rooms)],
-    [text.floor, known(facts.floor)],
-    ...(facts.tenancy ? [[text.use, known(facts.tenancy)] as [string, string]] : []),
+    ...(stated(facts.rooms) ? [[text.rooms, known(facts.rooms)] as [string, string]] : []),
+    ...(stated(facts.floor) ? [[text.floor, known(facts.floor)] as [string, string]] : []),
+    ...(stated(facts.tenancy) ? [[text.use, known(facts.tenancy)] as [string, string]] : []),
+    ...(stated(facts.condition) ? [[text.condition, known(facts.condition)] as [string, string]] : []),
     ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}`] as [string, string]] : []),
     ...(facts.advertisedYield ? [[text.return, `${facts.advertisedYield.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')}%`] as [string, string]] : []),
-    [text.sun, known(report.sunOrientation)],
+    ...(stated(report.sunOrientation) ? [[text.sun, known(report.sunOrientation)] as [string, string]] : []),
     ...(report.daylight ? [[text.daylight, known(report.daylight)] as [string, string]] : []),
-    [text.energy, `${known(facts.energy)}${facts.energyDemand ? ` · ${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} kWh/(m²a)` : ''}`],
-    [text.heating, `${known(facts.heating)}${facts.energySource ? ` · ${facts.energySource}` : ''}`],
-    [text.built, known(facts.year)],
+    ...(stated(facts.energy) || facts.energyDemand ? [[text.energy, `${stated(facts.energy) ? known(facts.energy) : ''}${facts.energyDemand ? `${stated(facts.energy) ? ' · ' : ''}${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} kWh/(m²a)` : ''}`] as [string, string]] : []),
+    ...(stated(facts.heating) || facts.energySource ? [[text.heating, `${stated(facts.heating) ? known(facts.heating) : ''}${facts.energySource ? `${stated(facts.heating) ? ' · ' : ''}${facts.energySource}` : ''}`] as [string, string]] : []),
+    ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
   ];
   const propertyScore = calculatePropertyScore(report);
   const breakdown = propertyScore.breakdown;
@@ -87,16 +91,16 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
       </header>
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{propertyScore.total.toFixed(2)}</strong><i>/ 10</i></span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{text.scoreExplainer}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{breakdown[key as keyof typeof breakdown].toFixed(1)}</b></span>)}</div></div></details><span className="score-basis">{text.deterministic}</span></div>
-        <div className="verdict-copy"><h2>{propertyScoreTitle(propertyScore.total, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div></div>
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{propertyScore.total.toFixed(2)}</strong><i>/ 10</i></span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{text.scoreExplainer}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{breakdown[key as keyof typeof breakdown].toFixed(1)}</b></span>)}</div></div></details></div>
+        <div className="verdict-copy"><h2>{propertyScoreTitle(propertyScore.total, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
       <div className="report-grid">
         <div>
-          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small>{key}</small><b>{value}</b></div>)}</div></section>
-          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{facts.features.map((feature) => <span key={feature}>{feature}</span>)}</div></section> : null}
-          <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p></div>)}</section>
-          {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}>{item}</p>)}</section> : null}
+          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText>{key}</GlossaryText></small><b><GlossaryText>{value}</GlossaryText></b></div>)}</div></section>
+          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{facts.features.map((feature) => <span key={feature}><GlossaryText>{feature}</GlossaryText></span>)}</div></section> : null}
+          <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText>{item}</GlossaryText></p></div>)}</section>
+          {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText>{item}</GlossaryText></p>)}</section> : null}
           {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
         </div>
         <aside>
@@ -112,6 +116,7 @@ export function ReportView({ report, locale }: { report: Report; locale: Locale 
         <article><span>PRO</span><strong>€10<small>{text.perMonth}</small></strong><p>{text.proLimit}</p><PlanButton plan="pro" locale={locale}>{text.proButton}</PlanButton></article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{text.perMonth}</small></strong><p>{text.ultraLimit}</p><PlanButton plan="ultra" locale={locale}>{text.ultraButton}</PlanButton></article>
       </section>
+      <SiteFooter locale={locale} />
     </main>
   </>;
 }
