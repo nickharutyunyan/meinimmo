@@ -42,12 +42,6 @@
       "migrations_dir": "auth-migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "PDFS",
-      "bucket_name": "reviewahouse-pdfs"
-    }
-  ],
   "observability": {
     "enabled": true
   },

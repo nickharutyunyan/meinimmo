@@ -131,9 +131,9 @@ export async function POST(request: NextRequest) {
     if (!allowance.allowed) return quotaExceeded(allowance.state);
     let cached = existing;
     if (uploadedPdf) {
-      cached = { ...cached, source: uploadedPdf.displayName, sourceFile: { displayName: uploadedPdf.displayName, size: uploadedPdf.size } };
       try {
-        await timed('pdfStore', () => saveSourcePdf(cached.id, uploadedPdf!.data, uploadedPdf!.displayName));
+        const stored = await timed('pdfStore', () => saveSourcePdf(cached.id, uploadedPdf!.data, uploadedPdf!.displayName));
+        cached = { ...cached, source: uploadedPdf.displayName, sourceFile: stored ? { displayName: uploadedPdf.displayName, size: uploadedPdf.size } : undefined };
         await timed('store', () => replaceReport(cached));
       } catch {
         await allowance.release?.();
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
   if (uploadedPdf) report = {
     ...report,
     source: uploadedPdf.displayName,
-    sourceFile: { displayName: uploadedPdf.displayName, size: uploadedPdf.size },
+    sourceFile: undefined,
   };
 
   if (resolveLocation(report).basis === 'none') {
@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    if (uploadedPdf) await timed('pdfStore', () => saveSourcePdf(report.id, uploadedPdf!.data, uploadedPdf!.displayName));
+    if (uploadedPdf) {
+      const stored = await timed('pdfStore', () => saveSourcePdf(report.id, uploadedPdf!.data, uploadedPdf!.displayName));
+      if (stored) report = { ...report, sourceFile: { displayName: uploadedPdf.displayName, size: uploadedPdf.size } };
+    }
     await timed('store', () => existing ? replaceReport(report) : saveReport(report));
     if (!report.aiLocationChecked || !report.aiFactChecked) verifyLater(report, text);
     remember(allowance.userId, report.id);

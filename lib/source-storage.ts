@@ -1,7 +1,7 @@
 import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-type SourceEnv = CloudflareEnv & { PDFS: R2Bucket };
+type SourceEnv = CloudflareEnv & { PDFS?: R2Bucket };
 
 function sourceKey(reportId: string) {
   return `reports/${reportId}/source.pdf`;
@@ -9,22 +9,23 @@ function sourceKey(reportId: string) {
 
 async function bucket() {
   const { env } = await getCloudflareContext({ async: true });
-  const pdfs = (env as SourceEnv).PDFS;
-  if (!pdfs) throw new Error('The Cloudflare R2 binding "PDFS" is not configured.');
-  return pdfs;
+  return (env as SourceEnv).PDFS;
 }
 
 export async function saveSourcePdf(reportId: string, data: ArrayBuffer, displayName: string) {
-  await (await bucket()).put(sourceKey(reportId), data, {
+  const pdfs = await bucket();
+  if (!pdfs) return false;
+  await pdfs.put(sourceKey(reportId), data, {
     httpMetadata: { contentType: 'application/pdf' },
     customMetadata: { displayName },
   });
+  return true;
 }
 
 export async function sourcePdf(reportId: string) {
-  return (await bucket()).get(sourceKey(reportId));
+  return (await bucket())?.get(sourceKey(reportId));
 }
 
 export async function deleteSourcePdf(reportId: string) {
-  await (await bucket()).delete(sourceKey(reportId));
+  await (await bucket())?.delete(sourceKey(reportId));
 }
