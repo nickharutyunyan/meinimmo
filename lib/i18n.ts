@@ -1,3 +1,5 @@
+import { canonicalCondition } from './property-condition.ts';
+
 export type Locale = 'en' | 'de';
 
 export const isGerman = (locale: Locale) => locale === 'de';
@@ -128,12 +130,14 @@ export const copy = {
 export function localizedValue(value: string | undefined, locale: Locale) {
   if (!value || /not stated|unknown|address not stated/i.test(value)) return copy[locale].report.notDisclosed;
   const legacyNotRented = ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(value);
-  if (locale === 'en') return legacyNotRented ? 'Not rented' : value;
+  const condition = canonicalCondition(value);
+  const normalized = condition || value;
+  if (locale === 'en') return legacyNotRented ? 'Not rented' : normalized;
   const translations: Record<string, string> = {
     Rented: 'Vermietet', 'Not rented': 'Nicht vermietet', Vacant: 'Nicht vermietet', 'Owner-occupied': 'Nicht vermietet',
     'Available to move in': 'Nicht vermietet', 'Needs renovation': 'Renovierungsbedürftig', 'Needs modernization': 'Modernisierungsbedürftig',
-    'Under construction': 'Im Bau', 'New build': 'Neubau', Renovated: 'Renoviert', 'Well maintained': 'Gepflegt',
+    'Under construction': 'Im Bau', 'New build': 'Neubau', Renovated: 'Renoviert', 'Like new': 'Neuwertig', 'Well maintained': 'Gepflegt',
     'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
   };
-  return translations[value] || value;
+  return translations[normalized] || normalized;
 }

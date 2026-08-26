@@ -34,6 +34,22 @@ test('all explicit legacy non-rented states use the new rental-status wording', 
   assert.doesNotMatch(localizedSummary(notRented, 'en'), /available to move/i);
 });
 
+test('saniert is always renovated and remains distinct from neuwertig', () => {
+  assert.equal(localizedValue('saniert', 'en'), 'Renovated');
+  assert.equal(localizedValue('Saniert', 'de'), 'Renoviert');
+  assert.equal(localizedValue('Neuwertig', 'en'), 'Like new');
+  assert.equal(localizedValue('Neuwertig', 'de'), 'Neuwertig');
+
+  const legacy = {
+    ...report,
+    facts: { ...report.facts, condition: 'saniert' },
+    summary: 'It is built in 1912, described as new condition, energy class C.',
+  };
+  assert.match(localizedSummary(legacy, 'en'), /described as renovated/i);
+  assert.doesNotMatch(localizedSummary(legacy, 'en'), /new condition/i);
+  assert.match(localizedSummary(legacy, 'de'), /Zustand laut Angebot: Renoviert/i);
+});
+
 test('removed reasoning copy is not exposed in either language', () => {
   const visibleCopy = JSON.stringify(copy);
   assert.doesNotMatch(visibleCopy, /Core due diligence|Answers and supporting documents|Built consistently from listing facts/i);

@@ -1,4 +1,4 @@
-import type { Locale } from './i18n';
+import { localizedValue, type Locale } from './i18n.ts';
 import type { Report } from './types';
 import { factualLocation } from './display.ts';
 
@@ -10,9 +10,14 @@ export function questionsAreConcise(value: unknown): value is string[] {
 }
 
 export function localizedSummary(report: Report, locale: Locale) {
-  if (locale === 'en') return report.summary
+  if (locale === 'en') {
+    const correctedCondition = localizedValue(report.facts.condition, 'en') === 'Renovated'
+      ? report.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
+      : report.summary;
+    return correctedCondition
     .replace('The listing states that it is available to move into; confirm the handover date in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.')
     .replace('It is described as owner-occupied; confirm the agreed handover date and vacant possession in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.');
+  }
   const { facts } = report;
   const type = report.propertyType === 'flat' ? 'Wohnung' : 'Haus';
   const roomPrefix = stated(facts.rooms) ? `${facts.rooms.replace('.', ',')}-Zimmer-` : '';
@@ -24,7 +29,7 @@ export function localizedSummary(report: Report, locale: Locale) {
   const price = facts.price ? ` Der Kaufpreis liegt bei ${facts.price.toLocaleString('de-DE')} €${facts.area ? ` (${Math.round(facts.price / facts.area).toLocaleString('de-DE')} €/m²)` : ''}.` : '';
   const building = [
     stated(facts.year) ? `Baujahr ${facts.year}` : '',
-    stated(facts.condition) ? `Zustand laut Angebot: ${facts.condition}` : '',
+    stated(facts.condition) ? `Zustand laut Angebot: ${localizedValue(facts.condition, 'de')}` : '',
     stated(facts.energy) ? `Energieklasse ${facts.energy}` : '',
     facts.energySource ? `Energieträger ${facts.energySource}` : '',
   ].filter(Boolean).join(', ');

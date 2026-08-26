@@ -1,6 +1,7 @@
 import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
+import { canonicalCondition } from './property-condition.ts';
 
 type StoredRow = { data: string };
 
@@ -14,15 +15,26 @@ function parse<T>(row: StoredRow | null) {
   return row ? JSON.parse(row.data) as T : undefined;
 }
 
+function normalizedReport(item: Report) {
+  const condition = canonicalCondition(item.facts.condition);
+  const summary = condition === 'Renovated'
+    ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
+    : item.summary;
+  return condition === item.facts.condition && summary === item.summary
+    ? item
+    : { ...item, summary, facts: { ...item.facts, condition } };
+}
+
 export async function reports() {
   const db = await database();
   const result = await db.prepare('SELECT data FROM reports ORDER BY created_at ASC').all<StoredRow>();
-  return result.results.map(row => JSON.parse(row.data) as Report);
+  return result.results.map(row => normalizedReport(JSON.parse(row.data) as Report));
 }
 
 export async function report(id: string) {
   const db = await database();
-  return parse<Report>(await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first<StoredRow>());
+  const item = parse<Report>(await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first<StoredRow>());
+  return item ? normalizedReport(item) : undefined;
 }
 
 export async function saveReport(item: Report) {
