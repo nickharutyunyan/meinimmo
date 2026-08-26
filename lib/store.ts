@@ -1,7 +1,6 @@
 import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
-import { canonicalSource } from './display';
 
 type StoredRow = { data: string };
 
@@ -24,12 +23,6 @@ export async function reports() {
 export async function report(id: string) {
   const db = await database();
   return parse<Report>(await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first<StoredRow>());
-}
-
-export async function reportBySource(source: string) {
-  const key = canonicalSource(source);
-  const all = await reports();
-  return [...all].reverse().find((item) => canonicalSource(item.source) === key);
 }
 
 export async function saveReport(item: Report) {

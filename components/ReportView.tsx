@@ -21,8 +21,40 @@ import { ReportNote } from './ReportNote';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
-export function ReportView({ report, locale }: { report: Report; locale: Locale }) {
+export function ReportView({ report: initialReport, locale }: { report: Report; locale: Locale }) {
+  const [report, setReport] = useState(initialReport);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (report.aiLocationChecked && report.aiFactChecked) return;
+    let active = true;
+    let attempts = 0;
+    let timeout: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try {
+        const response = await fetch(`/api/reports/${report.id}`, { cache: 'no-store' });
+        if (!response.ok || !active) return;
+        const latest = await response.json() as Report;
+        if (!active) return;
+        setReport(current => {
+          const locationChanged = current.location !== latest.location
+            || current.facts.district !== latest.facts.district
+            || current.facts.street !== latest.facts.street;
+          return locationChanged ? latest : current;
+        });
+        if (latest.aiLocationChecked && latest.aiFactChecked) {
+          setReport(latest);
+          return;
+        }
+      } catch {
+        // The saved deterministic report remains usable while verification retries.
+      }
+      attempts += 1;
+      if (active && attempts < 15) timeout = setTimeout(refresh, 2_000);
+    };
+    timeout = setTimeout(refresh, 1_000);
+    return () => { active = false; clearTimeout(timeout); };
+  }, [report.aiFactChecked, report.aiLocationChecked, report.id]);
 
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];

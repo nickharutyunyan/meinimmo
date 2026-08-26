@@ -23,7 +23,13 @@ export async function POST(_: Request, context: { params: Promise<{ id: string }
     offerQuestionsDe: questionsAreConcise(current.offerQuestionsDe) ? current.offerQuestionsDe : defaultOfferQuestions(current, 'de'),
   };
   const enriched = await enrichOnlyWhenNeeded(withFallback, JSON.stringify(withFallback), false);
-  await replaceReport(enriched);
+  const latest = await findReport(id);
+  await replaceReport({
+    ...(latest || enriched),
+    offerQuestions: enriched.offerQuestions,
+    offerQuestionsDe: enriched.offerQuestionsDe,
+    aiEnriched: enriched.aiEnriched,
+  });
 
   return NextResponse.json({
     offerQuestions: enriched.offerQuestions,

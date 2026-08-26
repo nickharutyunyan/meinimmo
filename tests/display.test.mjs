@@ -42,6 +42,30 @@ test('always keeps the best available factual place in the report title', () => 
   assert.equal(resolveLocation(cityOnly).basis, 'city');
 });
 
+test('never exposes a postal code as the title location', () => {
+  const postalOnly = {
+    ...base,
+    address: 'Address not stated',
+    location: '10437 Berlin',
+    facts: { ...base.facts, district: undefined, postalCode: '10437', locationPrecision: 'postal' },
+  };
+  assert.equal(reportTitle(postalOnly), '3-room flat · Berlin');
+  assert.equal(reportTitle(postalOnly, 'de'), '3-Zimmer-Wohnung · Berlin');
+  assert.equal(reportSubtitle(postalOnly), '10437 Berlin');
+  assert.doesNotMatch(reportTitle(postalOnly), /\d{5}/);
+});
+
+test('uses the resolved neighborhood instead of its source postal code', () => {
+  const resolved = {
+    ...base,
+    address: 'Address not stated',
+    location: 'Prenzlauer Berg',
+    facts: { ...base.facts, district: 'Prenzlauer Berg', postalCode: '10437', locationPrecision: 'neighborhood' },
+  };
+  assert.equal(reportTitle(resolved), '3-room flat · Prenzlauer Berg');
+  assert.doesNotMatch(reportTitle(resolved), /10437/);
+});
+
 test('drops a bogus zero house number without losing the street', () => {
   const report = { ...base, address: 'Musterstraße 0, 10115 Berlin' };
   assert.equal(reportTitle(report), '3-room flat · Musterstraße');

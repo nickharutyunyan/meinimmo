@@ -14,6 +14,7 @@ export function OfferQuestions({ report, locale }: { report: Report; locale: Loc
   const storedQuestionsAreCurrent = questionsAreConcise(report.offerQuestions) && questionsAreConcise(report.offerQuestionsDe);
 
   useEffect(() => {
+    if (!report.aiFactChecked) return;
     if (report.aiEnriched && storedQuestionsAreCurrent) return;
     let active = true;
     fetch(`/api/reports/${report.id}/questions`, { method: 'POST' })
@@ -25,7 +26,7 @@ export function OfferQuestions({ report, locale }: { report: Report; locale: Loc
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [locale, report.aiEnriched, report.id, storedQuestionsAreCurrent]);
+  }, [locale, report.aiEnriched, report.aiFactChecked, report.id, storedQuestionsAreCurrent]);
 
   return <section className="card offer-questions">
     <p className="eyebrow">{text.label}</p>

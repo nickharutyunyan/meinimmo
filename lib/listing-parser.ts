@@ -150,7 +150,7 @@ function namedTransitStop(lines: string[]) {
   ];
   for (const line of relevant) {
     for (const pattern of patterns) {
-      const candidate = tidy(line.match(pattern)?.[1] || '').replace(/[„“"']+/g, '');
+      const candidate = tidy(line.match(pattern)?.[1] || '').replace(/[„“"']+/g, '').replace(/[.;,|].*$/u, '').trim();
       if (candidate && !/^(?:der|die|das|ein|eine|nächste|nahe|fußläufig|wenige)$/i.test(candidate)) return candidate;
     }
   }
@@ -251,18 +251,26 @@ export function parseListing(raw: string, source: string): Report {
   const currency = /([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i;
   const areaValue = /([\d.]+(?:,\d+)?)\s*(?:m²|qm)/i;
 
-  const price = number(aroundLabel(lines, /^Kaufpreis$/i, currency, 0, 3) || firstMatch(lines, /\b([\d]{2,3}(?:[.\s]\d{3})+)\s*€/));
-  const area = number(aroundLabel(lines, /^Wohnfl[aä]che$/i, areaValue, 3, 3) || firstMatch(lines, /\b([\d.,]+)\s*(?:m²|qm)\s+Wohnfl[aä]che/i));
+  const price = number(aroundLabel(lines, /^Kaufpreis$/i, currency, 0, 3)
+    || firstMatch(lines, /\bKaufpreis\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
+    || firstMatch(lines, /\b([\d]{2,3}(?:[.\s]\d{3})+)\s*(?:€|EUR)/i));
+  const area = number(aroundLabel(lines, /^Wohnfl[aä]che$/i, areaValue, 3, 3)
+    || firstMatch(lines, /\bWohnfl[aä]che\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm)/i)
+    || firstMatch(lines, /\b([\d.,]+)\s*(?:m²|qm)\s+Wohnfl[aä]che/i));
   const usableArea = number(aroundLabel(lines, /^Nutzfl[aä]che$/i, areaValue, 1, 3));
   const roomsValue = aroundLabel(lines, /^(?:Zimmer|Anzahl Zimmer)$/i, /^(\d+(?:[,.]\d+)?)$/, 2, 2)
     || firstMatch([title, ...lines.slice(0, 250)], /\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.)/i);
   const rooms = roomsValue || UNKNOWN;
-  const yearValue = aroundLabel(lines, /^Baujahr$/i, /\b(19\d{2}|20\d{2})\b/, 0, 3) || firstMatch([title, ...lines], /\b(19\d{2}|20\d{2})\s+(?:errichtet|erbaut)/i);
+  const yearValue = aroundLabel(lines, /^Baujahr$/i, /\b(18\d{2}|19\d{2}|20\d{2})\b/, 0, 3)
+    || firstMatch(lines, /\bBaujahr\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})\b/i)
+    || firstMatch([title, ...lines], /\b(18\d{2}|19\d{2}|20\d{2})\s+(?:errichtet|erbaut)/i);
   const year = yearValue || UNKNOWN;
   const floorRaw = aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3)
     || firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
   const floor = normalizedFloor(floorRaw) || UNKNOWN;
-  const energy = aroundLabel(lines, /^Energieeffizienzklasse$/i, /^([A-H](?:\+)?)$/i, 0, 3) || UNKNOWN;
+  const energy = aroundLabel(lines, /^Energieeffizienzklasse$/i, /^([A-H](?:\+)?)$/i, 0, 3)
+    || firstMatch(lines, /\bEnergieeffizienzklasse\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
+    || UNKNOWN;
   const heating = aroundLabel(lines, /^(?:Heizung|Heizungsart)$/i, /^(.{3,45})$/, 0, 2) || UNKNOWN;
   const energySource = aroundLabel(lines, /^(?:Wesentlicher Energietr[aä]ger|Energietr[aä]ger)$/i, /^(.{3,45})$/, 0, 2) || undefined;
   const energyDemand = number(aroundLabel(lines, /^Endenergie(?:bedarf|verbrauch)$/i, /([\d.,]+)\s*kWh/i, 0, 2));
@@ -277,7 +285,8 @@ export function parseListing(raw: string, source: string): Report {
     .join(' ');
   const tenancy = normalizedTenancy(tenancyRaw, `${title} ${availabilityPhrase} ${tenancyEvidence}`);
   const advertisedYield = number(firstMatch([title, ...lines], /([\d,.]+)\s*%\s*(?:Rendite|return)/i) || firstMatch(lines, /(?:Rendite|return)\s*(?:von|:)?\s*([\d,.]+)\s*%/i));
-  const housegeld = number(aroundLabel(lines, /^Hausgeld(?:\s+mtl\.)?$/i, currency, 0, 3));
+  const housegeld = number(aroundLabel(lines, /^Hausgeld(?:\s+mtl\.)?$/i, currency, 0, 3)
+    || firstMatch(lines, /\bHausgeld\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i));
   const buyerCosts = number(aroundLabel(lines, /^Kaufnebenkosten(?:\s+ca\.)?$/i, currency, 0, 3));
   const explicitTotal = number(aroundLabel(lines, /^Gesamtkosten(?:\s+ca\.)?$/i, currency, 0, 3));
   const brokerFeeValue = aroundLabel(lines, /^Maklerprovision$/i, currency, 0, 3);

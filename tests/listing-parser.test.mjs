@@ -122,3 +122,22 @@ test('treats first occupancy after renovation as renovated, not a new build', ()
   assert.equal(report.facts.rooms, '2');
   assert.equal(report.facts.condition, 'Renovated');
 });
+
+test('extracts compact inline facts before background verification finishes', () => {
+  const report = parseListing(`
+    IMMOBILIENEXPOSÉ Eigentumswohnung zum Kauf.
+    Adresse: Danziger Straße 18, 10435 Berlin. Bezirk: Prenzlauer Berg.
+    Kaufpreis: 450.000 EUR. Wohnfläche: 65 m². Zimmer: 2 Zimmer.
+    Etage: 2. OG. Baujahr: 1900. Energieeffizienzklasse: D.
+    Zustand: renoviert. Bezugsfrei ab sofort. Hausgeld: 280 EUR monatlich.
+    Öffentlicher Nahverkehr: Tram M10 und U-Bahnhof Eberswalder Straße.
+    Diese Angaben beschreiben die angebotene Immobilie.
+  `, 'PDF Exposé');
+
+  assert.equal(report.facts.price, 450000);
+  assert.equal(report.facts.area, 65);
+  assert.equal(report.facts.year, '1900');
+  assert.equal(report.facts.energy, 'D');
+  assert.equal(report.facts.housegeld, 280);
+  assert.equal(report.facts.transitStop, 'Eberswalder Straße');
+});

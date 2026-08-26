@@ -4,6 +4,7 @@ import type { Report } from './types';
 import { htmlToLines, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
 import { displayAddress, resolveLocation } from './display';
 import { offerQuestionsFor } from './report-copy';
+import { listingAiExcerpt, parseAiJson } from './ai-input';
 
 export const looksLikeListing = looksLikePropertyListing;
 export const deterministicAssessment = parseListing;
@@ -42,10 +43,19 @@ function validPlace(value: unknown, source: string, max = 80) {
 type AiLocation = { city?: unknown; postalCode?: unknown; district?: unknown; street?: unknown; transitStop?: unknown; evidence?: unknown };
 type AiFactEvidence = { propertyType?: unknown; rooms?: unknown; area?: unknown; occupancy?: unknown; condition?: unknown; year?: unknown; floor?: unknown; energy?: unknown };
 
-function mergeLocation(report: Report, value: unknown, sourceText: string) {
+const FREE_VERIFICATION_MODELS = [
+  'google/gemma-4-26b-a4b-it:free',
+  'dots-studio/dots-3-note-preview:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+] as const;
+
+function verificationModels(configured?: string) {
+  return [...new Set([configured, ...FREE_VERIFICATION_MODELS].filter((model): model is string => Boolean(model)))].slice(0, 3);
+}
+
+function mergeLocation(report: Report, value: unknown, searchableSource: string) {
   if (!value || typeof value !== 'object') return report;
   const location = value as AiLocation;
-  const searchableSource = htmlToLines(sourceText).join('\n');
   const city = validPlace(location.city, searchableSource);
   const district = validPlace(location.district, searchableSource);
   const street = validPlace(location.street, searchableSource, 100).replace(/,?\s*\b\d{5}\b[\s\S]*$/u, '').replace(/\s+0\s*$/u, '').trim();
@@ -83,9 +93,8 @@ function decimal(value: string) {
   return Number(value.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, ''));
 }
 
-function mergeVerifiedFacts(report: Report, value: unknown, sourceText: string) {
+function mergeVerifiedFacts(report: Report, value: unknown, source: string) {
   if (!value || typeof value !== 'object') return report;
-  const source = htmlToLines(sourceText).join('\n');
   const evidence = value as AiFactEvidence;
   const facts = { ...report.facts };
 
@@ -131,13 +140,7 @@ function mergeVerifiedFacts(report: Report, value: unknown, sourceText: string) 
   return report;
 }
 
-function sourceExcerpt(raw: string) {
-  const lines = htmlToLines(raw);
-  const prioritized = lines.filter(line => /(?:adresse|anschrift|lage|stadtteil|ortsteil|bezirk|kiez|mikrolage|straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|postleitzahl|\b\d{5}\b|u-?bahn|s-?bahn|bahnhof|haltestelle|wohnfl[aä]che|zimmer|aktuelle\s+nutzung|vermietet|bezugsfrei|leerstehend|eigengenutzt|zustand|baujahr|etage|geschoss|energieeffizienzklasse)/iu.test(line));
-  return [...lines.slice(0, 120), ...prioritized.slice(0, 100)].filter((line, index, all) => all.indexOf(line) === index).join('\n').slice(0, 8_000);
-}
-
-export async function enrichAssessment(report: Report, sourceText = '', verifySourceFacts = true) {
+export async function enrichAssessment(report: Report, sourceText = '', verifySourceFacts = true, timeoutMs = verifySourceFacts ? 8_000 : 10_000) {
   const { env } = await getCloudflareContext({ async: true });
   const fallback = {
     ...report,
@@ -148,9 +151,11 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
   };
   if (!env.OPENROUTER_API_KEY) return refreshDerivedReport(fallback);
 
-  const excerpt = sourceExcerpt(sourceText);
+  const sourceLines = verifySourceFacts ? htmlToLines(sourceText) : [];
+  const searchableSource = sourceLines.join('\n');
+  const excerpt = verifySourceFacts ? listingAiExcerpt(sourceLines) : '';
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const parsedForCheck = {
     propertyType: report.propertyType,
     address: report.address,
@@ -161,37 +166,52 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
       district: report.facts.district, street: report.facts.street, postalCode: report.facts.postalCode,
     },
   };
+  const questionContext = {
+    propertyType: report.propertyType,
+    facts: report.facts,
+    qualityWarnings: report.qualityWarnings,
+    considerations: report.considerations,
+  };
   const body = JSON.stringify({
-    model: env.OPENROUTER_MODEL || 'openrouter/free', temperature: 0, max_tokens: 650,
+    models: verificationModels(env.OPENROUTER_MODEL),
+    provider: { sort: { by: 'throughput', partition: 'none' }, require_parameters: true, allow_fallbacks: true },
+    reasoning: { effort: 'none' },
+    temperature: 0,
+    max_tokens: verifySourceFacts ? 420 : 360,
     response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: 'You verify facts for German home buyers. Never invent or infer a fact. Every returned location and fact-evidence value must be copied verbatim from the property listing—not publisher, agency, legal notice, office, footer, or nearby-property text. A nearby station is only a transitStop. Keep questions plain, specific and under 20 words.' },
-      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"rooms":string|null,"area":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null},"offerQuestionsEn":["exactly four short questions"],"offerQuestionsDe":["exactly four short questions"]}. Each factEvidence value is one short verbatim excerpt that directly proves that fact; use null when absent or ambiguous. Occupancy must distinguish rented, available/vacant and owner-occupied. Street is only the property's stated street. Questions should cover the most material unresolved points without combining several requests into one. Parsed facts to check: ${JSON.stringify(parsedForCheck)}\nLISTING TEXT:\n${excerpt}` },
+    messages: verifySourceFacts ? [
+      { role: 'system', content: 'Verify German property-listing facts. Never invent or infer. Every value must be supported by a short verbatim excerpt from this property listing, never publisher, agency, legal, office, footer or nearby-property text. A nearby station is only a transitStop.' },
+      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"rooms":string|null,"area":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Occupancy must distinguish rented, available/vacant and owner-occupied. Street is only the property's stated street. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
+    ] : [
+      { role: 'system', content: 'Write concise due-diligence questions for German home buyers. Ask only about material unresolved risks in the supplied property report. Keep each question plain, specific, under 20 words and limited to one request.' },
+      { role: 'user', content: `Return JSON only: {"offerQuestionsEn":["exactly four English questions"],"offerQuestionsDe":["exactly four German questions"]}. Do not repeat known facts as questions. PROPERTY REPORT:\n${JSON.stringify(questionContext)}` },
     ],
   });
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${env.OPENROUTER_API_KEY}`, 'content-type': 'application/json' }, body, signal: controller.signal });
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${env.OPENROUTER_API_KEY}`, 'content-type': 'application/json', 'HTTP-Referer': 'https://reviewahouse.com', 'X-Title': 'ReviewAHouse' }, body, signal: controller.signal });
     if (!response.ok) {
-      console.warn('OpenRouter enrichment unavailable', { status: response.status });
+      const detail = (await response.text()).slice(0, 500);
+      console.warn('OpenRouter enrichment unavailable', { status: response.status, detail });
       return refreshDerivedReport(fallback);
     }
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content?.replace(/^```(?:json)?\s*|\s*```$/g, '') || '{}';
-    const parsed = JSON.parse(content) as { location?: unknown; factEvidence?: unknown; offerQuestionsEn?: unknown; offerQuestionsDe?: unknown };
+    const data = await response.json() as { model?: string; choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = parseAiJson(content) as { location?: unknown; factEvidence?: unknown; offerQuestionsEn?: unknown; offerQuestionsDe?: unknown };
     const enriched = verifySourceFacts
-      ? mergeVerifiedFacts(mergeLocation({ ...fallback, facts: { ...fallback.facts } }, parsed.location, sourceText), parsed.factEvidence, sourceText)
+      ? mergeVerifiedFacts(mergeLocation({ ...fallback, facts: { ...fallback.facts } }, parsed.location, searchableSource), parsed.factEvidence, searchableSource)
       : { ...fallback, facts: { ...fallback.facts } };
-    const english = validatedQuestions(parsed.offerQuestionsEn, enriched, 'en');
-    const german = validatedQuestions(parsed.offerQuestionsDe, enriched, 'de');
+    const english = verifySourceFacts ? undefined : validatedQuestions(parsed.offerQuestionsEn, enriched, 'en');
+    const german = verifySourceFacts ? undefined : validatedQuestions(parsed.offerQuestionsDe, enriched, 'de');
     enriched.offerQuestions = english || fallback.offerQuestions;
     enriched.offerQuestionsDe = german || fallback.offerQuestionsDe;
-    enriched.aiEnriched = Boolean(english || german);
+    enriched.aiEnriched = verifySourceFacts ? false : Boolean(english && german);
     enriched.aiLocationChecked = verifySourceFacts;
     enriched.aiFactChecked = verifySourceFacts;
+    console.info('OpenRouter enrichment complete', { purpose: verifySourceFacts ? 'facts' : 'questions', model: data.model || 'unknown' });
     return refreshDerivedReport(enriched);
   } catch (error) {
-    console.warn(error instanceof DOMException && error.name === 'AbortError' ? 'OpenRouter enrichment timed out' : 'OpenRouter enrichment returned invalid JSON');
+    console.warn(error instanceof DOMException && error.name === 'AbortError' ? 'OpenRouter enrichment timed out' : 'OpenRouter enrichment returned invalid JSON', { message: error instanceof Error ? error.message : 'unknown error' });
     return refreshDerivedReport(fallback);
   } finally {
     clearTimeout(timeout);

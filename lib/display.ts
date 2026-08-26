@@ -52,7 +52,7 @@ function appendCity(place: string, city: string) {
 }
 
 function preciseArea(value: string, city: string) {
-  const place = safePlace(value);
+  const place = safePlace(value.replace(/\b\d{5}\b/g, ' ').replace(/^[\s,;|–—-]+|[\s,;|–—-]+$/g, ' '));
   if (!place) return '';
   const withoutCity = city
     ? place
@@ -86,7 +86,7 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
     : known(report.location) && report.location !== city ? report.location!.trim() : '', city);
   const stop = safePlace(known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '');
   const postal = report.facts.postalCode?.match(/\b\d{5}\b/)?.[0] || cleanAddress.match(/\b\d{5}\b/)?.[0] || '';
-  const fallbackLocation = district || stop || (postal ? `${postal}${city ? ` ${city}` : ''}` : '') || city;
+  const fallbackLocation = district || stop || city;
   const titleLocation = exact && street ? appendCity(street, city) : appendCity(fallbackLocation, city);
 
   if (exact && cleanAddress) return { exact: true, city, titleLocation, mapQuery: `${cleanAddress}, Germany`, mapLabel: titleLocation, basis: 'address' };
@@ -97,7 +97,7 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
   if (district) return { exact: false, city, titleLocation, mapQuery: `${district}${postal ? `, ${postal}` : ''}${city ? ` ${city}` : ''}, Germany`, mapLabel: appendCity(district, city), basis: 'neighborhood' };
   if (postal) {
     const postalArea = `${postal}${city ? ` ${city}` : ''}`;
-    return { exact: false, city, titleLocation: postalArea, mapQuery: `${postalArea}, Germany`, mapLabel: postalArea, basis: 'postal code' };
+    return { exact: false, city, titleLocation: city, mapQuery: `${postalArea}, Germany`, mapLabel: postalArea, basis: 'postal code' };
   }
   if (stop) return { exact: false, city, titleLocation, mapQuery: `${stop}${city ? `, ${city}` : ''}, Germany`, mapLabel: appendCity(stop, city), basis: 'transit stop' };
   if (city) return { exact: false, city, titleLocation: city, mapQuery: `${city}, Germany`, mapLabel: city, basis: 'city' };
@@ -130,8 +130,7 @@ export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location
     ? report.facts.district!.trim()
     : known(report.location) && report.location !== resolved.city ? report.location!.trim() : '', resolved.city);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';
-  const postal = report.facts.postalCode?.match(/\b\d{5}\b/)?.[0];
-  const location = street || district || (postal ? `${postal}${resolved.city ? ` ${resolved.city}` : ''}` : '') || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
+  const location = street || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
   return location ? `${base} · ${location}` : base;
 }
 
