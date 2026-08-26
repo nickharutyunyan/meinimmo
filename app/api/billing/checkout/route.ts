@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   const input = await request.json() as { plan?: BillingPlan; locale?: 'en' | 'de' };
   if (!input.plan || !['day_pass', 'pro', 'ultra'].includes(input.plan)) return NextResponse.json({ error: 'Unknown plan.' }, { status: 400 });
   const access = await accessState(request);
+  if (!access.limitsEnabled) return NextResponse.json({ error: input.locale === 'de' ? 'Berichtslimits sind während der Testphase pausiert.' : 'Report limits are paused during testing.' }, { status: 409 });
   if (input.plan === 'day_pass' && !canOfferDayPass(access)) return NextResponse.json({ error: 'The day pass is only available after both free reports have been used.' }, { status: 409 });
   if (input.plan !== 'day_pass' && (access.kind === 'pro' || access.kind === 'ultra')) return NextResponse.json({ error: 'Manage the current subscription from your account.' }, { status: 409 });
   try {

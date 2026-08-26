@@ -10,7 +10,7 @@ import { canOfferDayPass } from '@/lib/day-pass';
 
 type AccountState = {
   user: { username: string | null; email: string | null; name: string | null } | null;
-  access: { kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string };
+  access: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string };
   googleAvailable: boolean;
   billingAvailable: boolean;
 };
@@ -36,7 +36,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
     return () => window.removeEventListener('focus', load);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!data?.user || resumedCheckout.current) return;
+    if (!data?.user || !data.access.limitsEnabled || resumedCheckout.current) return;
     const plan = new URLSearchParams(window.location.search).get('plan');
     if (plan !== 'pro' && plan !== 'ultra') return;
     resumedCheckout.current = true;
@@ -86,23 +86,23 @@ export function AccountPage({ locale }: { locale: Locale }) {
     {!data ? <section className="account-shell"><p>{de ? 'Konto wird geladen…' : 'Loading account…'}</p></section> : data.user ? <section className="account-shell">
       <div className="account-heading"><p className="eyebrow">{de ? 'DEIN KONTO' : 'YOUR ACCOUNT'}</p><h1>{de ? 'Schön, dass du da bist.' : 'Good to have you here.'}</h1><p>{data.user.email || `@${data.user.username}`}</p></div>
       <div className="account-grid">
-        <section className="account-card usage-card">
+        {data.access.limitsEnabled ? <section className="account-card usage-card">
           <span>{data.access.kind === 'day_pass' ? (de ? 'TAGESPASS' : 'DAY PASS') : data.access.kind.toUpperCase()}</span>
           <strong>{data.access.used}<small> / {data.access.limit}</small></strong>
           <p>{data.access.kind === 'day_pass' ? (de ? 'Berichte mit diesem Pass erstellt' : 'reports created with this pass') : (de ? 'Berichte heute erstellt' : 'reports created today')}</p>
           <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
           <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
-        </section>
+        </section> : <section className="account-card usage-card"><span>{de ? 'TESTPHASE' : 'TESTING'}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.'}</small></section>}
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label><button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {canOfferDayPass(data.access) ? <section className="day-pass-offer">
         <div><p className="eyebrow">{de ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</p><h2>{de ? '50 weitere Berichte für heute.' : '50 more reports for today.'}</h2><p>{de ? 'Einmal 5 € zahlen, 24 Stunden nutzen. Der Pass endet automatisch.' : 'Pay €5 once and use them for 24 hours. The pass ends automatically.'}</p></div>
         <button onClick={() => setDayPassOpen(true)}>{de ? 'Tagespass für 5 € kaufen' : 'Buy the €5 day pass'}</button>
       </section> : null}
-      <section className="account-plans"><div><p className="eyebrow">{de ? 'MEHR BERICHTE' : 'MORE REPORTS'}</p><h2>{de ? 'Für die aktive Suche.' : 'For an active search.'}</h2><p>{de ? 'Monatlich kündbar. Dein Tageslimit wird jeden Morgen zurückgesetzt.' : 'Cancel monthly. Your daily allowance resets each morning.'}</p></div>
+      {data.access.limitsEnabled ? <section className="account-plans"><div><p className="eyebrow">{de ? 'MEHR BERICHTE' : 'MORE REPORTS'}</p><h2>{de ? 'Für die aktive Suche.' : 'For an active search.'}</h2><p>{de ? 'Monatlich kündbar. Dein Tageslimit wird jeden Morgen zurückgesetzt.' : 'Cancel monthly. Your daily allowance resets each morning.'}</p></div>
         <article><span>PRO</span><strong>€10<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '10 Berichte pro Tag' : '10 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="pro" locale={locale}>{de ? 'Pro wählen' : 'Choose Pro'}</PlanButton>}</article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '100 Berichte pro Tag' : '100 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="ultra" locale={locale}>{de ? 'Ultra wählen' : 'Choose Ultra'}</PlanButton>}</article>
-      </section>
+      </section> : null}
       <p className="separation-note">{de ? 'Deine persönlichen Kontodaten werden in einer eigenen Datenbank gespeichert – getrennt von Immobilien-Berichten.' : 'Your personal account data is stored in its own database, separate from property reports.'}</p>
       {error ? <p className="form-error">{error}</p> : null}
     </section> : <section className="account-shell auth-shell">

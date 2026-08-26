@@ -9,6 +9,7 @@ export type AppEnv = CloudflareEnv & {
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_ULTRA?: string;
+  REPORT_LIMITS_ENABLED?: string;
 };
 
 export async function appEnvironment() {

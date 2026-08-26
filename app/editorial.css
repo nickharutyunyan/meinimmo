@@ -632,6 +632,10 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   gap: 6px;
 }
 
+.actions.single .new {
+  grid-column: 1 / -1;
+}
+
 .new,
 .upgrade {
   border-radius: 3px;

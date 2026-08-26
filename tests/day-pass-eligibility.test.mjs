@@ -14,3 +14,7 @@ test('the day pass appears only after both free reports are used', () => {
   assert.equal(canOfferDayPass({ kind: 'pro', limit: 10, used: 10, remaining: 0 }), false);
   assert.equal(canOfferDayPass({ kind: 'ultra', limit: 100, used: 100, remaining: 0 }), false);
 });
+
+test('the day pass remains hidden while report limits are feature-flagged off', () => {
+  assert.equal(canOfferDayPass({ limitsEnabled: false, kind: 'free', limit: 2, used: 2, remaining: 0 }), false);
+});

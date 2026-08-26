@@ -1,18 +1,25 @@
 import 'server-only';
 import type { NextRequest } from 'next/server';
-import { authDatabase } from './auth-db';
+import { appEnvironment, authDatabase } from './auth-db';
 import { anonymousToken, sessionUser } from './auth';
 import { sha256Hex } from './security';
+import { featureFlagEnabled } from './feature-flags';
 
 export type AccessKind = 'free' | 'day_pass' | 'pro' | 'ultra';
 export type AccessState = {
   authenticated: boolean;
+  limitsEnabled: boolean;
   kind: AccessKind;
   limit: number;
   used: number;
   remaining: number;
   resetAt: string;
 };
+
+export async function reportLimitsEnabled() {
+  const env = await appEnvironment();
+  return featureFlagEnabled(env.REPORT_LIMITS_ENABLED, false);
+}
 
 export type AllowanceReservation = {
   allowed: boolean;
@@ -81,11 +88,16 @@ async function currentAccess(userId: string | undefined, anonymous: string, date
 
 export async function accessState(request: NextRequest, anonymousTokenValue?: string): Promise<AccessState> {
   const user = await sessionUser(request);
+  const limitsEnabled = await reportLimitsEnabled();
+  if (!limitsEnabled) return {
+    authenticated: Boolean(user), limitsEnabled: false, kind: 'free',
+    limit: 2, used: 0, remaining: 2, resetAt: nextBerlinMidnight(),
+  };
   const anonymous = anonymousTokenValue || anonymousToken(request).token;
   const access = await currentAccess(user?.id, anonymous);
   if (access.kind === 'day_pass') {
     return {
-      authenticated: true,
+      authenticated: true, limitsEnabled: true,
       kind: access.kind,
       limit: access.limit,
       used: access.dayPass.reports_used,
@@ -97,11 +109,17 @@ export async function accessState(request: NextRequest, anonymousTokenValue?: st
   const usage = await db.prepare('SELECT report_count FROM daily_usage WHERE subject_key = ?1 AND usage_date = ?2')
     .bind(access.subject, access.usageDate).first<{ report_count: number }>();
   const used = usage?.report_count || 0;
-  return { authenticated: Boolean(user), kind: access.kind, limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
+  return { authenticated: Boolean(user), limitsEnabled: true, kind: access.kind, limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
 }
 
 export async function reserveReportAllowance(request: NextRequest, anonymousTokenValue?: string): Promise<AllowanceReservation> {
   const user = await sessionUser(request);
+  const limitsEnabled = await reportLimitsEnabled();
+  if (!limitsEnabled) return {
+    allowed: true,
+    userId: user?.id,
+    state: { authenticated: Boolean(user), limitsEnabled: false, kind: 'free', limit: 2, used: 0, remaining: 2, resetAt: nextBerlinMidnight() },
+  };
   const anonymous = anonymousTokenValue || anonymousToken(request).token;
   const access = await currentAccess(user?.id, anonymous);
   const db = await authDatabase();
@@ -114,7 +132,7 @@ export async function reserveReportAllowance(request: NextRequest, anonymousToke
       RETURNING reports_used
     `).bind(access.dayPass.id, now).first<{ reports_used: number }>();
     const used = updated?.reports_used ?? access.dayPass.reports_used;
-    const state: AccessState = { authenticated: true, kind: 'day_pass', limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
+    const state: AccessState = { authenticated: true, limitsEnabled: true, kind: 'day_pass', limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
     return {
       allowed: Boolean(updated), state, userId: user?.id,
       release: updated ? async () => { await db.prepare('UPDATE day_passes SET reports_used = MAX(0, reports_used - 1) WHERE id = ?1').bind(access.dayPass.id).run(); } : undefined,
@@ -128,7 +146,7 @@ export async function reserveReportAllowance(request: NextRequest, anonymousToke
     RETURNING report_count
   `).bind(access.subject, access.usageDate, now, access.limit).first<{ report_count: number }>();
   const used = updated?.report_count ?? access.limit;
-  const state: AccessState = { authenticated: Boolean(user), kind: access.kind, limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
+  const state: AccessState = { authenticated: Boolean(user), limitsEnabled: true, kind: access.kind, limit: access.limit, used, remaining: Math.max(0, access.limit - used), resetAt: access.resetAt };
   return {
     allowed: Boolean(updated), state, userId: user?.id,
     release: updated ? async () => { await db.prepare('UPDATE daily_usage SET report_count = MAX(0, report_count - 1), updated_at = ?3 WHERE subject_key = ?1 AND usage_date = ?2').bind(access.subject, access.usageDate, new Date().toISOString()).run(); } : undefined,
