@@ -13,7 +13,7 @@ export function ComparisonView({ first, second, locale }: { first: Report; secon
   const firstScore = calculatePropertyScore(first);
   const secondScore = calculatePropertyScore(second);
   const known = (value?: string) => localizedValue(value, locale) === copy[locale].report.notDisclosed ? '—' : localizedValue(value, locale);
-  const row = (label: string, a: string, b: string) => <><div className="metric"><GlossaryText>{label}</GlossaryText></div><div><GlossaryText>{a}</GlossaryText></div><div><GlossaryText>{b}</GlossaryText></div></>;
+  const row = (label: string, a: string, b: string) => <><div className="metric"><GlossaryText locale={locale}>{label}</GlossaryText></div><div><GlossaryText locale={locale}>{a}</GlossaryText></div><div><GlossaryText locale={locale}>{b}</GlossaryText></div></>;
 
   return <main className="comparison-page" lang={locale}>
     <SiteNav locale={locale} />

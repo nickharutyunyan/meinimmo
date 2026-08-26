@@ -122,7 +122,7 @@ function costsScore(report: Report) {
   let score = 5.5;
   if (housegeld && area) score = band(housegeld / area, [[3.5, 9], [5, 7.5], [7, 5.5], [9, 3.8]], 2.5);
   else if (report.propertyType === 'house') score = 6;
-  if (tenancy === 'Vacant' || tenancy === 'Owner-occupied') score += 0.4;
+  if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(tenancy || '')) score += 0.4;
   if (tenancy === 'Rented') score -= 0.3;
   if (buyerCosts && price && buyerCosts / price > 0.13) score -= 0.5;
   return clamp(score);

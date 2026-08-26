@@ -31,6 +31,6 @@ export function OfferQuestions({ report, locale }: { report: Report; locale: Loc
   return <section className="card offer-questions">
     <p className="eyebrow">{text.label}</p>
     <h2>{text.title}</h2>
-    <ol>{questions.map((question, index) => <li key={`${index}-${question}`}><span>{index + 1}</span><p><GlossaryText>{question}</GlossaryText></p></li>)}</ol>
+    <ol>{questions.map((question, index) => <li key={`${index}-${question}`}><span>{index + 1}</span><p><GlossaryText locale={locale}>{question}</GlossaryText></p></li>)}</ol>
   </section>;
 }

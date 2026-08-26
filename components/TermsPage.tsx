@@ -28,7 +28,7 @@ export function TermsPage({ locale }: { locale: Locale }) {
       <p className="eyebrow">{de ? 'KURZ & VERSTÄNDLICH' : 'PLAIN-LANGUAGE TERMS'}</p>
       <h1>{de ? 'Nutzungsbedingungen' : 'Terms of use'}</h1>
       <p className="terms-intro">{de ? 'Die wichtigsten Regeln ohne unnötiges Kleingedrucktes.' : 'The basic rules, without unnecessary legal fog.'}</p>
-      {sections.map(([title, body]) => <section key={title}><h2>{title}</h2><p><GlossaryText>{body}</GlossaryText></p></section>)}
+      {sections.map(([title, body]) => <section key={title}><h2>{title}</h2><p><GlossaryText locale={locale}>{body}</GlossaryText></p></section>)}
     </article>
     <SiteFooter locale={locale} />
   </main>;

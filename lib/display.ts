@@ -124,13 +124,16 @@ export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location
   const resolved = resolveLocation(report);
   const cleanAddress = displayAddress(report.address || '');
   const street = resolved.basis === 'address' || resolved.basis === 'street'
-    ? safePlace(streetOnly(cleanAddress, resolved.city) || report.facts.street)
+    ? safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || report.facts.street)
     : '';
   const district = preciseArea(known(report.facts.district)
     ? report.facts.district!.trim()
     : known(report.location) && report.location !== resolved.city ? report.location!.trim() : '', resolved.city);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';
-  const location = street || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
+  const streetLocation = street
+    ? resolved.exact ? street : `${locale === 'de' ? 'nahe' : 'near'} ${street}`
+    : '';
+  const location = streetLocation || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
   return location ? `${base} · ${location}` : base;
 }
 

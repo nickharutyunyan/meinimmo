@@ -25,7 +25,7 @@ export default function GuideIndex({ locale }: { locale: Locale }) {
           <div>
             <p className="eyebrow">{copy.kicker}</p>
             <h2><Link href={localePath(locale, `/guide/${article.slug}`)}>{copy.title}</Link></h2>
-            <p><GlossaryText>{copy.dek}</GlossaryText></p>
+            <p><GlossaryText locale={locale}>{copy.dek}</GlossaryText></p>
             <Link className="guide-read" href={localePath(locale, `/guide/${article.slug}`)}>
               {de ? 'Artikel lesen' : 'Read the story'} <span>↗</span>
             </Link>

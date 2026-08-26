@@ -85,8 +85,15 @@ test('uses explicit occupancy and condition evidence without inferring from gene
     <div>Zustand</div><div>Renovierungsbedürftig</div><div>Baujahr</div><div>1962</div>
     <div>Energieeffizienzklasse</div><div>F</div><div>Heizung</div><div>Gas</div>
     </main>`, 'https://example.test/available');
-  assert.equal(available.facts.tenancy, 'Available to move in');
+  assert.equal(available.facts.tenancy, 'Not rented');
   assert.equal(available.facts.condition, 'Needs renovation');
+
+  const ownerOccupied = parseListing(`
+    <title>Wohnung zum Kauf in Bonn</title><main><p>53113 Bonn</p>
+    <div>Kaufpreis</div><div>520.000 €</div><div>Wohnfläche</div><div>72 m²</div>
+    <div>Aktuelle Nutzung</div><div>Eigengenutzt</div><div>Baujahr</div><div>2001</div>
+    <div>Energieeffizienzklasse</div><div>C</div></main>`, 'https://example.test/owner-occupied');
+  assert.equal(ownerOccupied.facts.tenancy, 'Not rented');
 
   const unknown = parseListing(`
     <title>2-Zimmer-Wohnung in Leipzig-Südvorstadt</title><main>
@@ -98,7 +105,7 @@ test('uses explicit occupancy and condition evidence without inferring from gene
   assert.equal(unknown.facts.tenancy, undefined);
   assert.equal(unknown.facts.buyerCosts, undefined);
   assert.equal(unknown.facts.totalCost, 0);
-  assert.doesNotMatch(unknown.summary, /sold rented|available to move|owner-occupied/i);
+  assert.doesNotMatch(unknown.summary, /sold rented|not rented|available to move|owner-occupied/i);
 });
 
 test('normalizes a numeric labeled floor without pulling unrelated text', () => {
@@ -140,4 +147,68 @@ test('extracts compact inline facts before background verification finishes', ()
   assert.equal(report.facts.energy, 'D');
   assert.equal(report.facts.housegeld, 280);
   assert.equal(report.facts.transitStop, 'Eberswalder Straße');
+});
+
+test('parses an ImmoScout PDF export without confusing price per m² or the agency address', () => {
+  const report = parseListing(`
+    Großzügige 3-Raum-Altbauwohnung mit Balkon im Prenzlauer Berg
+    Prenzlauer Berg, 10439 Berlin
+    575.000 €
+    Kaufpreis 6.272 €/m²
+    91,68 m²
+    Wohnfläche ca.
+    Typ: Hochparterre
+    Etage: 1
+    Wohnfläche ca.: 91,68 m²
+    Bezugsfrei ab: sofort
+    Zimmer: 3
+    Kaufpreis: 575.000 €
+    Preis/m²: 6.272 €/m²
+    Hausgeld: 445 €
+    Provision für Käufer: Nein
+    46.000 €
+    Nebenkosten
+    621.000 €
+    Gesamtkosten
+    Baujahr: 1914
+    Objektzustand: Saniert
+    Heizungsart: Gas-Heizung
+    Energieträger: Gas
+    Energieausweistyp: Verbrauchsausweis
+    Endenergieverbrauch: 146,2 kWh/(m²*a)
+    Diese Immobilie befindet sich im Prenzlauer Berg direkt im Humann Kiez.
+    Der Humannplatz mit Grün- und Spielflächen ist in 5 Gehminuten erreichbar.
+    Einkaufsmöglichkeiten, Apotheken und die Carl-Humann-Grundschule liegen im direkten Umfeld.
+    Marcus Engel Immobilien
+    Gewerblich · Friedrich-Ebert-Str. 2, 16225 Eberswalde
+    Impressum
+  `, 'Prenzlauer Berg Exposé');
+
+  assert.equal(report.facts.price, 575000);
+  assert.equal(report.facts.area, 91.68);
+  assert.equal(report.facts.floor, 'Hochparterre');
+  assert.equal(report.facts.housegeld, 445);
+  assert.equal(report.facts.totalCost, 621000);
+  assert.equal(report.facts.tenancy, 'Not rented');
+  assert.equal(report.facts.condition, 'Renovated');
+  assert.equal(report.facts.district, 'Humannkiez');
+  assert.equal(report.title, '3-room flat · Humannkiez');
+  assert.equal(report.address, 'Address not stated');
+  assert.doesNotMatch(JSON.stringify(report), /Friedrich-Ebert|Eberswalde/);
+});
+
+test('uses near a named property street when no house number is disclosed', () => {
+  const report = parseListing(`
+    2-Zimmer-Wohnung zum Kauf
+    10439 Berlin, Prenzlauer Berg
+    Kaufpreis: 420.000 €
+    Wohnfläche: 64 m²
+    Lage: Die Wohnung liegt nahe der Danziger Straße.
+    Baujahr: 1910
+  `, 'Street Exposé');
+
+  assert.equal(report.facts.street, 'Danziger Straße');
+  assert.equal(report.facts.locationPrecision, 'street');
+  assert.equal(report.title, '2-room flat · near Danziger Straße');
+  assert.equal(report.address, 'Address not stated');
 });

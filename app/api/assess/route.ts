@@ -7,6 +7,8 @@ import { anonymousToken, attachAnonymousCookie } from '@/lib/auth';
 import { stableReportId } from '@/lib/report-id';
 import { neighborhoodForPostalCode } from '@/lib/geocode';
 import { refreshDerivedReport } from '@/lib/listing-parser';
+import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-source';
+import { deleteSourcePdf, saveSourcePdf } from '@/lib/source-storage';
 
 export const runtime = 'nodejs';
 
@@ -64,7 +66,30 @@ export async function POST(request: NextRequest) {
     });
   };
 
-  const input = await timed('input', () => request.json() as Promise<{ url?: string; text?: string; name?: string; locale?: 'en' | 'de' }>);
+  let uploadedPdf: { data: ArrayBuffer; displayName: string; size: number } | undefined;
+  const input = await timed('input', async () => {
+    if (!request.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data')) {
+      return request.json() as Promise<{ url?: string; text?: string; name?: string; locale?: 'en' | 'de' }>;
+    }
+    const form = await request.formData();
+    const locale = form.get('locale') === 'de' ? 'de' : 'en';
+    const file = form.get('file');
+    if (!file || typeof file === 'string') return { url: undefined, text: String(form.get('text') || ''), name: String(form.get('name') || ''), locale };
+    if (file.size < 5 || file.size > MAX_PDF_BYTES || (file.type && file.type !== 'application/pdf')) {
+      throw new Error(locale === 'de' ? 'pdf_invalid_de' : 'pdf_invalid_en');
+    }
+    const data = await file.arrayBuffer();
+    if (!hasPdfSignature(new Uint8Array(data, 0, 5))) throw new Error(locale === 'de' ? 'pdf_invalid_de' : 'pdf_invalid_en');
+    const displayName = cleanPdfDisplayName(String(form.get('name') || file.name), locale === 'de' ? 'Immobilien-Exposé' : 'Property Exposé');
+    uploadedPdf = { data, displayName, size: file.size };
+    return { url: undefined, text: String(form.get('text') || ''), name: displayName, locale };
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'pdf_invalid_de') return { inputError: 'Bitte lade ein gültiges PDF mit höchstens 15 MB hoch.', locale: 'de' as const };
+    if (message === 'pdf_invalid_en') return { inputError: 'Upload a valid PDF no larger than 15 MB.', locale: 'en' as const };
+    throw error;
+  });
+  if ('inputError' in input) return respond({ error: input.inputError }, 400);
   const de = input.locale === 'de';
   const quotaExceeded = (state: Awaited<ReturnType<typeof reserveReportAllowance>>['state']) => respond({
     error: de ? 'Du hast dein Berichtslimit für diesen Zeitraum erreicht.' : 'You have reached your report limit for this period.',
@@ -73,7 +98,7 @@ export async function POST(request: NextRequest) {
   }, 402);
 
   let text = input.text || '';
-  let source = input.name || 'PDF Exposé';
+  let source = cleanPdfDisplayName(input.name || (de ? 'Immobilien-Exposé' : 'Property Exposé'));
   let reportId: string | undefined;
   let existing: Awaited<ReturnType<typeof findReport>>;
 
@@ -104,8 +129,20 @@ export async function POST(request: NextRequest) {
   if (existing?.aiLocationChecked && existing.aiFactChecked && resolveLocation(existing).basis !== 'none') {
     const allowance = await timed('quota', () => reserveReportAllowance(request, anonymous.token));
     if (!allowance.allowed) return quotaExceeded(allowance.state);
-    remember(allowance.userId, existing.id);
-    return respond({ ...existing, access: allowance.state });
+    let cached = existing;
+    if (uploadedPdf) {
+      cached = { ...cached, source: uploadedPdf.displayName, sourceFile: { displayName: uploadedPdf.displayName, size: uploadedPdf.size } };
+      try {
+        await timed('pdfStore', () => saveSourcePdf(cached.id, uploadedPdf!.data, uploadedPdf!.displayName));
+        await timed('store', () => replaceReport(cached));
+      } catch {
+        await allowance.release?.();
+        await deleteSourcePdf(cached.id).catch(() => undefined);
+        return respond({ error: de ? 'Das PDF konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal.' : 'The PDF could not be saved right now. Please try again.' }, 503);
+      }
+    }
+    remember(allowance.userId, cached.id);
+    return respond({ ...cached, access: allowance.state });
   }
 
   const allowance = await timed('quota', () => reserveReportAllowance(request, anonymous.token));
@@ -116,6 +153,12 @@ export async function POST(request: NextRequest) {
     ? { ...prepared, id: existing.id, createdAt: existing.createdAt }
     : { ...prepared, id: reportId };
 
+  if (uploadedPdf) report = {
+    ...report,
+    source: uploadedPdf.displayName,
+    sourceFile: { displayName: uploadedPdf.displayName, size: uploadedPdf.size },
+  };
+
   if (resolveLocation(report).basis === 'none') {
     report = await timed('aiLocationFallback', () => enrichAssessment(report, text));
     if (resolveLocation(report).basis === 'none') {
@@ -125,12 +168,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (uploadedPdf) await timed('pdfStore', () => saveSourcePdf(report.id, uploadedPdf!.data, uploadedPdf!.displayName));
     await timed('store', () => existing ? replaceReport(report) : saveReport(report));
     if (!report.aiLocationChecked || !report.aiFactChecked) verifyLater(report, text);
     remember(allowance.userId, report.id);
     return respond({ ...report, access: allowance.state }, existing ? 200 : 201);
   } catch (error) {
     await timed('quotaRelease', () => allowance.release?.());
+    if (uploadedPdf) await deleteSourcePdf(report.id).catch(() => undefined);
     throw error;
   }
 }

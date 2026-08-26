@@ -17,6 +17,7 @@ import { OfferQuestions } from './OfferQuestions';
 import { Sidebar } from './Sidebar';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
+import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
@@ -125,15 +126,15 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
 
       <section className="verdict">
         <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{propertyScore.total.toFixed(2)}</strong><i>/ 10</i></span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{text.scoreExplainer}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{breakdown[key as keyof typeof breakdown].toFixed(1)}</b></span>)}</div></div></details></div>
-        <div className="verdict-copy"><h2>{propertyScoreTitle(propertyScore.total, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText>{paragraph}</GlossaryText></p>)}</div></div>
+        <div className="verdict-copy"><h2>{propertyScoreTitle(propertyScore.total, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
       <div className="report-grid">
         <div>
-          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText>{key}</GlossaryText></small><b><GlossaryText>{value}</GlossaryText></b></div>)}</div></section>
-          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{facts.features.map((feature) => <span key={feature}><GlossaryText>{feature}</GlossaryText></span>)}</div></section> : null}
-          <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText>{item}</GlossaryText></p></div>)}</section>
-          {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText>{item}</GlossaryText></p>)}</section> : null}
+          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
+          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{facts.features.map((feature) => <span key={feature}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
+          <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
+          {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText locale={locale}>{item}</GlossaryText></p>)}</section> : null}
           {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
         </div>
         <aside>
@@ -141,7 +142,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
           <ReportNote reportId={report.id} locale={locale} />
           <OfferQuestions report={report} locale={locale} />
           <AdSlot locale={locale} kind="finance" compact />
-          <section className="card source"><p className="eyebrow">{text.source}</p>{report.source.startsWith('http') ? <a href={report.source} target="_blank" rel="noreferrer">{text.original}</a> : <p>{report.source}</p>}<small>{text.saved} · {new Date(report.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></section>
+          <section className="card source"><p className="eyebrow">{text.source}</p>{report.source.startsWith('http') ? <a href={report.source} target="_blank" rel="noreferrer">{text.original}</a> : report.sourceFile ? <><p>{cleanPdfDisplayName(report.sourceFile.displayName)}</p><a href={`/api/reports/${report.id}/source`} download={pdfDownloadName(report.sourceFile.displayName)}>{text.downloadPdf}</a></> : <p>{cleanPdfDisplayName(report.source)}</p>}<small>{text.saved} · {new Date(report.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></section>
         </aside>
       </div>
 

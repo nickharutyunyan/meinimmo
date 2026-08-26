@@ -6,6 +6,7 @@ import { PlanButton } from './PlanButton';
 import { QuotaModal } from './QuotaModal';
 import { localePath, type Locale } from '@/lib/i18n';
 import { SiteFooter } from './SiteFooter';
+import { canOfferDayPass } from '@/lib/day-pass';
 
 type AccountState = {
   user: { username: string | null; email: string | null; name: string | null } | null;
@@ -94,7 +95,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
         </section>
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label><button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
-      {data.access.kind === 'free' && data.access.remaining === 0 ? <section className="day-pass-offer">
+      {canOfferDayPass(data.access) ? <section className="day-pass-offer">
         <div><p className="eyebrow">{de ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</p><h2>{de ? '50 weitere Berichte für heute.' : '50 more reports for today.'}</h2><p>{de ? 'Einmal 5 € zahlen, 24 Stunden nutzen. Der Pass endet automatisch.' : 'Pay €5 once and use them for 24 hours. The pass ends automatically.'}</p></div>
         <button onClick={() => setDayPassOpen(true)}>{de ? 'Tagespass für 5 € kaufen' : 'Buy the €5 day pass'}</button>
       </section> : null}

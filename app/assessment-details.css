@@ -17,7 +17,7 @@
   margin-top: 14px;
 }
 
-.feature-list span {
+.feature-list > span {
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;

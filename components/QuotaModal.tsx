@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { localePath, type Locale } from '@/lib/i18n';
+import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
 
 type User = { username: string | null; email: string | null; name: string | null };
 
@@ -12,17 +13,23 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [eligible, setEligible] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    fetch('/api/auth/me').then(async (response) => await response.json() as { user?: User | null; googleAvailable?: boolean; access?: { kind: string; remaining: number } }).then((data) => {
-      if (data.access?.kind === 'free' && data.access.remaining > 0 && new URLSearchParams(window.location.search).get('daypass') === '1') {
+    if (!open) {
+      setEligible(false);
+      return;
+    }
+    setEligible(false);
+    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { user?: User | null; googleAvailable?: boolean; access?: DayPassAccess }).then((data) => {
+      if (!canOfferDayPass(data.access)) {
         onClose();
         return;
       }
+      setEligible(true);
       setUser(data.user || null);
       setGoogle(Boolean(data.googleAvailable));
-    }).catch(() => undefined);
+    }).catch(onClose);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -61,7 +68,7 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
     await buyPass();
   }
 
-  if (!open) return null;
+  if (!open || !eligible) return null;
   const returnTo = `${localePath(locale)}?daypass=1`;
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="quota-modal" role="dialog" aria-modal="true" aria-labelledby="quota-title">

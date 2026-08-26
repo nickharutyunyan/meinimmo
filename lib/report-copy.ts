@@ -10,7 +10,9 @@ export function questionsAreConcise(value: unknown): value is string[] {
 }
 
 export function localizedSummary(report: Report, locale: Locale) {
-  if (locale === 'en') return report.summary;
+  if (locale === 'en') return report.summary
+    .replace('The listing states that it is available to move into; confirm the handover date in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.')
+    .replace('It is described as owner-occupied; confirm the agreed handover date and vacant possession in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.');
   const { facts } = report;
   const type = report.propertyType === 'flat' ? 'Wohnung' : 'Haus';
   const roomPrefix = stated(facts.rooms) ? `${facts.rooms.replace('.', ',')}-Zimmer-` : '';
@@ -29,11 +31,9 @@ export function localizedSummary(report: Report, locale: Locale) {
   const first = `Diese ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
   const occupancy = facts.tenancy === 'Rented'
     ? `Die Immobilie wird vermietet verkauft${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
-    : facts.tenancy === 'Available to move in'
-      ? 'Laut Angebot ist die Immobilie bezugsfrei. Lass den Übergabetermin im Kaufvertrag festhalten.'
-      : facts.tenancy === 'Owner-occupied'
-        ? 'Die Immobilie wird selbst genutzt. Kläre den Termin der freien Übergabe im Kaufvertrag.'
-        : '';
+    : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
+      ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
+      : '';
   const costs = facts.housegeld ? ` Das Hausgeld liegt laut Angebot bei ${facts.housegeld.toLocaleString('de-DE')} € im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
   const second = `${occupancy}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
@@ -68,8 +68,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   const questions: string[] = [];
   if (locale === 'de') {
     if (facts.tenancy === 'Rented') questions.push('Kann ich den Mietvertrag, die aktuelle Nettokaltmiete und die Zahlungshistorie sehen?');
-    else if (facts.tenancy === 'Available to move in') questions.push('Ab wann wird die Immobilie vollständig frei übergeben?');
-    else if (facts.tenancy === 'Owner-occupied') questions.push('Wann wird die Immobilie vollständig frei übergeben?');
+    else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('Wann wird die Immobilie vollständig frei übergeben?');
     else questions.push('Ist die Immobilie bei der Übergabe vermietet oder frei?');
     if (report.propertyType === 'flat') questions.push('Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
     if (facts.housegeld) questions.push(`Wie teilen sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld in umlagefähige und eigene Kosten?`);
@@ -81,8 +80,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   }
 
   if (facts.tenancy === 'Rented') questions.push('May I see the lease, current net cold rent and payment history?');
-  else if (facts.tenancy === 'Available to move in') questions.push('From what date will the property be vacant and ready to move into?');
-  else if (facts.tenancy === 'Owner-occupied') questions.push('When will the property be handed over vacant?');
+  else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('When will the property be handed over vacant?');
   else questions.push('Will the property be rented or vacant at handover?');
   if (report.propertyType === 'flat') questions.push('What is the WEG reserve, and are any Sonderumlagen planned?');
   if (facts.housegeld) questions.push(`How is the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld split between recoverable and owner-only costs?`);

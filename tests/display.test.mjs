@@ -68,9 +68,16 @@ test('uses the resolved neighborhood instead of its source postal code', () => {
 
 test('drops a bogus zero house number without losing the street', () => {
   const report = { ...base, address: 'Musterstraße 0, 10115 Berlin' };
-  assert.equal(reportTitle(report), '3-room flat · Musterstraße');
+  assert.equal(reportTitle(report), '3-room flat · near Musterstraße');
   assert.equal(reportSubtitle(report), 'Musterstraße, 10115 Berlin');
   assert.equal(resolveLocation(report).mapQuery, 'Musterstraße, 10115 Berlin, Germany');
+});
+
+test('labels a stated street without a house number as nearby, not exact', () => {
+  const report = { ...base, address: 'Address not stated', facts: { ...base.facts, district: undefined, postalCode: '10439', street: 'Danziger Straße', locationPrecision: 'street' } };
+  assert.equal(reportTitle(report), '3-room flat · near Danziger Straße');
+  assert.equal(reportTitle(report, 'de'), '3-Zimmer-Wohnung · nahe Danziger Straße');
+  assert.equal(reportSubtitle(report), 'Danziger Straße, 10439 Berlin');
 });
 
 test('canonicalizes tracking variants for duplicate detection', () => {

@@ -6,6 +6,7 @@ import { canonicalSource, reportTitle } from '@/lib/display';
 import type { Report } from '@/lib/types';
 import { copy, localePath, type Locale } from '@/lib/i18n';
 import { Brand } from './Brand';
+import { canOfferDayPass } from '@/lib/day-pass';
 
 export function Sidebar({ locale }: { locale: Locale }) {
   const [reports, setReports] = useState<Report[]>([]);
@@ -46,7 +47,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
     const pinDifference = Number(pinned.includes(b.id)) - Number(pinned.includes(a.id));
     return pinDifference || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }), [reports, pinned]);
-  const dayPassEligible = access?.kind === 'free' && access.remaining === 0;
+  const dayPassEligible = canOfferDayPass(access);
   const accessLabel = access?.kind === 'day_pass'
     ? text.passUsage
     : text.todayUsage;

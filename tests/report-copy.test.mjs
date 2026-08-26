@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copy } from '../lib/i18n.ts';
+import { copy, localizedValue } from '../lib/i18n.ts';
 import { localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
 
 const report = {
@@ -21,6 +21,17 @@ test('fallback offer questions stay short and cover material property-specific g
 
 test('unknown occupancy is omitted from summary instead of being guessed', () => {
   assert.doesNotMatch(localizedSummary(report, 'de'), /vermietet verkauft|bezugsfrei|selbst genutzt/i);
+});
+
+test('all explicit legacy non-rented states use the new rental-status wording', () => {
+  for (const value of ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied']) {
+    assert.equal(localizedValue(value, 'en'), 'Not rented');
+    assert.equal(localizedValue(value, 'de'), 'Nicht vermietet');
+  }
+  const notRented = { ...report, facts: { ...report.facts, tenancy: 'Not rented' }, summary: 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.' };
+  assert.match(localizedSummary(notRented, 'en'), /not rented/i);
+  assert.match(localizedSummary(notRented, 'de'), /nicht vermietet/i);
+  assert.doesNotMatch(localizedSummary(notRented, 'en'), /available to move/i);
 });
 
 test('removed reasoning copy is not exposed in either language', () => {

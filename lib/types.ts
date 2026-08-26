@@ -52,6 +52,10 @@ export type Report = {
   location?: string;
   propertyType: 'flat' | 'house';
   source: string;
+  sourceFile?: {
+    displayName: string;
+    size: number;
+  };
   createdAt: string;
   facts: Facts;
   score: number;

@@ -26,7 +26,7 @@ export async function createCheckout(user: SessionUser, plan: BillingPlan, origi
   if (plan !== 'day_pass' && !price) throw new Error('stripe_price_not_configured');
   const prefix = locale === 'de' ? '/de' : '';
   const subscription = plan !== 'day_pass';
-  const params: Stripe.Checkout.SessionCreateParams = {
+  const checkoutParams = (customerId?: string): Stripe.Checkout.SessionCreateParams => ({
     mode: subscription ? 'subscription' : 'payment',
     integration_identifier: integrationIdentifier(),
     success_url: `${origin}${prefix}/account?payment=success`,
@@ -40,10 +40,18 @@ export async function createCheckout(user: SessionUser, plan: BillingPlan, origi
     ...(subscription ? {
       allow_promotion_codes: true,
       subscription_data: { metadata: { user_id: user.id, plan } },
-    } : { customer_creation: 'always' as const }),
-    ...(user.stripeCustomerId ? { customer: user.stripeCustomerId } : user.email ? { customer_email: user.email } : {}),
-  };
-  return (await stripeClient()).checkout.sessions.create(params, { idempotencyKey: `checkout_${user.id}_${plan}_${crypto.randomUUID()}` });
+    } : !customerId ? { customer_creation: 'always' as const } : {}),
+    ...(customerId ? { customer: customerId } : user.email ? { customer_email: user.email } : {}),
+  });
+  const stripe = await stripeClient();
+  const attempt = crypto.randomUUID();
+  try {
+    return await stripe.checkout.sessions.create(checkoutParams(user.stripeCustomerId || undefined), { idempotencyKey: `checkout_${user.id}_${plan}_${attempt}` });
+  } catch (error) {
+    const stripeError = error as { code?: string; param?: string };
+    if (!user.stripeCustomerId || stripeError.code !== 'resource_missing' || stripeError.param !== 'customer') throw error;
+    return stripe.checkout.sessions.create(checkoutParams(), { idempotencyKey: `checkout_${user.id}_${plan}_${attempt}_fresh` });
+  }
 }
 
 export async function createBillingPortal(user: SessionUser, origin: string, locale: 'en' | 'de') {

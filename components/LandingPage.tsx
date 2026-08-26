@@ -8,6 +8,9 @@ import { copy, localePath, type Locale } from '@/lib/i18n';
 import { QuotaModal } from './QuotaModal';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
+import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
+import { MAX_PDF_BYTES } from '@/lib/pdf-source';
+import { pdfTextFromItems } from '@/lib/pdf-text';
 
 export function LandingPage({ locale }: { locale: Locale }) {
   const router = useRouter();
@@ -18,14 +21,22 @@ export function LandingPage({ locale }: { locale: Locale }) {
   const text = copy[locale].home;
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('daypass') === '1') setQuotaOpen(true);
-    fetch('/api/auth/me').then(async (response) => await response.json() as { access?: { kind: string; remaining: number } }).then((data) => {
-      setDayPassEligible(data.access?.kind === 'free' && data.access.remaining === 0);
+    const requestedDayPass = new URLSearchParams(window.location.search).get('daypass') === '1';
+    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess }).then((data) => {
+      const eligible = canOfferDayPass(data.access);
+      setDayPassEligible(eligible);
+      if (requestedDayPass && eligible) setQuotaOpen(true);
+      if (requestedDayPass && !eligible) history.replaceState(null, '', window.location.pathname);
     }).catch(() => undefined);
   }, []);
 
-  async function assess(payload: object) {
-    const response = await fetch('/api/assess', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, locale }) });
+  async function assess(payload: object | FormData) {
+    const formData = payload instanceof FormData ? payload : null;
+    if (formData) formData.set('locale', locale);
+    const response = await fetch('/api/assess', {
+      method: 'POST',
+      ...(formData ? { body: formData } : { headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, locale }) }),
+    });
     const data = await response.json() as { error?: string; id?: string; code?: string };
     if (!response.ok || !data.id) {
       if (data.code === 'quota_exceeded') {
@@ -49,6 +60,10 @@ export function LandingPage({ locale }: { locale: Locale }) {
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_PDF_BYTES) {
+      setStatus(locale === 'de' ? 'Das PDF darf höchstens 15 MB groß sein.' : 'The PDF must be 15 MB or smaller.');
+      return;
+    }
     setStatus(text.readingPdf);
     try {
       const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -57,13 +72,17 @@ export function LandingPage({ locale }: { locale: Locale }) {
       let content = '';
       for (let page = 1; page <= pdf.numPages; page += 1) {
         const pageContent = await pdf.getPage(page).then((item) => item.getTextContent());
-        content += pageContent.items.map((item) => ('str' in item ? item.str : '')).join(' ') + '\n';
+        content += pdfTextFromItems(pageContent.items) + '\n';
       }
       if (content.trim().length < 150) {
         setStatus(text.scannedPdf);
         return;
       }
-      await assess({ text: content, name: file.name });
+      const payload = new FormData();
+      payload.set('text', content);
+      payload.set('name', file.name);
+      payload.set('file', file, file.name);
+      await assess(payload);
     } catch {
       setStatus(text.pdfError);
     }
@@ -87,11 +106,11 @@ export function LandingPage({ locale }: { locale: Locale }) {
       </div>
     </section>
     <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><h2>{text.approachTitle}</h2></section>
-    <section className="steps">{text.steps.map(([title, description], index) => <div key={title}><b>{String(index + 1).padStart(2, '0')}</b><h2>{title}</h2><p><GlossaryText>{description}</GlossaryText></p></div>)}</section>
+    <section className="steps">{text.steps.map(([title, description], index) => <div key={title}><b>{String(index + 1).padStart(2, '0')}</b><h2>{title}</h2><p><GlossaryText locale={locale}>{description}</GlossaryText></p></div>)}</section>
     <AdSlot locale={locale} kind="finance" />
     <section id="faq" className="faq-section">
       <div className="faq-intro"><p className="eyebrow">{text.faqLabel}</p><h2>{text.faqTitle}</h2><p>{text.faqIntro}</p></div>
-      <div className="faq-list">{text.faqs.map(([question, answer], index) => <details key={question} open={index === 0}><summary><span>{String(index + 1).padStart(2, '0')}</span>{question}</summary><p><GlossaryText>{answer}</GlossaryText></p></details>)}</div>
+      <div className="faq-list">{text.faqs.map(([question, answer], index) => <details key={question} open={index === 0}><summary><span>{String(index + 1).padStart(2, '0')}</span>{question}</summary><p><GlossaryText locale={locale}>{answer}</GlossaryText></p></details>)}</div>
     </section>
     <QuotaModal open={quotaOpen} locale={locale} onClose={() => {
       setQuotaOpen(false);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { accessState } from '@/lib/access';
+import { canOfferDayPass } from '@/lib/day-pass';
 import { requireSameOrigin, sessionUser } from '@/lib/auth';
 import { createCheckout, type BillingPlan } from '@/lib/stripe';
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
   const input = await request.json() as { plan?: BillingPlan; locale?: 'en' | 'de' };
   if (!input.plan || !['day_pass', 'pro', 'ultra'].includes(input.plan)) return NextResponse.json({ error: 'Unknown plan.' }, { status: 400 });
   const access = await accessState(request);
-  if (input.plan === 'day_pass' && (access.kind !== 'free' || access.remaining > 0)) return NextResponse.json({ error: 'The day pass is only available after both free reports have been used.' }, { status: 409 });
+  if (input.plan === 'day_pass' && !canOfferDayPass(access)) return NextResponse.json({ error: 'The day pass is only available after both free reports have been used.' }, { status: 409 });
   if (input.plan !== 'day_pass' && (access.kind === 'pro' || access.kind === 'ultra')) return NextResponse.json({ error: 'Manage the current subscription from your account.' }, { status: 409 });
   try {
     const checkout = await createCheckout(user, input.plan, request.nextUrl.origin, input.locale === 'de' ? 'de' : 'en');

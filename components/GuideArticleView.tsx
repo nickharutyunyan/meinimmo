@@ -79,13 +79,13 @@ export default function GuideArticleView({ article, locale }: { article: GuideAr
         {copy.sections.map((section, index) => <section key={section.heading}>
           <span className="guide-section-number">{String(index + 1).padStart(2, '0')}</span>
           <h2>{section.heading}</h2>
-          {section.paragraphs.map((paragraph) => <p key={paragraph}><GlossaryText>{paragraph}</GlossaryText></p>)}
+          {section.paragraphs.map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}
           {section.googleMaps && !section.map && <a className="guide-street-link" href={googleMapsUrl(section.googleMaps.query)} target="_blank" rel="noreferrer">
             <span aria-hidden="true">⌖</span> {section.googleMaps.label} <b aria-hidden="true">↗</b>
           </a>}
           {section.stops && <div className="guide-stop-list" aria-label={de ? 'Empfohlene Stopps' : 'Recommended stops'}>
             {section.stops.map((place) => <a href={googleMapsUrl(place.query || place.name)} target="_blank" rel="noreferrer" key={place.name}>
-              <strong>{place.name} <span aria-hidden="true">↗</span></strong><small><GlossaryText>{place.detail}</GlossaryText></small>
+              <strong>{place.name} <span aria-hidden="true">↗</span></strong><small><GlossaryText locale={locale}>{place.detail}</GlossaryText></small>
             </a>)}
           </div>}
           {section.map && <div className="guide-map-block">
@@ -93,7 +93,7 @@ export default function GuideArticleView({ article, locale }: { article: GuideAr
             <div className="guide-map-notes">
               <p className="eyebrow">{de ? 'ORTE AUF DER KARTE' : 'PLACES ON THE MAP'}</p>
               <h3>{section.map.label}</h3>
-              {section.map.places.map((place) => <div key={place.name}><a className="guide-place-link" href={googleMapsUrl(place.query || `${place.name}, ${section.map!.query}`)} target="_blank" rel="noreferrer">{place.name} <span aria-hidden="true">↗</span></a><p><GlossaryText>{place.detail}</GlossaryText></p></div>)}
+              {section.map.places.map((place) => <div key={place.name}><a className="guide-place-link" href={googleMapsUrl(place.query || `${place.name}, ${section.map!.query}`)} target="_blank" rel="noreferrer">{place.name} <span aria-hidden="true">↗</span></a><p><GlossaryText locale={locale}>{place.detail}</GlossaryText></p></div>)}
               <div className="guide-map-links">
                 <a href={googleMapsUrl(section.googleMaps?.query || section.map.query)} target="_blank" rel="noreferrer">{section.googleMaps?.label || (de ? 'In Google Maps öffnen' : 'Open in Google Maps')} <span aria-hidden="true">↗</span></a>
                 <a href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(section.map.query)}`} target="_blank" rel="noreferrer">{de ? 'OpenStreetMap öffnen' : 'OpenStreetMap'} <span aria-hidden="true">↗</span></a>
