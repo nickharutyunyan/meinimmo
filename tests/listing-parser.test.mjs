@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseListing } from '../lib/listing-parser.ts';
+import { looksLikePropertyListing, parseListing } from '../lib/listing-parser.ts';
 
 const tableRow = (label, value) => `<tr><td><div>${label}</div></td><td><div>${value}</div></td></tr>`;
 
@@ -47,6 +47,63 @@ test('keeps publisher metadata out of the property location and separates living
   assert.equal(report.facts.energySource, 'Fernwärme');
   assert.match(report.daylight || '', /daylight/i);
   assert.ok(!JSON.stringify(report).includes('Reinbek'));
+});
+
+test('accepts and accurately parses an English-language Berlin Exposé PDF', () => {
+  const pdfText = `
+    A&S Property Berlin Brandenburg GmbH
+    A modern duplex apartment with a balcony and a share of the garden
+    Graunstr. 6
+    13355 Berlin
+    A&S Property Berlin Brandenburg GmbH
+    Uthmannstr. 13, 12043 Berlin
+    Ansprechpartnerin: Tetyana Stammo
+    OBJEKTDATEN
+    Type of property Apartment
+    Kind of property Duplex apartment
+    Type of commercialization Purchase
+    Neubau/Altbau New construction
+    Living area approx. 73 sqm
+    Room 2
+    Heating type Central heating system, Underfloor heating
+    Elevator Lift
+    Year of construction 2025
+    Condition First occupancy
+    Energy certificate Requirement-oriented certificate
+    Final energy demand 26,6 kWh/(m2a)
+    Main energy source Gas
+    Energy efficiency class A+
+    Purchase price 499.000,00 e
+    External commission 3.00 % plus VAT of the notarized purchase
+    price
+    Community fees 333,00 e
+    Property description
+    The upper level features a sleeping area with a sunny balcony.
+    LOCATION
+    The property is located in the northern part of Berlin-Mitte, right next to Mauerpark.
+  `;
+
+  assert.equal(looksLikePropertyListing(pdfText), true);
+  const report = parseListing(pdfText, 'Expose Maisonette Berlin.pdf');
+  assert.equal(report.title, '2-room flat · Graunstr. 6');
+  assert.equal(report.address, 'Graunstr. 6, 13355 Berlin');
+  assert.equal(report.facts.street, 'Graunstr. 6');
+  assert.equal(report.facts.district, 'Mitte');
+  assert.equal(report.facts.price, 499000);
+  assert.equal(report.facts.area, 73);
+  assert.equal(report.facts.rooms, '2');
+  assert.equal(report.facts.year, '2025');
+  assert.equal(report.facts.energy, 'A+');
+  assert.equal(report.facts.energyDemand, 26.6);
+  assert.equal(report.facts.housegeld, 333);
+  assert.equal(report.facts.condition, 'New build');
+  assert.equal(report.facts.buyerCommission, '3.00 % plus VAT of the notarized purchase price');
+  assert.equal(report.sunOrientation, 'Sunny balcony stated');
+  assert.doesNotMatch(JSON.stringify(report), /Uthmannstr/);
+});
+
+test('English text still needs several independent property signals', () => {
+  assert.equal(looksLikePropertyListing('Purchase planning document for an apartment team. Room 2 contains general meeting notes and a Berlin office postcode 10115.'), false);
 });
 
 test('extracts buyer commission only from explicit listing evidence', () => {

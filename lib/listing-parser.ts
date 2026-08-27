@@ -89,7 +89,7 @@ function statedBuyerCommission(lines: string[], title: string) {
   const commissionFree = /\b(?:provisionsfrei(?:e[snrm]?)?|courtagefrei(?:e[snrm]?)?|ohne\s+(?:K[aä]uferprovision|Maklerprovision|Courtage)|keine\s+(?:zus[aä]tzliche\s+)?(?:K[aä]uferprovision|Maklerprovision|Courtage)|keine\s+Provision\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)\b/i;
   if (relevant.some(line => commissionFree.test(line))) return 'Commission-free';
 
-  const label = /^(?:K[aä]uferprovision|Maklerprovision|Provision|Courtage)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*:?$/i;
+  const label = /^(?:K[aä]uferprovision|Maklerprovision|Provision|Courtage|External commission)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*:?$/i;
   const statedValue = /^((?:\d{1,3}(?:[.,]\d{1,4})?\s*%|\d[\d.\s]*(?:,\d{1,2})?\s*(?:€|EUR))(?:\s*.{0,55})?)$/i;
   for (let index = 0; index < lines.length; index += 1) {
     if (!label.test(lines[index])) continue;
@@ -100,7 +100,14 @@ function statedBuyerCommission(lines: string[], title: string) {
     }
   }
 
-  const inline = firstMatch(relevant, /\b(?:K[aä]uferprovision|Maklerprovision|Courtage)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*[:\-]?\s*((?:\d{1,3}(?:[.,]\d{1,4})?\s*%|\d[\d.\s]*(?:,\d{1,2})?\s*(?:€|EUR))(?:\s*.{0,55})?)/i);
+  const externalLines = relevant
+    .map((line, index) => /\bExternal commission\b/i.test(line) ? `${line} ${relevant[index + 1] || ''}` : '')
+    .filter(Boolean);
+  const externalInline = firstMatch(externalLines, /\bExternal commission\s*[:\-]?\s*((?:\d{1,3}(?:[.,]\d{1,4})?\s*%)(?:\s*.{0,85})?)/i);
+  if (externalInline) return externalInline;
+
+  const commissionLines = relevant;
+  const inline = firstMatch(commissionLines, /\b(?:K[aä]uferprovision|Maklerprovision|Courtage|External commission)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*[:\-]?\s*((?:\d{1,3}(?:[.,]\d{1,4})?\s*%|\d[\d.\s]*(?:,\d{1,2})?\s*(?:€|EUR))(?:\s*.{0,85})?)/i);
   if (!inline) return '';
   return number(inline) === 0 ? 'Commission-free' : inline;
 }
@@ -112,8 +119,8 @@ function plausiblePurchasePrice(value: string) {
 
 function purchasePrice(lines: string[]) {
   const labeled = [
-    /\bKaufpreis\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)(?!\s*\/\s*(?:m²|qm))/i,
-    /\b([\d.]+(?:,\d+)?)\s*(?:€|EUR)\s*(?:Kaufpreis|asking\s+price)\b(?!\s*\/)/i,
+    /\b(?:Kaufpreis|Purchase price|Asking price)\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR|e(?=\s|$))(?!\s*\/\s*(?:m²|qm|sqm))/i,
+    /\b([\d.]+(?:,\d+)?)\s*(?:€|EUR|e(?=\s))\s*(?:Kaufpreis|purchase\s+price|asking\s+price)\b(?!\s*\/)/i,
   ];
   for (const expression of labeled) {
     for (const line of lines) {
@@ -124,7 +131,7 @@ function purchasePrice(lines: string[]) {
   }
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (!/^Kaufpreis\s*:?$/i.test(lines[index])) continue;
+    if (!/^(?:Kaufpreis|Purchase price|Asking price)\s*:?$/i.test(lines[index])) continue;
     for (const candidate of [...lines.slice(Math.max(0, index - 2), index).reverse(), ...lines.slice(index + 1, index + 4)]) {
       if (/\/(?:m²|qm)|\b(?:mtl\.?|monat|hausgeld|nebenkosten|gesamtkosten|eigenkapital)\b/i.test(candidate)) continue;
       const rawAmount = candidate.match(/([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)?.[1];
@@ -207,25 +214,27 @@ function visibleLocation(lines: string[], title: string) {
   const microNeighborhood = kiezStem ? `${kiezStem.replace(/-$/u, '')}kiez` : '';
   const city = namedCity || tidy(postal?.[2] || '').match(/^([A-ZÄÖÜ][\p{L}äöüß.-]+)/u)?.[1] || '';
   const titleArea = city ? title.match(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*([\\p{L}ÄÖÜäöüß][\\p{L}ÄÖÜäöüß -]{1,45}?)(?:\\s*[|·–—]|$)`, 'iu')) : undefined;
+  const statedCityArea = city ? text.match(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*([A-ZÄÖÜ][\\p{L}äöüß-]{2,35})\\b`, 'iu'))?.[1] : '';
   return {
     postalCode: postal?.[1] || '',
     city: tidy(city),
-    district: tidy(microNeighborhood || postal?.[3] || streetArea?.[2] || labeledDistrict || titleArea?.[1] || ''),
+    district: tidy(microNeighborhood || postal?.[3] || streetArea?.[2] || labeledDistrict || titleArea?.[1] || statedCityArea || ''),
   };
 }
 
 function agencyContext(lines: string[], index: number) {
-  return lines.slice(Math.max(0, index - 2), index + 2).some(line => /\b(?:Makler|Anbieter|Anbietende|Gewerblich|Impressum|Immobilienb(?:ü|u)ro|Scout-ID|Objekt-ID|Kontakt)\b/i.test(line));
+  return lines.slice(Math.max(0, index - 2), index + 2).some(line => /\b(?:Makler|Anbieter|Anbietende|Gewerblich|Impressum|Immobilienb(?:ü|u)ro|Scout-ID|Objekt-ID|Kontakt|Ansprechpartner(?:in)?|Phone|Mobile|Email)\b/i.test(line));
 }
 
 function visibleAddress(lines: string[], expectedCity: string, expectedPostal: string) {
   const expression = new RegExp(`\\b(${STREET_NAME}\\s+\\d{1,4}[a-z]?)\\s*,?\\s+(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
   for (let index = 0; index < Math.min(lines.length, 500); index += 1) {
-    const match = lines[index].match(expression);
+    const candidate = `${lines[index]} ${lines[index + 1] || ''}`;
+    const match = candidate.match(expression);
     if (!match || agencyContext(lines, index)) continue;
     if (expectedPostal && match[2] !== expectedPostal) continue;
     if (expectedCity && match[3].localeCompare(expectedCity, 'de', { sensitivity: 'base' }) !== 0) continue;
-    return tidy(match[0]);
+    return tidy(`${match[1]}, ${match[2]} ${match[3]}`);
   }
   return '';
 }
@@ -280,7 +289,7 @@ export function normalizedCondition(value: string, context = '') {
   if (/\b(?:modernisierungsbed[uü]rftig|needs\s+moderni[sz]ation)\b/i.test(evidence)) return 'Needs modernization';
   if (/\b(?:im\s+bau|bauprojekt|projektiert|fertigstellung\s+(?:voraussichtlich|geplant)|under\s+construction)\b/i.test(evidence)) return 'Under construction';
   if (/\b(?:erstbezug\s+nach\s+(?:komplett)?sanierung|kernsaniert|vollst[aä]ndig\s+saniert|saniert|renoviert|fully\s+renovated)\b/i.test(evidence)) return 'Renovated';
-  if (/\b(?:neubau(?:wohnung|haus)?|new\s+build)\b/i.test(evidence)) return 'New build';
+  if (/\b(?:neubau(?:wohnung|haus)?|new\s+(?:build|construction)|first\s+occupancy\s+after\s+new\s+construction)\b/i.test(evidence)) return 'New build';
   if (/\b(?:gepflegt|well\s+maintained)\b/i.test(evidence)) return 'Well maintained';
   return explicit && explicit.length <= 60 && !/^(?:-|0|n\/a|keine\s+angabe)$/i.test(explicit) ? explicit : undefined;
 }
@@ -369,21 +378,21 @@ export function parseListing(raw: string, source: string): Report {
   const lines = htmlToLines(raw);
   const text = lines.join(' \n ');
   const title = pageTitle(raw);
-  const currency = /([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i;
-  const areaValue = /([\d.]+(?:,\d+)?)\s*(?:m²|qm)/i;
+  const currency = /([\d.]+(?:,\d+)?)\s*(?:€|EUR|e(?=\s|$))/i;
+  const areaValue = /([\d.]+(?:,\d+)?)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
 
   const price = purchasePrice(lines);
-  const area = number(firstMatch(lines, /\bWohnfl[aä]che(?:\s+ca\.?)?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm)/i)
-    || aroundLabel(lines, /^Wohnfl[aä]che(?:\s+ca\.?)?$/i, areaValue, 3, 3)
-    || firstMatch(lines, /\b([\d.,]+)\s*(?:m²|qm)\s+Wohnfl[aä]che/i));
-  const usableArea = number(firstMatch(lines, /\bNutzfl[aä]che(?:\s+ca\.?)?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm)/i)
-    || aroundLabel(lines, /^Nutzfl[aä]che(?:\s+ca\.?)?$/i, areaValue, 1, 3));
-  const roomsValue = firstMatch(lines, /\b(?:Zimmer|Anzahl Zimmer)\s*[:\-]\s*(\d+(?:[,.]\d+)?)(?!\s*%)/i)
-    || aroundLabel(lines, /^(?:Zimmer|Anzahl Zimmer)$/i, /^(\d+(?:[,.]\d+)?)$/, 2, 2)
-    || firstMatch([title, ...lines.slice(0, 250)], /\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|Raum(?:wohnung)?)/i);
+  const area = number(firstMatch(lines, /\b(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
+    || aroundLabel(lines, /^(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 3, 3)
+    || firstMatch(lines, /\b([\d.,]+)\s*(?:m²|qm|sqm|sq\.?\s*m)\s+(?:Wohnfl[aä]che|Living area)/i));
+  const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
+    || aroundLabel(lines, /^(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 1, 3));
+  const roomsValue = firstMatch(lines, /\b(?:Zimmer|Anzahl Zimmer|Rooms?)\s*[:\-]?\s*(\d+(?:[,.]\d+)?)(?!\s*%)/i)
+    || aroundLabel(lines, /^(?:Zimmer|Anzahl Zimmer|Rooms?)$/i, /^(\d+(?:[,.]\d+)?)$/, 2, 2)
+    || firstMatch([title, ...lines.slice(0, 250)], /\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|Raum(?:wohnung)?|rooms?)\b/i);
   const rooms = roomsValue || UNKNOWN;
-  const yearValue = aroundLabel(lines, /^Baujahr$/i, /\b(18\d{2}|19\d{2}|20\d{2})\b/, 0, 3)
-    || firstMatch(lines, /\bBaujahr\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})\b/i)
+  const yearValue = aroundLabel(lines, /^(?:Baujahr|Year of construction)$/i, /\b(18\d{2}|19\d{2}|20\d{2})\b/, 0, 3)
+    || firstMatch(lines, /\b(?:Baujahr|Year of construction)\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})\b/i)
     || firstMatch([title, ...lines], /\b(18\d{2}|19\d{2}|20\d{2})\s+(?:errichtet|erbaut)/i);
   const year = yearValue || UNKNOWN;
   const floorRaw = firstMatch(lines, /\bTyp\s*[:\-]\s*(Hochparterre)\b/i)
@@ -391,20 +400,20 @@ export function parseListing(raw: string, source: string): Report {
     || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3)
     || firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
   const floor = normalizedFloor(floorRaw) || UNKNOWN;
-  const heating = firstMatch(lines, /\b(?:Heizung|Heizungsart)\s*[:\-]\s*([^|;]{3,45})$/i)
-    || aroundLabel(lines, /^(?:Heizung|Heizungsart)$/i, /^(.{3,45})$/, 0, 2) || UNKNOWN;
-  const energySource = firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger)\s*[:\-]\s*([^|;]{3,45})$/i)
-    || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger)$/i, /^(.{3,45})$/, 0, 2) || undefined;
-  const energyDemand = number(firstMatch(lines, /\bEndenergie(?:bedarf|verbrauch)\s*[:\-]\s*([\d.,]+)\s*kWh/i)
-    || aroundLabel(lines, /^Endenergie(?:bedarf|verbrauch)$/i, /([\d.,]+)\s*kWh/i, 0, 2));
-  const energy = aroundLabel(lines, /^Energieeffizienzklasse$/i, /^([A-H](?:\+)?)$/i, 0, 3)
-    || firstMatch(lines, /\bEnergieeffizienzklasse\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
+  const heating = firstMatch(lines, /\b(?:Heizung|Heizungsart|Heating type)\s*[:\-]?\s*([^|;]{3,70})$/i)
+    || aroundLabel(lines, /^(?:Heizung|Heizungsart|Heating type)$/i, /^(.{3,70})$/, 0, 2) || UNKNOWN;
+  const energySource = firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)\s*[:\-]?\s*([^|;]{2,45})$/i)
+    || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)$/i, /^(.{2,45})$/, 0, 2) || undefined;
+  const energyDemand = number(firstMatch(lines, /\b(?:Endenergie(?:bedarf|verbrauch)|Final energy demand)\s*[:\-]?\s*([\d.,]+)\s*kWh/i)
+    || aroundLabel(lines, /^(?:Endenergie(?:bedarf|verbrauch)|Final energy demand)$/i, /([\d.,]+)\s*kWh/i, 0, 2));
+  const energy = aroundLabel(lines, /^(?:Energieeffizienzklasse|Energy efficiency class)$/i, /^([A-H](?:\+)?)$/i, 0, 3)
+    || firstMatch(lines, /\b(?:Energieeffizienzklasse|Energy efficiency class)\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
     || energyClassFromDemand(energyDemand)
     || UNKNOWN;
-  const energyCertificate = firstMatch(lines, /\bEnergie\s*ausweistyp\s*[:\-]\s*([^|;]{3,45})$/i)
-    || aroundLabel(lines, /^Energieausweistyp$/i, /^(.{3,45})$/, 0, 2) || undefined;
-  const conditionRaw = firstMatch(lines, /\b(?:Zustand|Objektzustand|Bauzustand)\s*[:\-]\s*([^|;]{3,60})$/i)
-    || aroundLabel(lines, /^(?:Zustand|Objektzustand|Bauzustand)$/i, /^(.{3,60})$/, 0, 2);
+  const energyCertificate = firstMatch(lines, /\b(?:Energie\s*ausweistyp|Energy certificate)\s*[:\-]?\s*([^|;]{3,60})$/i)
+    || aroundLabel(lines, /^(?:Energieausweistyp|Energy certificate)$/i, /^(.{3,60})$/, 0, 2) || undefined;
+  const conditionRaw = firstMatch(lines, /\b(?:Zustand|Objektzustand|Bauzustand|Condition)\s*[:\-]?\s*([^|;]{3,60})$/i)
+    || aroundLabel(lines, /^(?:Zustand|Objektzustand|Bauzustand|Condition)$/i, /^(.{3,60})$/, 0, 2);
   const condition = normalizedCondition(conditionRaw, `${title} ${lines.slice(0, 120).join(' ')}`);
   const tenancyRaw = aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2);
   const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
@@ -415,8 +424,8 @@ export function parseListing(raw: string, source: string): Report {
   const tenancy = normalizedTenancy(tenancyRaw, `${title} ${availabilityPhrase} ${tenancyEvidence}`);
   const availabilityDate = extractAvailabilityDate(lines);
   const advertisedYield = number(firstMatch([title, ...lines], /([\d,.]+)\s*%\s*(?:Rendite|return)/i) || firstMatch(lines, /(?:Rendite|return)\s*(?:von|:)?\s*([\d,.]+)\s*%/i));
-  const housegeld = number(aroundLabel(lines, /^Hausgeld(?:\s+mtl\.)?$/i, currency, 0, 3)
-    || firstMatch(lines, /\bHausgeld\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i));
+  const housegeld = number(aroundLabel(lines, /^(?:Hausgeld(?:\s+mtl\.)?|Community fees)$/i, currency, 0, 3)
+    || firstMatch(lines, /\b(?:Hausgeld|Community fees)\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR|e(?=\s|$))/i));
   const buyerCosts = number(firstMatch(lines, /\b(?:Kaufnebenkosten|Nebenkosten)(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
     || aroundLabel(lines, /^(?:Kaufnebenkosten|Nebenkosten)(?:\s+ca\.)?$/i, currency, 2, 3));
   const explicitTotalCandidate = number(firstMatch(lines, /\bGesamtkosten(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
@@ -447,14 +456,16 @@ export function parseListing(raw: string, source: string): Report {
   const features = featuresText ? featuresText.split(/,|·/).map(tidy)
     .filter(feature => feature.length >= 3 && !/^[-–•]?\s*\d|\b(?:m²|qm|Wohnfl[aä]che|Zimmer)\b/i.test(feature)).slice(0, 12) : [];
   const statedFeatures = [
-    ['Balkon', /\bBalkon\b/i], ['Terrasse', /\bTerrasse\b/i], ['Einbauküche', /\bEinbauküche\b/i],
-    ['Keller', /\b(?:Keller|Kellerabteil)\b/i], ['Aufzug', /\b(?:Aufzug|Fahrstuhl|Lift)\b/i],
+    ['Balkon', /\b(?:Balkon|Balcony)\b/i], ['Terrasse', /\b(?:Terrasse|Terrace)\b/i], ['Einbauküche', /\b(?:Einbauküche|Fitted kitchen)\b/i],
+    ['Keller', /\b(?:Keller|Kellerabteil|Cellar(?: compartment)?)\b/i], ['Aufzug', /\b(?:Aufzug|Fahrstuhl|Lift|Elevator)\b/i],
+    ['Fußbodenheizung', /\b(?:Fußbodenheizung|Underfloor heating)\b/i], ['Garten', /\b(?:Garten|Garden)\b/i],
   ] as const;
   for (const [label, expression] of statedFeatures) {
     if (expression.test(text) && !features.some(feature => expression.test(feature))) features.push(label);
   }
   if (/\b(?:komplett\s+)?möbliert(?:e[nsr]?)?\b/i.test(text) && !features.some(feature => /möbliert/i.test(feature))) features.unshift('Möbliert');
-  const sunOrientation = aroundLabel(lines, /^(?:Ausrichtung|Balkon\/Terrasse Ausrichtung|Himmelsrichtung)$/i, /^(.{2,40})$/, 0, 2) || UNKNOWN;
+  const sunOrientation = aroundLabel(lines, /^(?:Ausrichtung|Balkon\/Terrasse Ausrichtung|Himmelsrichtung|Orientation)$/i, /^(.{2,40})$/, 0, 2)
+    || (/\bsunny\s+balcony\b/i.test(text) ? 'Sunny balcony stated' : UNKNOWN);
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'
     : firstMatch(lines, /((?:viel|reichlich)\s+Tageslicht[^.]{0,80})/i) || undefined;
@@ -533,14 +544,14 @@ export function looksLikePropertyListing(raw: string) {
   const text = lines.join(' ');
   const unavailable = /seite\s+nicht\s+gefunden|page\s+not\s+found|nicht\s+(mehr\s+)?verf[uü]gbar/i.test(text);
   const signals = [
-    /(?:kaufpreis|mietpreis|preis)\s*[:\-]?\s*[\d.]+(?:,\d+)?\s*(?:€|eur)/i,
+    /(?:kaufpreis|mietpreis|preis|purchase\s+price|asking\s+price)\s*[:\-]?\s*[\d.]+(?:,\d+)?\s*(?:€|eur|e(?=\s|$))/i,
     /\b\d{2,3}(?:[.\s]\d{3})+\s*€/i,
-    /(?:wohnfl[aä]che|fl[aä]che)\s*(?:ca\.)?\s*[:\-]?\s*[\d.,]+\s*(?:m²|qm)/i,
-    /\b\d{1,4}\s*(?:m²|qm)\b/i,
-    /\b[\d,]+\s*(?:zimmer|zi\.)/i,
+    /(?:wohnfl[aä]che|fl[aä]che|living\s+area)\s*(?:(?:ca\.?|approx\.?)\s*)?[:\-]?\s*[\d.,]+\s*(?:m²|qm|sqm|sq\.?\s*m)/i,
+    /\b\d{1,4}\s*(?:m²|qm|sqm|sq\.?\s*m)\b/i,
+    /(?:\b[\d,]+\s*(?:zimmer|zi\.|rooms?)\b|\brooms?\s*[:\-]?\s*\d)/i,
     /\b\d{5}\s+[A-ZÄÖÜ]/,
-    /(?:baujahr|energieausweis|heizungsart|etage|geschoss)/i,
-    /(?:expos[eé]|eigentumswohnung|wohnung\s+zum\s+kauf|haus\s+zum\s+kauf|provision)/i,
+    /(?:baujahr|energieausweis|heizungsart|etage|geschoss|year\s+of\s+construction|energy\s+certificate|energy\s+efficiency\s+class|heating\s+type)/i,
+    /(?:expos[eé]|eigentumswohnung|wohnung\s+zum\s+kauf|haus\s+zum\s+kauf|provision|property\s+description|duplex\s+apartment|type\s+of\s+property|external\s+commission)/i,
   ];
   return !unavailable && signals.filter(expression => expression.test(text)).length >= 3;
 }

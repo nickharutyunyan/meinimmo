@@ -155,7 +155,8 @@ export function localizedValue(value: string | undefined, locale: Locale) {
     Rented: 'Vermietet', 'Not rented': 'Nicht vermietet', Vacant: 'Nicht vermietet', 'Owner-occupied': 'Nicht vermietet',
     'Available to move in': 'Nicht vermietet', 'Needs renovation': 'Renovierungsbedürftig', 'Needs modernization': 'Modernisierungsbedürftig',
     'Under construction': 'Im Bau', 'New build': 'Neubau', Renovated: 'Renoviert', 'Like new': 'Neuwertig', 'Well maintained': 'Gepflegt',
-    'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
+      'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
+      'Sunny balcony stated': 'Sonniger Balkon laut Exposé',
   };
   return translations[normalized] || normalized;
 }
