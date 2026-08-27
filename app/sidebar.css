@@ -4,7 +4,7 @@
 .history-row>a small{display:block;margin-top:3px;color:var(--muted);font-size:12px;font-weight:400}
 .history-row>input{margin:2px 0 0;accent-color:var(--ink)}
 .history-controls{display:flex;gap:1px;margin-top:-3px}
-.history-row .pin,.history-row .remove{width:23px;height:25px;padding:0;border:0;border-radius:6px;background:transparent;color:#a2aca7;font-size:13px;line-height:1}
+.history-row .pin,.history-row .remove{width:23px;height:25px;padding:0;border:0;border-radius:6px;background:transparent;color:#7d8983;font-size:14px;line-height:1}
 .history-row .pin:hover{background:#eeece5;color:var(--ink)}
 .history-row .remove{font-size:17px;font-weight:300}
 .history-row .remove:hover{background:#f8e9e5;color:#9d4b3e}

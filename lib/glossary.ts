@@ -26,6 +26,7 @@ const glossary = [
   { terms: ['Sollzins'], explanation: 'The stated borrowing interest rate before fees and other costs.' },
   { terms: ['Tilgung'], explanation: 'The part of a mortgage payment that repays the loan principal.' },
   { terms: ['Exposés', 'Exposé'], explanation: 'The property listing brochure or sales particulars.' },
+  { terms: ['Altbau'], explanation: 'An older building, often from before 1949; the exact age and construction standard still need checking.' },
 ] as const;
 
 const definitions = new Map(glossary.flatMap(entry => entry.terms.map(term => [term.toLocaleLowerCase('de-DE'), entry.explanation] as const)));

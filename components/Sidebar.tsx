@@ -96,7 +96,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
       <input aria-label={`${text.select} ${reportTitle(item, locale)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>
       <Link href={localePath(locale, `/r/${item.id}`)}>{reportTitle(item, locale)}<small>{new Date(item.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></Link>
       <div className="history-controls">
-        <button className="pin" title={pinned.includes(item.id) ? text.unpin : text.pin} aria-label={pinned.includes(item.id) ? text.unpin : text.pin} aria-pressed={pinned.includes(item.id)} onClick={() => togglePin(item.id)}>{pinned.includes(item.id) ? '●' : '○'}</button>
+        <button className="pin" title={pinned.includes(item.id) ? text.unpin : text.pin} aria-label={pinned.includes(item.id) ? text.unpin : text.pin} aria-pressed={pinned.includes(item.id)} onClick={() => togglePin(item.id)}>{pinned.includes(item.id) ? '★' : '☆'}</button>
         <button className="remove" title={text.remove} aria-label={`${text.removeAssessment}: ${reportTitle(item, locale)}`} onClick={() => removeFromHistory(item.id)}>×</button>
       </div>
     </div>) : <p className="empty">{text.empty}</p>}</div>

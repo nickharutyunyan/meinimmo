@@ -10,3 +10,16 @@ test('glossary terms and tooltips are isolated from surrounding component styles
   assert.doesNotMatch(css, /\.signal span\s*\{/);
   assert.doesNotMatch(css, /\.feature-list span\s*\{/);
 });
+
+test('financing labels wrap glossary text inside a single flex item', async () => {
+  const component = await readFile(new URL('../components/FinanceCalculator.tsx', import.meta.url), 'utf8');
+  assert.match(component, /className="finance-field-label"><GlossaryText[^>]*>\{text\.repayment\}/);
+  assert.doesNotMatch(component, /<span><GlossaryText[^>]*>\{text\.repayment\}/);
+});
+
+test('mobile comparisons render both properties as complete cards', async () => {
+  const component = await readFile(new URL('../components/ComparisonView.tsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../app/editorial.css', import.meta.url), 'utf8');
+  assert.match(component, /comparison-mobile/);
+  assert.match(css, /\.comparison-mobile\s*\{[\s\S]*?display:\s*grid;/);
+});

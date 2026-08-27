@@ -61,7 +61,7 @@ export const copy = {
       source: 'SOURCE', original: 'View original listing ↗', downloadPdf: 'Download PDF ↓', saved: 'Report saved', assessMore: 'CREATE MORE REPORTS', plansTitle: 'Keep the decision process moving.', plansCopy: 'Two reports per day are free. Upgrade when you are actively searching.', perMonth: '/month', proLimit: '10 reports per day', ultraLimit: '100 reports per day', proButton: 'Upgrade to Pro', ultraButton: 'Choose Ultra',
     },
     finance: {
-      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', estimatedBuyerCosts: 'Estimated buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', includeHousegeld: 'Include Hausgeld', note: 'Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross when included; for a rented unit, verify the recoverable and owner-only portions. Confirm the rate, buyer-cost assumptions and affordability with a lender.',
+      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', estimatedBuyerCosts: 'Estimated buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', includeHousegeld: 'Include Hausgeld', note: 'Starts with the current FMH average effective rate for a 10-year German mortgage. Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross when included; for a rented unit, verify the recoverable and owner-only portions. Confirm the final rate, costs and affordability with a lender.',
     },
     questions: { label: 'ASK BEFORE YOU OFFER', reviewing: 'Reviewing listing', tailored: 'Tailored to this listing', core: '', title: 'Questions worth asking', note: '' },
     map: { label: 'NEIGHBORHOOD', intro: 'Use the map to verify walking routes to U-Bahn, S-Bahn, trams, parks and daily essentials—not just straight-line distance.', loading: 'Locating the neighborhood…', explore: 'Explore on OpenStreetMap ↗', approximate: 'The listing does not disclose an exact address. The map is centered on the most precise stated area:', exact: 'The listing provides an exact street address.' },
@@ -118,7 +118,7 @@ export const copy = {
       source: 'QUELLE', original: 'Originalangebot öffnen ↗', downloadPdf: 'PDF herunterladen ↓', saved: 'Bericht gespeichert', assessMore: 'MEHR BERICHTE ERSTELLEN', plansTitle: 'Bleib bei deiner Suche im Fluss.', plansCopy: 'Zwei Berichte pro Tag sind kostenlos. Wenn du gerade aktiv suchst, kannst du dein Limit erhöhen.', perMonth: '/Monat', proLimit: '10 Berichte pro Tag', ultraLimit: '100 Berichte pro Tag', proButton: 'Pro wählen', ultraButton: 'Ultra wählen',
     },
     finance: {
-      label: 'GROBE FINANZIERUNG', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', estimatedBuyerCosts: 'Geschätzte Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Sollzins', repayment: 'Anfängliche Tilgung', includeHousegeld: 'Hausgeld einrechnen', note: 'Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto eingerechnet, wenn ausgewählt; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Zinssatz, Kaufnebenkosten und Leistbarkeit bitte mit einer Bank klären.',
+      label: 'GROBE FINANZIERUNG', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', estimatedBuyerCosts: 'Geschätzte Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Sollzins', repayment: 'Anfängliche Tilgung', includeHousegeld: 'Hausgeld einrechnen', note: 'Startet mit dem aktuellen durchschnittlichen FMH-Effektivzins für eine zehnjährige Baufinanzierung in Deutschland. Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto eingerechnet, wenn ausgewählt; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Finale Konditionen, Kosten und Leistbarkeit bitte mit einer Bank klären.',
     },
     questions: { label: 'VOR DEM ANGEBOT FRAGEN', reviewing: 'Angebot wird geprüft', tailored: 'Auf dieses Angebot zugeschnitten', core: '', title: 'Fragen, die sich lohnen', note: '' },
     map: { label: 'LAGE', intro: 'Prüfe auf der Karte echte Wege zu U-Bahn, S-Bahn, Tram, Parks und Dingen des täglichen Lebens – nicht nur die Luftlinie.', loading: 'Lage wird gesucht…', explore: 'Auf OpenStreetMap öffnen ↗', approximate: 'Im Angebot steht keine genaue Adresse. Die Karte zeigt den genauesten genannten Bereich:', exact: 'Im Angebot steht eine genaue Straßenadresse.' },
@@ -132,7 +132,21 @@ export function localizedValue(value: string | undefined, locale: Locale) {
   const legacyNotRented = ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(value);
   const condition = canonicalCondition(value);
   const normalized = condition || value;
-  if (locale === 'en') return legacyNotRented ? 'Not rented' : normalized;
+  if (locale === 'en') {
+    if (legacyNotRented) return 'Not rented';
+    const floor = normalized.match(/^(\d+)\.\s*OG$/i);
+    if (floor) {
+      const number = Number(floor[1]);
+      const suffix = number % 100 >= 11 && number % 100 <= 13 ? 'th' : number % 10 === 1 ? 'st' : number % 10 === 2 ? 'nd' : number % 10 === 3 ? 'rd' : 'th';
+      return `${number}${suffix} floor`;
+    }
+    const englishTranslations: Record<string, string> = {
+      EG: 'Ground floor', Erdgeschoss: 'Ground floor', Hochparterre: 'Raised ground floor', Souterrain: 'Lower ground floor', DG: 'Top floor', Dachgeschoss: 'Top floor',
+      Etagenheizung: 'Individual heating system', Zentralheizung: 'Central heating', Fernwärme: 'District heating', Gasheizung: 'Gas heating', Ölheizung: 'Oil heating', Wärmepumpe: 'Heat pump',
+      Fußbodenheizung: 'Underfloor heating', Nachtspeicherheizung: 'Night-storage heating', Pelletheizung: 'Pellet heating', Blockheizkraftwerk: 'Combined heat and power system',
+    };
+    return englishTranslations[normalized] || normalized;
+  }
   const translations: Record<string, string> = {
     Rented: 'Vermietet', 'Not rented': 'Nicht vermietet', Vacant: 'Nicht vermietet', 'Owner-occupied': 'Nicht vermietet',
     'Available to move in': 'Nicht vermietet', 'Needs renovation': 'Renovierungsbedürftig', 'Needs modernization': 'Modernisierungsbedürftig',
@@ -140,4 +154,75 @@ export function localizedValue(value: string | undefined, locale: Locale) {
     'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
   };
   return translations[normalized] || normalized;
+}
+
+const featureTranslations = [
+  ['Tiefgaragenstellplatz', 'Underground parking space'],
+  ['Waschmaschinenanschluss', 'Washing-machine connection'],
+  ['Fußbodenheizung', 'Underfloor heating'],
+  ['Gemeinschaftsgarten', 'Shared garden'],
+  ['Kellerabteil', 'Basement storage unit'],
+  ['Kellerraum', 'Basement storage room'],
+  ['Dielenboden', 'Wooden floorboards'],
+  ['Teppichboden', 'Carpet flooring'],
+  ['Vinylboden', 'Vinyl flooring'],
+  ['Dachterrasse', 'Roof terrace'],
+  ['Einbauküche', 'Fitted kitchen'],
+  ['rollstuhlgerecht', 'Wheelchair accessible'],
+  ['barrierefrei', 'Step-free access'],
+  ['Abstellraum', 'Storage room'],
+  ['Gäste-WC', 'Guest WC'],
+  ['Gäste WC', 'Guest WC'],
+  ['Vollbad', 'Bathroom with bathtub'],
+  ['Duschbad', 'Bathroom with shower'],
+  ['Badewanne', 'Bathtub'],
+  ['Fahrstuhl', 'Lift'],
+  ['Aufzug', 'Lift'],
+  ['möbliert', 'Furnished'],
+  ['Keller', 'Basement / cellar'],
+  ['Laminat', 'Laminate flooring'],
+  ['Fliesen', 'Tiled flooring'],
+  ['Parkett', 'Parquet flooring'],
+  ['Balkon', 'Balcony'],
+  ['Loggia', 'Loggia'],
+  ['Terrasse', 'Terrace'],
+  ['Garten', 'Garden'],
+  ['Tiefgarage', 'Underground parking'],
+  ['Stellplatz', 'Parking space'],
+  ['Garage', 'Garage'],
+  ['Dachboden', 'Attic storage'],
+  ['Dusche', 'Shower'],
+  ['Sauna', 'Sauna'],
+] as const;
+
+const featureTermPattern = featureTranslations
+  .map(([term]) => term)
+  .sort((a, b) => b.length - a.length)
+  .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  .join('|');
+const featureTermMatcher = new RegExp(`(?<![\\p{L}\\p{N}])(${featureTermPattern})(?![\\p{L}\\p{N}])`, 'giu');
+const featureTranslationsByTerm = new Map(featureTranslations.map(([german, english]) => [german.toLocaleLowerCase('de-DE'), english]));
+
+function splitFeatureTerms(feature: string) {
+  const matches = [...feature.matchAll(featureTermMatcher)].map(match => match[0]);
+  if (matches.length < 2) return [feature];
+  const remainder = feature
+    .replace(featureTermMatcher, ' ')
+    .replace(/\b(?:und|oder|mit)\b/giu, ' ')
+    .replace(/[\s,;·|/+&–—-]+/g, '');
+  return remainder ? [feature] : matches;
+}
+
+function englishFeature(feature: string) {
+  let translated = feature.replace(featureTermMatcher, term => featureTranslationsByTerm.get(term.toLocaleLowerCase('de-DE')) || term);
+  if (translated !== feature) {
+    translated = translated.replace(/\bund\b/giu, 'and').replace(/\bmit\b/giu, 'with').replace(/\bohne\b/giu, 'without');
+  }
+  return translated;
+}
+
+export function localizedFeatures(features: string[] | undefined, locale: Locale) {
+  if (!features?.length) return [];
+  const separated = features.flatMap(splitFeatureTerms);
+  return locale === 'en' ? separated.map(englishFeature) : separated;
 }

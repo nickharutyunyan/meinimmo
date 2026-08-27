@@ -6,6 +6,7 @@ test('English glossary terms receive the expected explanations', () => {
   const pieces = glossaryPieces('Check the Hausgeld and Energieausweis.', 'en');
   assert.match(pieces.find(piece => piece.text === 'Hausgeld')?.explanation || '', /monthly condominium fee/i);
   assert.match(pieces.find(piece => piece.text === 'Energieausweis')?.explanation || '', /energy performance certificate/i);
+  assert.match(glossaryPieces('Altbau', 'en')[0]?.explanation || '', /older building/i);
 });
 
 test('German pages return completely plain glossary text', () => {

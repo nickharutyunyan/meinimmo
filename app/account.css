@@ -191,7 +191,7 @@
 .auth-divider::before,
 .auth-divider::after { height: 1px; flex: 1; background: var(--line); content: ''; }
 .credential-form { display: grid; gap: 16px; }
-.credential-form label small { min-height: 14px; color: var(--muted); font-weight: 400; }
+.credential-form label small { min-height: 14px; color: var(--muted); font-size: 12px; line-height: 1.4; font-weight: 400; }
 .credential-form .primary-action { width: 100%; margin-top: 3px; }
 .auth-mode { display: block; margin: 18px auto 0; border: 0; background: none; color: #516d64; cursor: pointer; text-decoration: underline; }
 .form-error { margin: 14px 0 0; color: #9b493d; font-size: 13px; line-height: 1.4; }

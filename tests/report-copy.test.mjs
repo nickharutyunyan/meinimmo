@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copy, localizedValue } from '../lib/i18n.ts';
+import { copy, localizedFeatures, localizedValue } from '../lib/i18n.ts';
 import { localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
 
 const report = {
@@ -54,4 +54,31 @@ test('removed reasoning copy is not exposed in either language', () => {
   const visibleCopy = JSON.stringify(copy);
   assert.doesNotMatch(visibleCopy, /Core due diligence|Answers and supporting documents|Built consistently from listing facts/i);
   assert.doesNotMatch(visibleCopy, /Wichtige Grundfragen|Unterlagen und klare Antworten|Einheitlich aus den Angaben/i);
+});
+
+test('common German listing details are translated and separated on English reports', () => {
+  assert.deepEqual(localizedFeatures(['Keller Vollbad Einbauküche Laminat Fliesen'], 'en'), [
+    'Basement / cellar',
+    'Bathroom with bathtub',
+    'Fitted kitchen',
+    'Laminate flooring',
+    'Tiled flooring',
+  ]);
+  assert.deepEqual(localizedFeatures(['Balkon', 'Fußbodenheizung', 'barrierefrei'], 'en'), [
+    'Balcony',
+    'Underfloor heating',
+    'Step-free access',
+  ]);
+});
+
+test('German listing details remain German on German reports', () => {
+  assert.deepEqual(localizedFeatures(['Keller Vollbad Einbauküche'], 'de'), ['Keller', 'Vollbad', 'Einbauküche']);
+});
+
+test('English reports localize common German floor and heating labels', () => {
+  assert.equal(localizedValue('3. OG', 'en'), '3rd floor');
+  assert.equal(localizedValue('EG', 'en'), 'Ground floor');
+  assert.equal(localizedValue('Etagenheizung', 'en'), 'Individual heating system');
+  assert.equal(localizedValue('Zentralheizung', 'en'), 'Central heating');
+  assert.equal(localizedValue('3. OG', 'de'), '3. OG');
 });

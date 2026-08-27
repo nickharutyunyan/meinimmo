@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
-import { copy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, localizedFeatures, localizedValue, type Locale } from '@/lib/i18n';
 import { localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
@@ -19,6 +19,7 @@ import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
+import { ReportPrintButton } from './ReportPrintButton';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -90,7 +91,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(facts.advertisedYield ? [[text.return, `${facts.advertisedYield.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')}%`] as [string, string]] : []),
     ...(stated(report.sunOrientation) ? [[text.sun, known(report.sunOrientation)] as [string, string]] : []),
     ...(report.daylight ? [[text.daylight, known(report.daylight)] as [string, string]] : []),
-    ...(stated(facts.energy) || facts.energyDemand ? [[text.energy, `${stated(facts.energy) ? known(facts.energy) : ''}${facts.energyDemand ? `${stated(facts.energy) ? ' · ' : ''}${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} kWh/(m²a)` : ''}`] as [string, string]] : []),
+    ...(stated(facts.energy) || facts.energyDemand ? [[text.energy, `${stated(facts.energy) ? known(facts.energy) : ''}${facts.energyDemand ? `${stated(facts.energy) ? ' · ' : ''}${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : ''}`] as [string, string]] : []),
     ...(stated(facts.heating) || facts.energySource ? [[text.heating, `${stated(facts.heating) ? known(facts.heating) : ''}${facts.energySource ? `${stated(facts.heating) ? ' · ' : ''}${facts.energySource}` : ''}`] as [string, string]] : []),
     ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
   ];
@@ -99,6 +100,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
+  const features = localizedFeatures(facts.features, locale);
 
   async function copyLink() {
     try {
@@ -121,7 +123,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     <Sidebar locale={locale} />
     <main className="workspace" lang={locale}>
       <header className="report-head">
-        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span aria-live="polite">{copied ? text.copied : text.copyLink}</span></button><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
+        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink} aria-label={copied ? text.copied : text.copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span className="action-label-long" aria-live="polite">{copied ? text.copied : text.copyLink}</span><span className="action-label-short" aria-hidden="true">{copied ? (locale === 'de' ? 'Kopiert' : 'Copied') : (locale === 'de' ? 'Link' : 'Copy')}</span></button><ReportPrintButton reportId={report.id} locale={locale}/><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
         <div className="report-title-block"><p className="eyebrow">{text.brief}</p><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
@@ -133,7 +135,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
-          {facts.features?.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{facts.features.map((feature) => <span key={feature}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
+          {features.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
           {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText locale={locale}>{item}</GlossaryText></p>)}</section> : null}
           {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
