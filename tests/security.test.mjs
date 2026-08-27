@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PASSWORD_ITERATIONS, hashPassword, hmacSha256Hex, safeReturnTo, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
+import { PASSWORD_ITERATIONS, hashPassword, hmacSha256Hex, publicListingUrl, safeReturnTo, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
 
 test('production password hashing stays within the Cloudflare Web Crypto limit', () => {
   assert.equal(PASSWORD_ITERATIONS, 100_000);
@@ -31,4 +31,20 @@ test('OAuth return paths cannot leave this site', () => {
   assert.equal(safeReturnTo('//attacker.example'), '/account');
   assert.equal(safeReturnTo('https://attacker.example'), '/account');
   assert.equal(safeReturnTo('/account\r\nLocation: https://attacker.example'), '/account');
+});
+
+test('listing imports accept public web URLs and reject private-network fetch targets', () => {
+  assert.equal(publicListingUrl('https://www.immobilienscout24.de/expose/123')?.hostname, 'www.immobilienscout24.de');
+  for (const unsafe of [
+    'http://localhost/listing',
+    'http://127.0.0.1/listing',
+    'http://2130706433/listing',
+    'http://10.2.3.4/listing',
+    'http://169.254.169.254/latest/meta-data',
+    'http://192.168.1.2/listing',
+    'http://[::1]/listing',
+    'http://[fd00::1]/listing',
+    'https://user:password@example.com/listing',
+    'https://example.com:8443/listing',
+  ]) assert.equal(publicListingUrl(unsafe), undefined, unsafe);
 });

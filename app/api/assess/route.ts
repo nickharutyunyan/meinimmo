@@ -3,7 +3,8 @@ import { defaultOfferQuestions, deterministicAssessment, enrichAssessment, looks
 import { report as findReport, replaceReport, saveReport } from '@/lib/store';
 import { resolveLocation } from '@/lib/display';
 import { rememberUserReport, reserveReportAllowance } from '@/lib/access';
-import { anonymousToken, attachAnonymousCookie } from '@/lib/auth';
+import { anonymousToken, attachAnonymousCookie, requireSameOrigin } from '@/lib/auth';
+import { publicListingUrl } from '@/lib/security';
 import { stableReportId } from '@/lib/report-id';
 import { neighborhoodForPostalCode } from '@/lib/geocode';
 import { refreshDerivedReport } from '@/lib/listing-parser';
@@ -11,6 +12,29 @@ import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-s
 import { deleteSourcePdf, saveSourcePdf } from '@/lib/source-storage';
 
 export const runtime = 'nodejs';
+
+const MAX_SOURCE_TEXT_LENGTH = 2_000_000;
+
+async function boundedResponseText(response: Response) {
+  const declaredLength = Number(response.headers.get('content-length') || 0);
+  if (declaredLength > MAX_SOURCE_TEXT_LENGTH) throw new Error('source_too_large');
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_SOURCE_TEXT_LENGTH) {
+      await reader.cancel();
+      throw new Error('source_too_large');
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
 
 export async function POST(request: NextRequest) {
   const startedAt = performance.now();
@@ -30,6 +54,12 @@ export async function POST(request: NextRequest) {
   const remember = (userId: string | undefined, id: string) => {
     if (userId) after(() => rememberUserReport(userId, id));
   };
+
+  if (!requireSameOrigin(request)) return respond({ error: 'Invalid request origin.' }, 403);
+  const contentType = request.headers.get('content-type')?.toLowerCase() || '';
+  const declaredRequestLength = Number(request.headers.get('content-length') || 0);
+  const requestLimit = contentType.startsWith('multipart/form-data') ? MAX_PDF_BYTES + 2_000_000 : 1_000_000;
+  if (declaredRequestLength > requestLimit) return respond({ error: 'The submitted file or listing is too large.' }, 413);
   const verifyLater = (candidate: Awaited<ReturnType<typeof findReport>> & object, sourceText: string) => {
     after(async () => {
       try {
@@ -91,6 +121,7 @@ export async function POST(request: NextRequest) {
   });
   if ('inputError' in input) return respond({ error: input.inputError }, 400);
   const de = input.locale === 'de';
+  if ((input.text || '').length > MAX_SOURCE_TEXT_LENGTH) return respond({ error: de ? 'Das Exposé enthält zu viel Text.' : 'The Exposé contains too much text.' }, 413);
   const quotaExceeded = (state: Awaited<ReturnType<typeof reserveReportAllowance>>['state']) => respond({
     error: de ? 'Du hast dein Berichtslimit für diesen Zeitraum erreicht.' : 'You have reached your report limit for this period.',
     code: 'quota_exceeded',
@@ -103,9 +134,8 @@ export async function POST(request: NextRequest) {
   let existing: Awaited<ReturnType<typeof findReport>>;
 
   if (input.url) {
-    let url: URL;
-    try { url = new URL(input.url); } catch { return respond({ error: de ? 'Bitte gib einen gültigen öffentlichen Link ein.' : 'Enter a valid public listing URL.' }, 400); }
-    if (!['http:', 'https:'].includes(url.protocol) || ['localhost', '127.0.0.1'].includes(url.hostname)) return respond({ error: de ? 'Bitte gib einen öffentlichen Link ein.' : 'Enter a public listing URL.' }, 400);
+    const url = publicListingUrl(input.url);
+    if (!url) return respond({ error: de ? 'Bitte gib einen gültigen öffentlichen Link ein.' : 'Enter a valid public listing URL.' }, 400);
     source = url.toString();
     reportId = await timed('fingerprint', () => stableReportId(source));
     existing = await timed('cache', () => findReport(reportId!));
@@ -118,7 +148,12 @@ export async function POST(request: NextRequest) {
     const response = await timed('source', () => fetch(url, { headers: { 'user-agent': 'ReviewAHouse/1.0 (+property assessment)' }, redirect: 'follow' }));
     if ([401, 403].includes(response.status)) return respond({ error: de ? 'Dieses Portal blockiert den Import. Lade stattdessen das Exposé als PDF hoch.' : 'This portal blocks server imports. Upload its Exposé PDF instead.' }, 422);
     if (!response.ok) return respond({ error: de ? 'Das Angebot ist nicht mehr verfügbar oder konnte nicht geöffnet werden.' : 'This listing is no longer available or could not be opened.' }, 422);
-    text = await timed('sourceBody', () => response.text());
+    try {
+      text = await timed('sourceBody', () => boundedResponseText(response));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'source_too_large') return respond({ error: de ? 'Das Angebot ist zu groß zum Importieren.' : 'This listing is too large to import.' }, 413);
+      throw error;
+    }
   }
 
   const listingValid = await timed('validation', () => text.length >= 150 && looksLikeListing(text));
@@ -126,23 +161,11 @@ export async function POST(request: NextRequest) {
 
   if (!reportId) reportId = await timed('fingerprint', () => stableReportId(source, text));
   if (!existing) existing = await timed('cache', () => findReport(reportId!));
-  if (existing?.aiLocationChecked && existing.aiFactChecked && resolveLocation(existing).basis !== 'none') {
+  if (!uploadedPdf && existing?.aiLocationChecked && existing.aiFactChecked && resolveLocation(existing).basis !== 'none') {
     const allowance = await timed('quota', () => reserveReportAllowance(request, anonymous.token));
     if (!allowance.allowed) return quotaExceeded(allowance.state);
-    let cached = existing;
-    if (uploadedPdf) {
-      try {
-        const stored = await timed('pdfStore', () => saveSourcePdf(cached.id, uploadedPdf!.data, uploadedPdf!.displayName));
-        cached = { ...cached, source: uploadedPdf.displayName, sourceFile: stored ? { displayName: uploadedPdf.displayName, size: uploadedPdf.size } : undefined };
-        await timed('store', () => replaceReport(cached));
-      } catch {
-        await allowance.release?.();
-        await deleteSourcePdf(cached.id).catch(() => undefined);
-        return respond({ error: de ? 'Das PDF konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal.' : 'The PDF could not be saved right now. Please try again.' }, 503);
-      }
-    }
-    remember(allowance.userId, cached.id);
-    return respond({ ...cached, access: allowance.state });
+    remember(allowance.userId, existing.id);
+    return respond({ ...existing, access: allowance.state });
   }
 
   const allowance = await timed('quota', () => reserveReportAllowance(request, anonymous.token));
@@ -150,7 +173,16 @@ export async function POST(request: NextRequest) {
   const baseReport = await timed('parse', () => deterministicAssessment(text, source));
   const prepared = { ...baseReport, offerQuestions: defaultOfferQuestions(baseReport), offerQuestionsDe: defaultOfferQuestions(baseReport, 'de') };
   let report: NonNullable<Awaited<ReturnType<typeof findReport>>> = existing
-    ? { ...prepared, id: existing.id, createdAt: existing.createdAt }
+    ? {
+      ...prepared,
+      id: existing.id,
+      createdAt: existing.createdAt,
+      offerQuestions: existing.offerQuestions || prepared.offerQuestions,
+      offerQuestionsDe: existing.offerQuestionsDe || prepared.offerQuestionsDe,
+      aiEnriched: existing.aiEnriched,
+      aiLocationChecked: existing.aiLocationChecked,
+      aiFactChecked: existing.aiFactChecked,
+    }
     : { ...prepared, id: reportId };
 
   if (uploadedPdf) report = {

@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { defaultOfferQuestions, enrichOnlyWhenNeeded } from '@/lib/assessment';
+import { requireSameOrigin } from '@/lib/auth';
 import { replaceReport, report as findReport } from '@/lib/store';
 import { questionsAreConcise } from '@/lib/report-copy';
+import { validReportId } from '@/lib/report-note-validation';
 
-export async function POST(_: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  if (!requireSameOrigin(request)) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   const { id } = await context.params;
+  if (!validReportId(id)) return NextResponse.json({ error: 'Report not found.' }, { status: 404 });
   const current = await findReport(id);
 
   if (!current) return NextResponse.json({ error: 'Report not found.' }, { status: 404 });

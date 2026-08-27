@@ -3,7 +3,7 @@ import { geocodeGermanLocation } from '@/lib/geocode';
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get('q')?.trim();
-  if (!query || /not stated/i.test(query)) {
+  if (!query || query.length > 160 || /not stated/i.test(query)) {
     return NextResponse.json({ error: 'No usable location supplied.' }, { status: 400 });
   }
 

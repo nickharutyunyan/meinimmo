@@ -2,6 +2,8 @@ import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
 import { canonicalCondition } from './property-condition.ts';
+import { acquisitionCosts } from './finance.ts';
+import { energyClassFromDemand, refreshDerivedReport } from './listing-parser.ts';
 
 type StoredRow = { data: string };
 
@@ -17,12 +19,19 @@ function parse<T>(row: StoredRow | null) {
 
 function normalizedReport(item: Report) {
   const condition = canonicalCondition(item.facts.condition);
+  const costs = acquisitionCosts(item.facts);
+  const totalCost = item.facts.totalCost && item.facts.totalCost < item.facts.price
+    ? (item.facts.buyerCosts ? costs.total : 0)
+    : item.facts.totalCost;
+  const energy = (!item.facts.energy || /not stated|unknown/i.test(item.facts.energy)) && item.facts.energyDemand
+    ? energyClassFromDemand(item.facts.energyDemand) || item.facts.energy
+    : item.facts.energy;
   const summary = condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
     : item.summary;
-  return condition === item.facts.condition && summary === item.summary
+  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
     ? item
-    : { ...item, summary, facts: { ...item.facts, condition } };
+    : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy } });
 }
 
 export async function reports() {

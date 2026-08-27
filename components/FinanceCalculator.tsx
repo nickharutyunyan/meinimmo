@@ -1,26 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Report } from '@/lib/types';
 import { copy, type Locale } from '@/lib/i18n';
+import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/finance';
 import { GlossaryText } from './GlossaryText';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
 export function FinanceCalculator({ report, locale }: { report: Report; locale: Locale }) {
-  const buyerCostsAreEstimated = !report.facts.buyerCosts && !report.facts.totalCost;
-  const buyerCosts = report.facts.buyerCosts
-    || (report.facts.totalCost ? Math.max(0, report.facts.totalCost - report.facts.price) : Math.round(report.facts.price * 0.08));
-  const total = report.facts.totalCost || report.facts.price + buyerCosts;
-  const initialEquity = Math.min(total, Math.round(total * 0.25 / 1000) * 1000);
+  const { buyerCostsAreEstimated, buyerCosts, total } = acquisitionCosts(report.facts);
+  const initialEquity = defaultEquity(total);
   const [equity, setEquity] = useState(initialEquity);
   const [interest, setInterest] = useState(3.5);
   const [repayment, setRepayment] = useState(2);
-  const result = useMemo(() => {
-    const loan = Math.max(0, total - equity);
-    const loanPayment = loan * (interest + repayment) / 100 / 12;
-    return { loan, loanPayment, knownOutlay: loanPayment + (report.facts.housegeld || 0) };
-  }, [equity, interest, repayment, report.facts.housegeld, total]);
+  useEffect(() => setEquity(defaultEquity(total)), [total]);
+  const result = useMemo(() => financingScenario({
+    total,
+    equity,
+    interest,
+    repayment,
+    housegeld: report.facts.housegeld,
+  }), [equity, interest, repayment, report.facts.housegeld, total]);
 
   const text = copy[locale].finance;
   return <section className="card finance-calculator">

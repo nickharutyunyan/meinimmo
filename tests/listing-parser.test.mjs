@@ -197,6 +197,63 @@ test('parses an ImmoScout PDF export without confusing price per m² or the agen
   assert.doesNotMatch(JSON.stringify(report), /Friedrich-Ebert|Eberswalde/);
 });
 
+test('parses a PDF financing block without treating its monthly quote as the total cost', () => {
+  const report = parseListing(`
+    Eigentumswohnung, bezugsfrei
+    Möckernstraße -, Kreuzberg, 10963 Berlin
+    480.000 €
+    Kaufpreis 5.581 €/m²
+    3
+    Zi.
+    86 m²
+    Wohnfläche ca.
+    Typ: Etagenwohnung
+    Etage: 3 von 5
+    Wohnfläche ca.: 86 m²
+    Nutzfläche ca.: 90 m²
+    Bezugsfrei ab: sofort
+    Zimmer: 3
+    Ab 1.531 € mtl. finanzieren
+    Kaufpreis: 480.000 €
+    Preis/m²: 5.581 €/m²
+    Hausgeld: 145 €
+    Provision für Käufer: Nein
+    480.000 €
+    Kaufpreis
+    38.400 €
+    Nebenkosten
+    Basierend auf Marktdaten: 3,35 % Sollzins, 1% Tilgung, 96.000 Eigenkapital
+    Baujahr: 1885
+    Objektzustand: Gepflegt
+    Heizungsart: Etagenheizung
+    Energieträger: Gas
+    Energieausweistyp: Verbrauchsausweis
+    Endenergieverbrauch: 154,1 kWh/(m²*a)
+    Energieeffizienzklasse:
+    518.400 €
+    Gesamtkosten
+    Ab 1.531 € mtl. finanzieren
+    Lage
+    Möckernstraße -, Kreuzberg, 10963 Berlin
+  `, 'Eigentumswohnung, bezugsfrei');
+
+  assert.equal(report.facts.price, 480_000);
+  assert.equal(report.facts.buyerCosts, 38_400);
+  assert.equal(report.facts.totalCost, 518_400);
+  assert.equal(report.facts.area, 86);
+  assert.equal(report.facts.usableArea, 90);
+  assert.equal(report.facts.floor, '3. OG');
+  assert.equal(report.facts.tenancy, 'Not rented');
+  assert.equal(report.facts.condition, 'Well maintained');
+  assert.equal(report.facts.energyDemand, 154.1);
+  assert.equal(report.facts.energy, 'E');
+  assert.equal(report.facts.district, 'Kreuzberg');
+  assert.equal(report.facts.street, 'Möckernstraße');
+  assert.equal(report.facts.locationPrecision, 'street');
+  assert.equal(report.title, '3-room flat · near Möckernstraße');
+  assert.equal(report.address, 'Address not stated');
+});
+
 test('uses near a named property street when no house number is disclosed', () => {
   const report = parseListing(`
     2-Zimmer-Wohnung zum Kauf

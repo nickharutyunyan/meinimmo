@@ -59,7 +59,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
 
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
-    fetch('/api/reports').then((response) => response.json() as Promise<Report[]>).then((all) => {
+    const knownIds = [...new Set([...ids, report.id])].slice(-30);
+    fetch(`/api/reports?ids=${encodeURIComponent(knownIds.join(','))}`).then((response) => response.json() as Promise<Report[]>).then((all) => {
       const sameSourceIds = new Set(all.filter((item) => /^https?:/i.test(report.source) && canonicalSource(item.source) === canonicalSource(report.source)).map((item) => item.id));
       const next = ids.filter((id) => !sameSourceIds.has(id) && id !== report.id);
       next.push(report.id);

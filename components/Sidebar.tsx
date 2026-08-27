@@ -20,8 +20,9 @@ export function Sidebar({ locale }: { locale: Locale }) {
     const load = async () => {
       const historyIds = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
       const pinIds = JSON.parse(localStorage.getItem('habitat-pins') || '[]') as string[];
+      const reportQuery = historyIds.length ? `?ids=${encodeURIComponent(historyIds.slice(-30).join(','))}` : '';
       const [all, account] = await Promise.all([
-        fetch('/api/reports').then(response => response.json()) as Promise<Report[]>,
+        fetch(`/api/reports${reportQuery}`).then(response => response.json()) as Promise<Report[]>,
         fetch('/api/auth/me', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string } }>,
       ]);
       const visible = all.filter(item => historyIds.includes(item.id));

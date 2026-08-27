@@ -81,3 +81,27 @@ export function safeReturnTo(value: string | null | undefined, fallback = '/acco
   if (!value || !value.startsWith('/') || value.startsWith('//') || /[\r\n]/.test(value)) return fallback;
   return value;
 }
+
+function privateIpv4(hostname: string) {
+  const parts = hostname.split('.');
+  if (parts.length !== 4 || parts.some(part => !/^\d{1,3}$/.test(part) || Number(part) > 255)) return false;
+  const [a, b] = parts.map(Number);
+  return a === 0 || a === 10 || a === 127 || a >= 224
+    || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168)
+    || (a === 198 && (b === 18 || b === 19));
+}
+
+export function publicListingUrl(value: string) {
+  let url: URL;
+  try { url = new URL(value); } catch { return undefined; }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return undefined;
+  if (url.port && !((url.protocol === 'http:' && url.port === '80') || (url.protocol === 'https:' && url.port === '443'))) return undefined;
+  const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '');
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local') || hostname.endsWith('.internal')) return undefined;
+  if (privateIpv4(hostname)) return undefined;
+  if (hostname.includes(':') && (/^(?:::|::1)$/i.test(hostname) || /^(?:fc|fd|fe8|fe9|fea|feb)/i.test(hostname) || hostname.startsWith('::ffff:'))) return undefined;
+  return url;
+}

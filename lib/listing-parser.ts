@@ -68,17 +68,19 @@ function firstMatch(lines: string[], expression: RegExp) {
   return '';
 }
 
-function moneyAroundLabel(lines: string[], label: RegExp, before = 3, after = 3) {
+function totalCostAroundLabel(lines: string[], purchasePrice: number) {
   for (let index = 0; index < lines.length; index += 1) {
-    if (!label.test(lines[index])) continue;
-    const candidates = [...lines.slice(Math.max(0, index - before), index).reverse(), ...lines.slice(index + 1, index + after + 1)];
-    for (const candidate of candidates) {
-      if (/\/(?:m²|qm)|\bmtl\.?\b/i.test(candidate)) continue;
-      const value = candidate.match(/([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)?.[1];
-      if (value) return value;
+    if (!/^Gesamtkosten(?:\s+ca\.)?$/i.test(lines[index])) continue;
+    for (let distance = 1; distance <= 3; distance += 1) {
+      for (const candidate of [lines[index - distance], lines[index + distance]]) {
+        if (!candidate || /\/(?:m²|qm)|\bmtl\.?\b/i.test(candidate)) continue;
+        const rawAmount = candidate.match(/([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)?.[1];
+        const amount = rawAmount ? number(rawAmount) : 0;
+        if (amount >= purchasePrice) return amount;
+      }
     }
   }
-  return '';
+  return 0;
 }
 
 function plausiblePurchasePrice(value: string) {
@@ -161,6 +163,8 @@ function jsonAddress(raw: string) {
   };
 }
 
+const STREET_NAME = String.raw`[A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)`;
+
 function visibleLocation(lines: string[], title: string) {
   const text = lines.slice(0, 500).join(' \n ');
   const cityNames = [
@@ -174,6 +178,8 @@ function visibleLocation(lines: string[], title: string) {
   const cityEvidence = `${title} ${lines.slice(0, 80).join(' ')}`;
   const namedCity = cityNames.find((cityName) => new RegExp(`\\b${cityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(cityEvidence)) || '';
   const postal = lines.slice(0, 500).map((line) => line.match(/\b(\d{5})\s+([^(),|·]{2,65})(?:\s*\(([^)\n]{2,50})\))?/u)).find(Boolean);
+  const streetAreaExpression = new RegExp(`\\b(${STREET_NAME})\\s*(?:-\\s*)?,\\s*([A-ZÄÖÜ][\\p{L}äöüß -]{1,45})\\s*,\\s*(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
+  const streetArea = lines.slice(0, 500).map((line) => line.match(streetAreaExpression)).find(Boolean);
   const labeledDistrict = text.match(/\b(?:Stadtteil|Ortsteil|Bezirk|Kiez|Mikrolage)\s*[:\-]?\s*([A-ZÄÖÜ][\p{L}äöüß-]{2,}(?:\s+[A-ZÄÖÜ][\p{L}äöüß-]{2,})?)/u)?.[1];
   const kiezStem = text.match(/\b([A-ZÄÖÜ][\p{L}äöüß-]{2,})(?:[\s-]+Kiez|kiez)\b/u)?.[1];
   const microNeighborhood = kiezStem ? `${kiezStem.replace(/-$/u, '')}kiez` : '';
@@ -182,11 +188,9 @@ function visibleLocation(lines: string[], title: string) {
   return {
     postalCode: postal?.[1] || '',
     city: tidy(city),
-    district: tidy(microNeighborhood || postal?.[3] || labeledDistrict || titleArea?.[1] || ''),
+    district: tidy(microNeighborhood || postal?.[3] || streetArea?.[2] || labeledDistrict || titleArea?.[1] || ''),
   };
 }
-
-const STREET_NAME = String.raw`[A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)`;
 
 function agencyContext(lines: string[], index: number) {
   return lines.slice(Math.max(0, index - 2), index + 2).some(line => /\b(?:Makler|Anbieter|Anbietende|Gewerblich|Impressum|Immobilienb(?:ü|u)ro|Scout-ID|Objekt-ID|Kontakt)\b/i.test(line));
@@ -207,10 +211,11 @@ function visibleAddress(lines: string[], expectedCity: string, expectedPostal: s
 function visiblePropertyStreet(lines: string[]) {
   const labeled = new RegExp(`\\b(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*(?:[^.;]{0,45}?\\b(?:nahe|Nähe|unweit|bei)\\s+(?:der\\s+)?)?(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)`, 'iu');
   const nearby = new RegExp(`\\b(?:nahe|Nähe|unweit|bei|direkt\\s+(?:an|bei)|gelegen\\s+(?:an|bei)|in\\s+der)\\s+(?:der\\s+)?(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)`, 'iu');
+  const locationLine = new RegExp(`^\\s*(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*(?:[^,]{2,50},\\s*)?\\d{5}\\s+[A-ZÄÖÜ]`, 'iu');
   for (let index = 0; index < Math.min(lines.length, 500); index += 1) {
     const line = lines[index];
     if (agencyContext(lines, index)) continue;
-    const candidate = tidy(line.match(labeled)?.[1] || line.match(nearby)?.[1] || '');
+    const candidate = tidy(line.match(labeled)?.[1] || line.match(nearby)?.[1] || line.match(locationLine)?.[1] || '');
     if (candidate) return candidate;
   }
   return '';
@@ -267,6 +272,19 @@ export function normalizedFloor(value: string) {
   const numbered = clean.match(/^(\d{1,2})(?:\.|\s)*(?:OG|Obergeschoss|Etage|Geschoss)?$/i)?.[1];
   if (!numbered) return '';
   return Number(numbered) === 0 ? 'EG' : `${Number(numbered)}. OG`;
+}
+
+export function energyClassFromDemand(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  if (value < 30) return 'A+';
+  if (value < 50) return 'A';
+  if (value < 75) return 'B';
+  if (value < 100) return 'C';
+  if (value < 130) return 'D';
+  if (value < 160) return 'E';
+  if (value < 200) return 'F';
+  if (value < 250) return 'G';
+  return 'H';
 }
 
 function summaryFor(report: Report) {
@@ -333,7 +351,8 @@ export function parseListing(raw: string, source: string): Report {
   const area = number(firstMatch(lines, /\bWohnfl[aä]che(?:\s+ca\.?)?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm)/i)
     || aroundLabel(lines, /^Wohnfl[aä]che(?:\s+ca\.?)?$/i, areaValue, 3, 3)
     || firstMatch(lines, /\b([\d.,]+)\s*(?:m²|qm)\s+Wohnfl[aä]che/i));
-  const usableArea = number(aroundLabel(lines, /^Nutzfl[aä]che$/i, areaValue, 1, 3));
+  const usableArea = number(firstMatch(lines, /\bNutzfl[aä]che(?:\s+ca\.?)?\s*[:\-]?\s*([\d.,]+)\s*(?:m²|qm)/i)
+    || aroundLabel(lines, /^Nutzfl[aä]che(?:\s+ca\.?)?$/i, areaValue, 1, 3));
   const roomsValue = firstMatch(lines, /\b(?:Zimmer|Anzahl Zimmer)\s*[:\-]\s*(\d+(?:[,.]\d+)?)(?!\s*%)/i)
     || aroundLabel(lines, /^(?:Zimmer|Anzahl Zimmer)$/i, /^(\d+(?:[,.]\d+)?)$/, 2, 2)
     || firstMatch([title, ...lines.slice(0, 250)], /\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|Raum(?:wohnung)?)/i);
@@ -347,15 +366,16 @@ export function parseListing(raw: string, source: string): Report {
     || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3)
     || firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
   const floor = normalizedFloor(floorRaw) || UNKNOWN;
-  const energy = aroundLabel(lines, /^Energieeffizienzklasse$/i, /^([A-H](?:\+)?)$/i, 0, 3)
-    || firstMatch(lines, /\bEnergieeffizienzklasse\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
-    || UNKNOWN;
   const heating = firstMatch(lines, /\b(?:Heizung|Heizungsart)\s*[:\-]\s*([^|;]{3,45})$/i)
     || aroundLabel(lines, /^(?:Heizung|Heizungsart)$/i, /^(.{3,45})$/, 0, 2) || UNKNOWN;
   const energySource = firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger)\s*[:\-]\s*([^|;]{3,45})$/i)
     || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger)$/i, /^(.{3,45})$/, 0, 2) || undefined;
   const energyDemand = number(firstMatch(lines, /\bEndenergie(?:bedarf|verbrauch)\s*[:\-]\s*([\d.,]+)\s*kWh/i)
     || aroundLabel(lines, /^Endenergie(?:bedarf|verbrauch)$/i, /([\d.,]+)\s*kWh/i, 0, 2));
+  const energy = aroundLabel(lines, /^Energieeffizienzklasse$/i, /^([A-H](?:\+)?)$/i, 0, 3)
+    || firstMatch(lines, /\bEnergieeffizienzklasse\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
+    || energyClassFromDemand(energyDemand)
+    || UNKNOWN;
   const energyCertificate = firstMatch(lines, /\bEnergie\s*ausweistyp\s*[:\-]\s*([^|;]{3,45})$/i)
     || aroundLabel(lines, /^Energieausweistyp$/i, /^(.{3,45})$/, 0, 2) || undefined;
   const conditionRaw = firstMatch(lines, /\b(?:Zustand|Objektzustand|Bauzustand)\s*[:\-]\s*([^|;]{3,60})$/i)
@@ -373,9 +393,9 @@ export function parseListing(raw: string, source: string): Report {
     || firstMatch(lines, /\bHausgeld\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i));
   const buyerCosts = number(firstMatch(lines, /\b(?:Kaufnebenkosten|Nebenkosten)(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
     || aroundLabel(lines, /^(?:Kaufnebenkosten|Nebenkosten)(?:\s+ca\.)?$/i, currency, 2, 3));
-  const explicitTotal = number(firstMatch(lines, /\bGesamtkosten(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
-    || aroundLabel(lines, /^Gesamtkosten(?:\s+ca\.)?$/i, currency, 0, 3)
-    || moneyAroundLabel(lines, /^Gesamtkosten(?:\s+ca\.)?$/i, 1, 3));
+  const explicitTotalCandidate = number(firstMatch(lines, /\bGesamtkosten(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
+    || String(totalCostAroundLabel(lines, price)));
+  const explicitTotal = explicitTotalCandidate >= price ? explicitTotalCandidate : 0;
   const brokerFeeValue = aroundLabel(lines, /^Maklerprovision$/i, currency, 0, 3);
   const brokerFee = brokerFeeValue ? number(brokerFeeValue) : undefined;
 
