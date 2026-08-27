@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="820" viewBox="0 0 1440 820">
+  <defs>
+    <style>
+      .bg{fill:#f1eee6}.card{fill:#fcfbf7;stroke:#d7d1c4}.ink{fill:#1d302b}.muted{fill:#68736d}.clay{fill:#b9684e}.line{fill:none;stroke:#1d302b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.accent{fill:none;stroke:#b9684e;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.label{font:650 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:2px}.title{font:400 42px Georgia,serif}.word{font:600 29px Georgia,serif;letter-spacing:-.6px}.body{font:400 16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.small{font:500 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1440" height="820"/>
+  <text x="70" y="75" class="label muted">REVIEW A HOUSE · LOGO DIRECTIONS</text>
+  <text x="70" y="132" class="title ink">Quieter, sharper, more architectural.</text>
+  <text x="70" y="169" class="body muted">Three marks without the heart, bright tile or generic property-app feel.</text>
+
+  <!-- A -->
+  <g transform="translate(70 230)">
+    <rect class="card" width="410" height="500" rx="12"/>
+    <text x="28" y="42" class="label clay">A · OPEN THRESHOLD</text>
+    <g transform="translate(42 78)">
+      <path class="line" d="M8 31 32 11l24 20v27H40V40H24v18H8Z"/>
+      <path class="accent" d="M24 58h16"/>
+    </g>
+    <text x="126" y="122" class="word ink">Review a House</text>
+    <line x1="28" x2="382" y1="176" y2="176" stroke="#ded8cc"/>
+    <text x="28" y="215" class="body ink">One continuous architectural outline.</text>
+    <text x="28" y="243" class="body muted">The open doorway suggests access and</text>
+    <text x="28" y="267" class="body muted">honesty; the clay threshold is the signature.</text>
+    <g transform="translate(28 308)">
+      <rect width="72" height="72" rx="16" fill="#ebe7dc"/>
+      <g transform="translate(12 11) scale(.75)">
+        <path class="line" d="M8 31 32 11l24 20v27H40V40H24v18H8Z"/>
+        <path class="accent" d="M24 58h16"/>
+      </g>
+      <text x="94" y="31" class="small muted">Favicon</text>
+      <text x="94" y="53" class="body ink">Clear at small sizes</text>
+    </g>
+    <rect x="28" y="420" width="354" height="52" rx="4" fill="#1d302b"/>
+    <g transform="translate(43 431) scale(.46)">
+      <path d="M8 31 32 11l24 20v27H40V40H24v18H8Z" fill="none" stroke="#fcfbf7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 58h16" fill="none" stroke="#dce9a5" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <text x="84" y="452" font-family="Georgia,serif" font-size="19" font-weight="600" fill="#fcfbf7">Review a House</text>
+  </g>
+
+  <!-- B -->
+  <g transform="translate(515 230)">
+    <rect class="card" width="410" height="500" rx="12"/>
+    <text x="28" y="42" class="label clay">B · VERIFIED HOME</text>
+    <g transform="translate(42 78)">
+      <path class="line" d="M8 31 32 11l24 20M12 28v30h40V28"/>
+      <path class="accent" d="m20 40 9 9 17-20"/>
+    </g>
+    <text x="126" y="122" class="word ink">Review a House</text>
+    <line x1="28" x2="382" y1="176" y2="176" stroke="#ded8cc"/>
+    <text x="28" y="215" class="body ink">A house and a decision in one mark.</text>
+    <text x="28" y="243" class="body muted">More explicit about reviewing, but also</text>
+    <text x="28" y="267" class="body muted">closer to familiar inspection-service logos.</text>
+    <g transform="translate(28 308)">
+      <rect width="72" height="72" rx="16" fill="#ebe7dc"/>
+      <g transform="translate(12 11) scale(.75)">
+        <path class="line" d="M8 31 32 11l24 20M12 28v30h40V28"/>
+        <path class="accent" d="m20 40 9 9 17-20"/>
+      </g>
+      <text x="94" y="31" class="small muted">Favicon</text>
+      <text x="94" y="53" class="body ink">Direct and legible</text>
+    </g>
+    <rect x="28" y="420" width="354" height="52" rx="4" fill="#1d302b"/>
+    <g transform="translate(43 431) scale(.46)">
+      <path d="M8 31 32 11l24 20M12 28v30h40V28" fill="none" stroke="#fcfbf7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m20 40 9 9 17-20" fill="none" stroke="#dce9a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="84" y="452" font-family="Georgia,serif" font-size="19" font-weight="600" fill="#fcfbf7">Review a House</text>
+  </g>
+
+  <!-- C -->
+  <g transform="translate(960 230)">
+    <rect class="card" width="410" height="500" rx="12"/>
+    <text x="28" y="42" class="label clay">C · ARCHITECTURAL R</text>
+    <g transform="translate(42 78)">
+      <path class="line" d="M16 58V13h17c11 0 18 5 18 14s-7 14-18 14H16M35 41l18 17"/>
+      <path class="accent" d="M11 20 32 6l25 17"/>
+    </g>
+    <text x="126" y="122" class="word ink">Review a House</text>
+    <line x1="28" x2="382" y1="176" y2="176" stroke="#ded8cc"/>
+    <text x="28" y="215" class="body ink">A proprietary R under a roofline.</text>
+    <text x="28" y="243" class="body muted">The most editorial and distinctive option;</text>
+    <text x="28" y="267" class="body muted">slightly less immediate at favicon scale.</text>
+    <g transform="translate(28 308)">
+      <rect width="72" height="72" rx="16" fill="#ebe7dc"/>
+      <g transform="translate(12 11) scale(.75)">
+        <path class="line" d="M16 58V13h17c11 0 18 5 18 14s-7 14-18 14H16M35 41l18 17"/>
+        <path class="accent" d="M11 20 32 6l25 17"/>
+      </g>
+      <text x="94" y="31" class="small muted">Favicon</text>
+      <text x="94" y="53" class="body ink">Distinctive, more abstract</text>
+    </g>
+    <rect x="28" y="420" width="354" height="52" rx="4" fill="#1d302b"/>
+    <g transform="translate(43 431) scale(.46)">
+      <path d="M16 58V13h17c11 0 18 5 18 14s-7 14-18 14H16M35 41l18 17" fill="none" stroke="#fcfbf7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M11 20 32 6l25 17" fill="none" stroke="#dce9a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="84" y="452" font-family="Georgia,serif" font-size="19" font-weight="600" fill="#fcfbf7">Review a House</text>
+  </g>
+
+  <text x="70" y="778" class="small muted">My pick: A. It feels like a calm publishing mark, stays recognizable at 16–32px, and the open threshold gives it a small idea of its own.</text>
+</svg>

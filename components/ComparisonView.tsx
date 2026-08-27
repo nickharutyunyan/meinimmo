@@ -35,6 +35,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
     [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
     [text.acquisition, first.facts.totalCost ? money(first.facts.totalCost) : '—', second.facts.totalCost ? money(second.facts.totalCost) : '—'],
+    [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
     [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
     [text.living, first.facts.area ? `${first.facts.area} m²` : '—', second.facts.area ? `${second.facts.area} m²` : '—'],
     [text.usable, first.facts.usableArea ? `${first.facts.usableArea} m²` : '—', second.facts.usableArea ? `${second.facts.usableArea} m²` : '—'],

@@ -1,4 +1,4 @@
-const IMPORTANT_LISTING_LINE = /(?:adresse|anschrift|lage|stadtteil|ortsteil|bezirk|kiez|mikrolage|straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|postleitzahl|\b\d{5}\b|u-?bahn|s-?bahn|bahnhof|haltestelle|wohnfl[aä]che|nutzfl[aä]che|zimmer|kaufpreis|gesamtkosten|hausgeld|maklerprovision|aktuelle\s+nutzung|vermietet|bezugsfrei|leerstehend|eigengenutzt|zustand|baujahr|etage|geschoss|energieeffizienzklasse|energieausweis|energietr[aä]ger|heizung|balkon|terrasse|garten|aufzug)/iu;
+const IMPORTANT_LISTING_LINE = /(?:adresse|anschrift|lage|stadtteil|ortsteil|bezirk|kiez|mikrolage|straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|postleitzahl|\b\d{5}\b|u-?bahn|s-?bahn|bahnhof|haltestelle|wohnfl[aä]che|nutzfl[aä]che|zimmer|kaufpreis|gesamtkosten|hausgeld|maklerprovision|k[aä]uferprovision|courtage|provisionsfrei|aktuelle\s+nutzung|vermietet|bezugsfrei|leerstehend|eigengenutzt|zustand|baujahr|etage|geschoss|energieeffizienzklasse|energieausweis|energietr[aä]ger|heizung|balkon|terrasse|garten|aufzug)/iu;
 
 export const MAX_AI_LISTING_CHARS = 6_000;
 

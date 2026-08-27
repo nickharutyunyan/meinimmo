@@ -101,3 +101,10 @@ test('English reports localize common German floor and heating labels', () => {
   assert.equal(localizedValue('Zentralheizung', 'en'), 'Central heating');
   assert.equal(localizedValue('3. OG', 'de'), '3. OG');
 });
+
+test('explicit buyer commission wording is localized clearly', () => {
+  assert.equal(localizedValue('Commission-free', 'en'), "Commission-free / no buyer's commission");
+  assert.equal(localizedValue('Commission-free', 'de'), 'Provisionsfrei / keine Käuferprovision');
+  assert.equal(localizedValue('3,57 % inkl. MwSt.', 'en'), '3,57 % incl. VAT');
+  assert.equal(localizedValue('3,57 % inkl. MwSt.', 'de'), '3,57 % inkl. MwSt.');
+});

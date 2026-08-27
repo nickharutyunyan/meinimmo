@@ -1286,15 +1286,16 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
 }
 
 .private-note-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 14px;
   margin-bottom: 15px;
 }
 
-.private-note-heading .eyebrow { margin: 0 0 8px; }
-.private-note-heading h2 { margin: 0; font: 400 21px/1.15 var(--serif); letter-spacing: -.015em; }
+.private-note-heading > div { display: contents; }
+.private-note-heading .eyebrow { grid-column: 1; margin: 0 0 8px; }
+.private-note-heading h2 { grid-column: 1 / -1; margin: 0; font: 400 21px/1.15 var(--serif); letter-spacing: -.015em; }
 .private-label { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; margin-top: 1px; color: #68766f; font-size: 11px; }
 .private-label i { color: #78964d; font-size: 7px; font-style: normal; }
 

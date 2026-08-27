@@ -37,15 +37,16 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor)] as [string, string]] : []),
     ...(known(report.facts.tenancy) ? [[reportText.use, localized(report.facts.tenancy)] as [string, string]] : []),
     ...(known(report.facts.condition) ? [[reportText.condition, localized(report.facts.condition)] as [string, string]] : []),
+    ...(report.facts.buyerCommission ? [[reportText.commission, localized(report.facts.buyerCommission)] as [string, string]] : []),
     ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),
     ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy)] as [string, string]] : []),
     ...(known(report.facts.heating) ? [[reportText.heating, localized(report.facts.heating)] as [string, string]] : []),
     ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}`] as [string, string]] : []),
   ];
   const labels = de ? {
-    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Unser Score', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Sollzins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot.', pdfSource: 'Exposé PDF',
+    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Unser Score', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Sollzins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF',
   } : {
-    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Our score', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer.', pdfSource: 'Exposé PDF',
+    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Our score', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer', pdfSource: 'Exposé PDF',
   };
   const returnUrl = `${de ? '/de' : ''}/r/${report.id}`;
   const mapsUrl = location.mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery)}` : '';

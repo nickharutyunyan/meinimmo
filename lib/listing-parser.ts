@@ -83,6 +83,27 @@ function totalCostAroundLabel(lines: string[], purchasePrice: number) {
   return 0;
 }
 
+function statedBuyerCommission(lines: string[], title: string) {
+  const relevant = [title, ...lines.slice(0, 800)];
+  const commissionFree = /\b(?:provisionsfrei(?:e[snrm]?)?|courtagefrei(?:e[snrm]?)?|ohne\s+(?:K[aä]uferprovision|Maklerprovision|Courtage)|keine\s+(?:zus[aä]tzliche\s+)?(?:K[aä]uferprovision|Maklerprovision|Courtage)|keine\s+Provision\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)\b/i;
+  if (relevant.some(line => commissionFree.test(line))) return 'Commission-free';
+
+  const label = /^(?:K[aä]uferprovision|Maklerprovision|Provision|Courtage)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*:?$/i;
+  const statedValue = /^((?:\d{1,3}(?:[.,]\d{1,4})?\s*%|\d[\d.\s]*(?:,\d{1,2})?\s*(?:€|EUR))(?:\s*.{0,55})?)$/i;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!label.test(lines[index])) continue;
+    for (const candidate of [lines[index + 1], lines[index - 1]]) {
+      const value = candidate?.match(statedValue)?.[1];
+      if (!value) continue;
+      return number(value) === 0 ? 'Commission-free' : tidy(value);
+    }
+  }
+
+  const inline = firstMatch(relevant, /\b(?:K[aä]uferprovision|Maklerprovision|Courtage)(?:\s+f[uü]r\s+(?:den\s+)?K[aä]ufer)?\s*[:\-]?\s*((?:\d{1,3}(?:[.,]\d{1,4})?\s*%|\d[\d.\s]*(?:,\d{1,2})?\s*(?:€|EUR))(?:\s*.{0,55})?)/i);
+  if (!inline) return '';
+  return number(inline) === 0 ? 'Commission-free' : inline;
+}
+
 function plausiblePurchasePrice(value: string) {
   const amount = number(value);
   return amount >= 20_000 && amount <= 100_000_000 ? amount : 0;
@@ -396,8 +417,10 @@ export function parseListing(raw: string, source: string): Report {
   const explicitTotalCandidate = number(firstMatch(lines, /\bGesamtkosten(?:\s+ca\.)?\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i)
     || String(totalCostAroundLabel(lines, price)));
   const explicitTotal = explicitTotalCandidate >= price ? explicitTotalCandidate : 0;
-  const brokerFeeValue = aroundLabel(lines, /^Maklerprovision$/i, currency, 0, 3);
-  const brokerFee = brokerFeeValue ? number(brokerFeeValue) : undefined;
+  const buyerCommission = statedBuyerCommission(lines, title);
+  const brokerFee = buyerCommission && buyerCommission !== 'Commission-free' && /(?:€|EUR)/i.test(buyerCommission)
+    ? number(buyerCommission)
+    : buyerCommission === 'Commission-free' ? 0 : undefined;
 
   const jsonLocation = jsonAddress(raw);
   const shownLocation = visibleLocation(lines, title);
@@ -439,7 +462,7 @@ export function parseListing(raw: string, source: string): Report {
   const facts = {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
-    buyerCosts: buyerCosts || undefined, brokerFee, housegeld: housegeld || undefined,
+    buyerCosts: buyerCosts || undefined, brokerFee, buyerCommission: buyerCommission || undefined, housegeld: housegeld || undefined,
     tenancy, advertisedYield: advertisedYield || undefined, condition, features,
     postalCode: postalCode || undefined, city: city || undefined, district: district || undefined,
     street: street || undefined,

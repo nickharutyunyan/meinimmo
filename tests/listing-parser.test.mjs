@@ -42,10 +42,35 @@ test('keeps publisher metadata out of the property location and separates living
   assert.equal(report.facts.usableArea, 66);
   assert.equal(report.facts.totalCost, 578314);
   assert.equal(report.facts.housegeld, 515);
+  assert.equal(report.facts.buyerCommission, 'Commission-free');
   assert.equal(report.facts.tenancy, 'Rented');
   assert.equal(report.facts.energySource, 'Fernwärme');
   assert.match(report.daylight || '', /daylight/i);
   assert.ok(!JSON.stringify(report).includes('Reinbek'));
+});
+
+test('extracts buyer commission only from explicit listing evidence', () => {
+  const percentage = parseListing(`
+    <title>3-Zimmer-Wohnung in Leipzig</title><main>
+    <p>04109 Leipzig</p><div>Kaufpreis</div><div>350.000 €</div>
+    <div>Wohnfläche</div><div>80 m²</div>
+    <div>Käuferprovision</div><div>3,57 % inkl. MwSt.</div>
+    </main>`, 'https://example.test/commission');
+  assert.equal(percentage.facts.buyerCommission, '3,57 % inkl. MwSt.');
+
+  const explicitlyFree = parseListing(`
+    <title>Provisionsfreie 2-Zimmer-Wohnung in Dresden</title><main>
+    <p>01067 Dresden</p><div>Kaufpreis</div><div>280.000 €</div>
+    <div>Wohnfläche</div><div>58 m²</div>
+    </main>`, 'https://example.test/free');
+  assert.equal(explicitlyFree.facts.buyerCommission, 'Commission-free');
+
+  const absent = parseListing(`
+    <title>Vermietete Wohnung mit 3,57 % Rendite in Erfurt</title><main>
+    <p>99084 Erfurt</p><div>Kaufpreis</div><div>240.000 €</div>
+    <div>Wohnfläche</div><div>60 m²</div><p>Die angegebene Rendite beträgt 3,57 %.</p>
+    </main>`, 'https://example.test/no-commission');
+  assert.equal(absent.facts.buyerCommission, undefined);
 });
 
 test('uses living area in a title when room count is absent', () => {

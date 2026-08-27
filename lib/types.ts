@@ -13,6 +13,7 @@ export type Facts = {
   totalCost: number;
   buyerCosts?: number;
   brokerFee?: number;
+  buyerCommission?: string;
   housegeld?: number;
   tenancy?: string;
   advertisedYield?: number;
