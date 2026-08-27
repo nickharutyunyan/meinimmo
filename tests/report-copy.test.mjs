@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { copy, localizedFeatures, localizedValue } from '../lib/i18n.ts';
-import { localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
+import { isObviousAddressQuestion, localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
 
 const report = {
   id: 'test', title: '', address: 'Address not stated', location: 'Mitte', propertyType: 'flat', source: 'test', createdAt: new Date(0).toISOString(),
@@ -17,6 +17,21 @@ test('fallback offer questions stay short and cover material property-specific g
   assert.match(english.join(' '), /rented or vacant/i);
   assert.match(english.join(' '), /WEG reserve/i);
   assert.match(german.join(' '), /vermietet oder frei/i);
+});
+
+test('exact-address questions are rejected as too obvious for due diligence', () => {
+  assert.equal(isObviousAddressQuestion('What is the exact street address of the property?'), true);
+  assert.equal(isObviousAddressQuestion('Could you provide the full address?'), true);
+  assert.equal(isObviousAddressQuestion('Wie lautet die genaue Straßenadresse der Wohnung?'), true);
+  assert.equal(isObviousAddressQuestion('Are there registered building restrictions at this address?'), false);
+
+  const otherwiseValid = [
+    'What is the exact street address of the property?',
+    'What is the current WEG reserve balance?',
+    'Are any major repairs already planned?',
+    'Which Hausgeld costs are not recoverable?',
+  ];
+  assert.equal(questionsAreConcise(otherwiseValid), false);
 });
 
 test('unknown occupancy is omitted from summary instead of being guessed', () => {

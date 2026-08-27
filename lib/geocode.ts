@@ -1,3 +1,6 @@
+import type { Report } from './types';
+import { reportNeighborhood, resolveLocation } from './display.ts';
+
 export type GermanPlace = {
   lat: number;
   lon: number;
@@ -54,6 +57,19 @@ export async function neighborhoodForPostalCode(postalCode?: string, city?: stri
   if (!postal || !cleanCity) return '';
   try {
     return (await geocodeGermanLocation(`${postal} ${cleanCity}`, cleanCity))?.neighborhood || '';
+  } catch {
+    return '';
+  }
+}
+
+export async function neighborhoodForReport(report: Pick<Report, 'address' | 'location' | 'source' | 'facts'>) {
+  const stated = reportNeighborhood(report);
+  if (stated) return stated;
+
+  const location = resolveLocation(report);
+  if (!location.mapQuery || !['address', 'street', 'postal code'].includes(location.basis)) return '';
+  try {
+    return (await geocodeGermanLocation(location.mapQuery, location.city))?.neighborhood || '';
   } catch {
     return '';
   }

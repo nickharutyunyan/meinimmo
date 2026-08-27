@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '../lib/display.ts';
+import { canonicalSource, reportNeighborhood, reportSubtitle, reportTitle, resolveLocation } from '../lib/display.ts';
 
 const base = {
   title: '', source: 'test', propertyType: 'flat', address: 'Address not stated', location: 'Prenzlauer Berg',
@@ -12,6 +12,12 @@ test('uses a factual neighborhood in the title and keeps the city in the subtitl
   assert.equal(reportTitle(base, 'de'), '3-Zimmer-Wohnung · Prenzlauer Berg');
   assert.equal(reportSubtitle(base), 'Prenzlauer Berg, Berlin');
   assert.doesNotMatch(reportTitle(base), /not stated|unknown|couldn.t find/i);
+});
+
+test('returns a clean neighborhood separately for comparisons', () => {
+  assert.equal(reportNeighborhood(base), 'Prenzlauer Berg');
+  assert.equal(reportNeighborhood({ ...base, location: 'Mitte Mitte', facts: { ...base.facts, district: 'Mitte Mitte' } }), 'Mitte');
+  assert.equal(reportNeighborhood({ ...base, location: 'Berlin', facts: { ...base.facts, district: undefined } }), '');
 });
 
 test('cleans sales claims and postal codes from an exact-address title', () => {
@@ -68,15 +74,15 @@ test('uses the resolved neighborhood instead of its source postal code', () => {
 
 test('drops a bogus zero house number without losing the street', () => {
   const report = { ...base, address: 'Musterstraße 0, 10115 Berlin' };
-  assert.equal(reportTitle(report), '3-room flat · near Musterstraße');
+  assert.equal(reportTitle(report), '3-room flat · Musterstraße');
   assert.equal(reportSubtitle(report), 'Musterstraße, 10115 Berlin');
   assert.equal(resolveLocation(report).mapQuery, 'Musterstraße, 10115 Berlin, Germany');
 });
 
-test('labels a stated street without a house number as nearby, not exact', () => {
+test('uses a stated street cleanly in the title without implying a house number', () => {
   const report = { ...base, address: 'Address not stated', facts: { ...base.facts, district: undefined, postalCode: '10439', street: 'Danziger Straße', locationPrecision: 'street' } };
-  assert.equal(reportTitle(report), '3-room flat · near Danziger Straße');
-  assert.equal(reportTitle(report, 'de'), '3-Zimmer-Wohnung · nahe Danziger Straße');
+  assert.equal(reportTitle(report), '3-room flat · Danziger Straße');
+  assert.equal(reportTitle(report, 'de'), '3-Zimmer-Wohnung · Danziger Straße');
   assert.equal(reportSubtitle(report), 'Danziger Straße, 10439 Berlin');
 });
 

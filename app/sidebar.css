@@ -10,6 +10,7 @@
 .history-row .remove:hover{background:#f8e9e5;color:#9d4b3e}
 .history-row .pin[aria-pressed=true]{color:#658039;background:#eff5d4}
 .history-row.pinned{background:#fbfbf4}
+.history-row.selected{background:#f1f3df;border-color:#d7ddb3}
 .sidebar.collapsed .history-row,.sidebar.collapsed .quota,.sidebar.collapsed .side-label,.sidebar.collapsed .compare,.sidebar.collapsed .actions{display:none}
 .sidebar.collapsed{width:68px;padding-left:12px;padding-right:12px}
 .sidebar.collapsed header{grid-template-columns:1fr;gap:15px;justify-items:center;padding-left:0;padding-right:0}

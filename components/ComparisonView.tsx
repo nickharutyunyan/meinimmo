@@ -1,26 +1,38 @@
 import { Fragment } from 'react';
 import type { Report } from '@/lib/types';
-import { reportSubtitle, reportTitle } from '@/lib/display';
+import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
+import { neighborhoodForReport } from '@/lib/geocode';
 import { calculatePropertyScore } from '@/lib/property-score';
 import { copy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { ComparisonShareButton } from './ComparisonShareButton';
+import { visibleComparisonRows } from '@/lib/comparison';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
-export function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
+export async function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
   const text = copy[locale].compare;
   const firstScore = calculatePropertyScore(first);
   const secondScore = calculatePropertyScore(second);
+  const [firstNeighborhood, secondNeighborhood] = await Promise.all([
+    neighborhoodForReport(first),
+    neighborhoodForReport(second),
+  ]);
   const known = (value?: string) => localizedValue(value, locale) === copy[locale].report.notDisclosed ? '—' : localizedValue(value, locale);
   const energy = (item: Report) => {
     const energyClass = known(item.facts.energy);
     const parts = [...(energyClass === '—' ? [] : [energyClass]), ...(item.facts.energySource ? [item.facts.energySource] : [])];
     return parts.length ? parts.join(' · ') : '—';
   };
-  const rows = [
+  const address = (item: Report) => {
+    const location = resolveLocation(item);
+    return ['address', 'street', 'postal code'].includes(location.basis) ? reportSubtitle(item) || '—' : '—';
+  };
+  const rows = visibleComparisonRows([
+    [text.address, address(first), address(second)],
+    [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
     [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
     [text.acquisition, first.facts.totalCost ? money(first.facts.totalCost) : '—', second.facts.totalCost ? money(second.facts.totalCost) : '—'],
     [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
@@ -34,7 +46,7 @@ export function ComparisonView({ first, second, locale }: { first: Report; secon
     [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
     [text.energy, energy(first), energy(second)],
     [text.score, `${firstScore.total.toFixed(2)} / 10`, `${secondScore.total.toFixed(2)} / 10`],
-  ] as const;
+  ] as const);
 
   return <main className="comparison-page" lang={locale}>
     <SiteNav locale={locale} />
@@ -43,13 +55,13 @@ export function ComparisonView({ first, second, locale }: { first: Report; secon
     <p className="lead">{text.intro}</p>
     <div className="comparison-table-scroll"><section className="comparison-grid">
       <div className="metric">{text.property}</div>
-      <div><small>{text.option} A</small><h2>{reportTitle(first, locale)}</h2><p>{reportSubtitle(first)}</p></div>
-      <div><small>{text.option} B</small><h2>{reportTitle(second, locale)}</h2><p>{reportSubtitle(second)}</p></div>
+      <div><small>{text.option} A</small><h2>{reportTitle(first, locale)}</h2></div>
+      <div><small>{text.option} B</small><h2>{reportTitle(second, locale)}</h2></div>
       {rows.map(([label, a, b]) => <Fragment key={label}><div className="metric"><GlossaryText locale={locale}>{label}</GlossaryText></div><div><GlossaryText locale={locale}>{a}</GlossaryText></div><div><GlossaryText locale={locale}>{b}</GlossaryText></div></Fragment>)}
     </section></div>
     <section className="comparison-mobile" aria-label={text.title}>{[[first, 'A', 1], [second, 'B', 2]].map(([item, option, valueIndex]) => {
       const property = item as Report;
-      return <article key={String(option)}><small>{text.option} {String(option)}</small><h2>{reportTitle(property, locale)}</h2><p>{reportSubtitle(property)}</p><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd><GlossaryText locale={locale}>{valueIndex === 1 ? a : b}</GlossaryText></dd></div>)}</dl></article>;
+      return <article key={String(option)}><small>{text.option} {String(option)}</small><h2>{reportTitle(property, locale)}</h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd><GlossaryText locale={locale}>{valueIndex === 1 ? a : b}</GlossaryText></dd></div>)}</dl></article>;
     })}</section>
     <SiteFooter locale={locale} />
   </main>;

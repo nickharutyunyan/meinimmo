@@ -22,7 +22,7 @@ export function OfferQuestions({ report, locale }: { report: Report; locale: Loc
       .then((data) => {
         if (!active) return;
         const localized = locale === 'de' ? data.offerQuestionsDe : data.offerQuestions;
-        if (Array.isArray(localized)) setQuestions(localized);
+        setQuestions(questionsAreConcise(localized) ? localized : offerQuestionsFor(report, locale));
       })
       .catch(() => undefined);
     return () => { active = false; };

@@ -73,6 +73,13 @@ export type LocationResolution = {
   basis: 'address' | 'street' | 'postal code' | 'neighborhood' | 'transit stop' | 'city' | 'none';
 };
 
+export function reportNeighborhood(report: Pick<Report, 'address' | 'location' | 'source' | 'facts'>) {
+  const city = safePlace(cleanCity(report.facts.city));
+  return preciseArea(known(report.facts.district)
+    ? report.facts.district!.trim()
+    : known(report.location) && report.location !== city ? report.location!.trim() : '', city);
+}
+
 export function resolveLocation(report: Pick<Report, 'address' | 'location' | 'source' | 'facts'>): LocationResolution {
   const city = safePlace(cleanCity(report.facts.city));
   const cleanAddress = displayAddress(report.address || '');
@@ -81,9 +88,7 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
   const statedStreet = safePlace(report.facts.street);
   const street = safePlace(addressStreet || statedStreet);
   const exact = Boolean(street && (report.facts.locationPrecision === 'address' || /\b\d{1,4}[a-z]?\s*$/iu.test(street)));
-  const district = preciseArea(known(report.facts.district)
-    ? report.facts.district!.trim()
-    : known(report.location) && report.location !== city ? report.location!.trim() : '', city);
+  const district = reportNeighborhood(report);
   const stop = safePlace(known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '');
   const postal = report.facts.postalCode?.match(/\b\d{5}\b/)?.[0] || cleanAddress.match(/\b\d{5}\b/)?.[0] || '';
   const fallbackLocation = district || stop || city;
@@ -126,13 +131,9 @@ export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location
   const street = resolved.basis === 'address' || resolved.basis === 'street'
     ? safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || report.facts.street)
     : '';
-  const district = preciseArea(known(report.facts.district)
-    ? report.facts.district!.trim()
-    : known(report.location) && report.location !== resolved.city ? report.location!.trim() : '', resolved.city);
+  const district = reportNeighborhood(report);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';
-  const streetLocation = street
-    ? resolved.exact ? street : `${locale === 'de' ? 'nahe' : 'near'} ${street}`
-    : '';
+  const streetLocation = street;
   const location = streetLocation || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
   return location ? `${base} · ${location}` : base;
 }

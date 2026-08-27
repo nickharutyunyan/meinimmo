@@ -3,7 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
 import { htmlToLines, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
 import { displayAddress, resolveLocation } from './display';
-import { offerQuestionsFor } from './report-copy';
+import { isObviousAddressQuestion, offerQuestionsFor } from './report-copy';
 import { listingAiExcerpt, parseAiJson } from './ai-input';
 
 export const looksLikeListing = looksLikePropertyListing;
@@ -17,6 +17,7 @@ function validatedQuestions(value: unknown, report: Report, locale: 'en' | 'de')
   if (!Array.isArray(value) || value.length !== 4) return undefined;
   const questions = value.map(item => typeof item === 'string' ? item.trim() : '');
   if (questions.some(question => question.length < 12 || question.length > 180 || question.split(/\s+/).length > 30)) return undefined;
+  if (questions.some(isObviousAddressQuestion)) return undefined;
   if (new Set(questions.map(question => question.toLocaleLowerCase(locale))).size !== questions.length) return undefined;
   const joined = questions.join(' ').toLowerCase();
   if (report.facts.tenancy === 'Rented' && !/(?:rent|tenant|lease|miete|mietvertrag|rendite|yield|return)/i.test(joined)) return undefined;
@@ -210,8 +211,8 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
       { role: 'system', content: 'Verify German property-listing facts. Never invent or infer. Every value must be supported by a short verbatim excerpt from this property listing, never publisher, agency, legal, office, footer or nearby-property text. A nearby station is only a transitStop.' },
       { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"price":string|null,"rooms":string|null,"area":string|null,"housegeld":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Price evidence must include the explicit Kaufpreis label and amount, never price per m², financing, total costs or monthly payments. Occupancy must distinguish rented from explicitly not rented; do not infer it when unstated. Street is only the property's stated or explicitly nearby street, never an agency or contact address. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
     ] : [
-      { role: 'system', content: 'Write concise due-diligence questions for German home buyers. Ask only about material unresolved risks in the supplied property report. Keep each question plain, specific, under 20 words and limited to one request.' },
-      { role: 'user', content: `Return JSON only: {"offerQuestionsEn":["exactly four English questions"],"offerQuestionsDe":["exactly four German questions"]}. Do not repeat known facts as questions. PROPERTY REPORT:\n${JSON.stringify(questionContext)}` },
+      { role: 'system', content: 'Write concise due-diligence questions for German home buyers. Ask only about material unresolved risks in the supplied property report. Keep each question plain, specific, under 20 words and limited to one request. Never ask for the exact address or street address; that is an obvious viewing detail, not useful due diligence.' },
+      { role: 'user', content: `Return JSON only: {"offerQuestionsEn":["exactly four English questions"],"offerQuestionsDe":["exactly four German questions"]}. Do not repeat known facts as questions and do not ask for the exact address. PROPERTY REPORT:\n${JSON.stringify(questionContext)}` },
     ],
   });
 

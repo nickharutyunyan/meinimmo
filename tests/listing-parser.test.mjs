@@ -250,11 +250,11 @@ test('parses a PDF financing block without treating its monthly quote as the tot
   assert.equal(report.facts.district, 'Kreuzberg');
   assert.equal(report.facts.street, 'Möckernstraße');
   assert.equal(report.facts.locationPrecision, 'street');
-  assert.equal(report.title, '3-room flat · near Möckernstraße');
+  assert.equal(report.title, '3-room flat · Möckernstraße');
   assert.equal(report.address, 'Address not stated');
 });
 
-test('uses near a named property street when no house number is disclosed', () => {
+test('uses a named property street directly when no house number is disclosed', () => {
   const report = parseListing(`
     2-Zimmer-Wohnung zum Kauf
     10439 Berlin, Prenzlauer Berg
@@ -266,6 +266,6 @@ test('uses near a named property street when no house number is disclosed', () =
 
   assert.equal(report.facts.street, 'Danziger Straße');
   assert.equal(report.facts.locationPrecision, 'street');
-  assert.equal(report.title, '2-room flat · near Danziger Straße');
+  assert.equal(report.title, '2-room flat · Danziger Straße');
   assert.equal(report.address, 'Address not stated');
 });

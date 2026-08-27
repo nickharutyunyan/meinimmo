@@ -30,9 +30,11 @@ export function Sidebar({ locale }: { locale: Locale }) {
       [...visible].reverse().forEach((item) => unique.set(/^https?:/i.test(item.source) ? canonicalSource(item.source) : item.id, item));
       const deduplicated = [...unique.values()];
       const uniqueIds = deduplicated.map((item) => item.id);
+      const selectedIds = JSON.parse(localStorage.getItem('habitat-compare-selection') || '[]') as string[];
       if (uniqueIds.length !== historyIds.length) localStorage.setItem('habitat-history', JSON.stringify(uniqueIds));
       setReports(deduplicated);
       setPinned(pinIds.filter((id) => uniqueIds.includes(id)));
+      setSelected(selectedIds.filter((id) => uniqueIds.includes(id)).slice(0, 2));
       setAccess(account.access || null);
     };
     load();
@@ -61,7 +63,13 @@ export function Sidebar({ locale }: { locale: Locale }) {
         ? 'Ultra'
         : text.freePlan;
 
-  const toggleSelect = (id: string) => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : current.length === 2 ? current : [...current, id]);
+  const toggleSelect = (id: string) => setSelected(current => {
+    const next = current.includes(id)
+      ? current.filter(value => value !== id)
+      : current.length === 2 ? current : [...current, id];
+    localStorage.setItem('habitat-compare-selection', JSON.stringify(next));
+    return next;
+  });
   const togglePin = (id: string) => setPinned(current => {
     const next = current.includes(id) ? current.filter(value => value !== id) : [...current, id];
     localStorage.setItem('habitat-pins', JSON.stringify(next));
@@ -75,7 +83,11 @@ export function Sidebar({ locale }: { locale: Locale }) {
     localStorage.setItem('habitat-pins', JSON.stringify(nextPins));
     setReports(current => current.filter(item => item.id !== id));
     setPinned(nextPins);
-    setSelected(current => current.filter(value => value !== id));
+    setSelected(current => {
+      const next = current.filter(value => value !== id);
+      localStorage.setItem('habitat-compare-selection', JSON.stringify(next));
+      return next;
+    });
     window.dispatchEvent(new Event('habitat-history-changed'));
   };
   const compare = async () => {
@@ -92,9 +104,9 @@ export function Sidebar({ locale }: { locale: Locale }) {
       <strong>{access ? access.used : '—'}<small> / {access ? access.limit : '—'}</small></strong>
       <p>{access ? `${access.remaining} ${text.remaining} · ${planLabel}` : text.loadingUsage}</p>
     </div> : null}<p className="side-label">{text.yours}</p>
-    <div className="history">{ordered.length ? ordered.map(item => <div className={pinned.includes(item.id) ? 'history-row pinned' : 'history-row'} key={item.id}>
+    <div className="history">{ordered.length ? ordered.map(item => <div className={`history-row${pinned.includes(item.id) ? ' pinned' : ''}${selected.includes(item.id) ? ' selected' : ''}`} key={item.id}>
       <input aria-label={`${text.select} ${reportTitle(item, locale)}`} type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleSelect(item.id)}/>
-      <Link href={localePath(locale, `/r/${item.id}`)}>{reportTitle(item, locale)}<small>{new Date(item.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></Link>
+      <Link href={localePath(locale, `/r/${item.id}`)} onClick={() => toggleSelect(item.id)}>{reportTitle(item, locale)}<small>{new Date(item.createdAt).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB')}</small></Link>
       <div className="history-controls">
         <button className="pin" title={pinned.includes(item.id) ? text.unpin : text.pin} aria-label={pinned.includes(item.id) ? text.unpin : text.pin} aria-pressed={pinned.includes(item.id)} onClick={() => togglePin(item.id)}>{pinned.includes(item.id) ? '★' : '☆'}</button>
         <button className="remove" title={text.remove} aria-label={`${text.removeAssessment}: ${reportTitle(item, locale)}`} onClick={() => removeFromHistory(item.id)}>×</button>

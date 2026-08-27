@@ -5,8 +5,18 @@ import { factualLocation } from './display.ts';
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
 
+export function isObviousAddressQuestion(value: string) {
+  const mentionsAddress = /\b(?:street\s+address|address|straßenadresse|strassenadresse|adresse|anschrift)\b/i.test(value);
+  const asksForExactness = /\b(?:exact|full|precise|specific|genaue[nrsm]?|exakte[nrsm]?|vollständige[nrsm]?)\b/i.test(value);
+  return mentionsAddress && asksForExactness;
+}
+
 export function questionsAreConcise(value: unknown): value is string[] {
-  return Array.isArray(value) && value.length === 4 && value.every(item => typeof item === 'string' && item.trim().length >= 12 && item.length <= 180 && item.split(/\s+/).length <= 30);
+  return Array.isArray(value) && value.length === 4 && value.every(item => typeof item === 'string'
+    && item.trim().length >= 12
+    && item.length <= 180
+    && item.split(/\s+/).length <= 30
+    && !isObviousAddressQuestion(item));
 }
 
 export function localizedSummary(report: Report, locale: Locale) {
