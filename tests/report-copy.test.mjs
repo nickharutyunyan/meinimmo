@@ -71,6 +71,10 @@ test('removed reasoning copy is not exposed in either language', () => {
   assert.doesNotMatch(visibleCopy, /Wichtige Grundfragen|Unterlagen und klare Antworten|Einheitlich aus den Angaben/i);
 });
 
+test('the German financing section uses the product-style calculator label', () => {
+  assert.equal(copy.de.finance.label, 'BAUFINANZIERUNGSRECHNER');
+});
+
 test('common German listing details are translated and separated on English reports', () => {
   assert.deepEqual(localizedFeatures(['Keller Vollbad Einbauküche Laminat Fliesen'], 'en'), [
     'Basement / cellar',

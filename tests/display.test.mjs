@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canonicalSource, reportNeighborhood, reportSubtitle, reportTitle, resolveLocation } from '../lib/display.ts';
+import { canonicalSource, reportNeighborhood, reportSubtitle, reportTitle, reportTitleLocation, resolveLocation } from '../lib/display.ts';
 
 const base = {
   title: '', source: 'test', propertyType: 'flat', address: 'Address not stated', location: 'Prenzlauer Berg',
@@ -9,6 +9,7 @@ const base = {
 
 test('uses a factual neighborhood in the title and keeps the city in the subtitle', () => {
   assert.equal(reportTitle(base), '3-room flat · Prenzlauer Berg');
+  assert.equal(reportTitleLocation(base, 'de'), 'Prenzlauer Berg');
   assert.equal(reportTitle(base, 'de'), '3-Zimmer-Wohnung · Prenzlauer Berg');
   assert.equal(reportSubtitle(base), 'Prenzlauer Berg, Berlin');
   assert.doesNotMatch(reportTitle(base), /not stated|unknown|couldn.t find/i);

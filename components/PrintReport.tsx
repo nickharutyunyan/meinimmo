@@ -43,17 +43,18 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}`] as [string, string]] : []),
   ];
   const labels = de ? {
-    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Unser Score', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Sollzins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Grobe Orientierung, kein Wertgutachten oder Finanzierungsangebot.',
+    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Unser Score', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Sollzins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot.', pdfSource: 'Exposé PDF',
   } : {
-    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Our score', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'An indicative review, not a valuation or financing offer.',
+    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Our score', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer.', pdfSource: 'Exposé PDF',
   };
   const returnUrl = `${de ? '/de' : ''}/r/${report.id}`;
+  const mapsUrl = location.mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery)}` : '';
 
   return <main className="print-report-page" lang={locale}>
     <PrintControls returnUrl={returnUrl} locale={locale} autoPrint={autoPrint} />
     <article className="print-report">
       <header className="print-header">
-        <div className="print-brand"><HomeMark /><span>Review a House</span></div>
+        <a className="print-brand" href="https://reviewahouse.com"><HomeMark /><span>Review a House</span></a>
         <div><b>{labels.document}</b><span>{labels.generated} · {new Date(report.createdAt).toLocaleDateString(de ? 'de-DE' : 'en-GB')}</span></div>
       </header>
 
@@ -86,15 +87,15 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
       </section>
 
       <section className="print-split print-section print-bottom">
-        <div><h3>{labels.location}</h3><p><strong>{location.mapLabel || subtitle}</strong></p>{!location.exact ? <p>{labels.approximate}</p> : null}</div>
+        <div><h3>{labels.location}</h3><p><strong>{mapsUrl ? <a href={mapsUrl}>{location.mapLabel || subtitle}<span aria-hidden="true">↗</span></a> : location.mapLabel || subtitle}</strong></p>{!location.exact ? <p>{labels.approximate}</p> : null}</div>
         <div><h3>{labels.details}</h3><div className="print-score-grid">{Object.entries(reportText.components).map(([key, label]) => <span key={key}>{label}<b>{score.breakdown[key as keyof typeof score.breakdown].toFixed(1)}</b></span>)}</div></div>
       </section>
 
       {warnings.length ? <section className="print-section print-warnings"><h3>{labels.notes}</h3><ul>{warnings.map(item => <li key={item}>{item}</li>)}</ul></section> : null}
 
       <footer className="print-footer">
-        <div><b>{labels.source}</b>{report.source.startsWith('http') ? <a href={report.source}>{report.source}</a> : <span>{cleanPdfDisplayName(report.sourceFile?.displayName || report.source)}</span>}</div>
-        <p>{labels.disclaimer} · reviewahouse.com</p>
+        <div><b>{labels.source}</b>{report.source.startsWith('http') ? <a href={report.source}>{report.source}</a> : <span>{labels.pdfSource} · {cleanPdfDisplayName(report.sourceFile?.displayName || report.source)}</span>}</div>
+        <p>{labels.disclaimer} · <a href="https://reviewahouse.com">reviewahouse.com</a></p>
       </footer>
     </article>
   </main>;

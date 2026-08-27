@@ -16,5 +16,5 @@
 .sidebar.collapsed header{grid-template-columns:1fr;gap:15px;justify-items:center;padding-left:0;padding-right:0}
 .sidebar.collapsed .side-logo span{display:none}
 .sidebar.collapsed .side-logo{width:34px;height:34px;display:grid;place-items:center}
-.sidebar.collapsed .sidebar-toggle span{transform:translateY(-1px) rotate(180deg)}
+.sidebar.collapsed .sidebar-toggle span{transform:rotate(180deg)}
 .sidebar.collapsed~.workspace{margin-left:68px}

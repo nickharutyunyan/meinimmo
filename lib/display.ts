@@ -126,6 +126,11 @@ function descriptor(report: Pick<Report, 'propertyType' | 'facts'>, locale: Loca
 
 export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location' | 'source' | 'propertyType' | 'facts'>, locale: Locale = 'en') {
   const base = descriptor(report, locale);
+  const location = reportTitleLocation(report, locale);
+  return location ? `${base} · ${location}` : base;
+}
+
+export function reportTitleLocation(report: Pick<Report, 'address' | 'location' | 'source' | 'facts'>, locale: Locale = 'en') {
   const resolved = resolveLocation(report);
   const cleanAddress = displayAddress(report.address || '');
   const street = resolved.basis === 'address' || resolved.basis === 'street'
@@ -134,8 +139,7 @@ export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location
   const district = reportNeighborhood(report);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';
   const streetLocation = street;
-  const location = streetLocation || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
-  return location ? `${base} · ${location}` : base;
+  return streetLocation || district || (stop ? `${locale === 'de' ? 'bei' : 'near'} ${stop}` : '') || resolved.city;
 }
 
 export function reportSubtitle(report: Pick<Report, 'address' | 'location' | 'source' | 'facts'>) {

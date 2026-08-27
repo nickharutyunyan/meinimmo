@@ -618,14 +618,56 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
 
 .sidebar .sidebar-toggle span {
   display: block;
-  font: 400 21px/1 var(--sans);
-  transform: translateY(-1px);
+  width: 18px;
+  height: 18px;
+  line-height: 0;
+  transform: rotate(0);
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.sidebar .sidebar-toggle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar .sidebar-toggle .arrow-head {
+  transition: transform 180ms ease;
+}
+
+.sidebar .sidebar-toggle .arrow-tail {
+  stroke-dasharray: 11;
+  stroke-dashoffset: 11;
+  transition: stroke-dashoffset 220ms cubic-bezier(.2, .75, .25, 1);
+}
+
+.sidebar .sidebar-toggle:hover .arrow-head,
+.sidebar .sidebar-toggle:focus-visible .arrow-head {
+  transform: translateX(-1px);
+}
+
+.sidebar .sidebar-toggle:hover .arrow-tail,
+.sidebar .sidebar-toggle:focus-visible .arrow-tail {
+  stroke-dashoffset: 0;
 }
 
 .sidebar .sidebar-toggle:hover,
 .sidebar .sidebar-toggle:focus-visible {
   border-color: #a9a296;
   background: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar .sidebar-toggle span,
+  .sidebar .sidebar-toggle .arrow-head,
+  .sidebar .sidebar-toggle .arrow-tail { transition: none; }
 }
 
 .actions {

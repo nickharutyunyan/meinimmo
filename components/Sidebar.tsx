@@ -97,7 +97,7 @@ export function Sidebar({ locale }: { locale: Locale }) {
   };
 
   return <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
-    <header><Brand className="side-logo" locale={locale}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span>‹</span></button></header>
+    <header><Brand className="side-logo" locale={locale}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span aria-hidden="true"><svg viewBox="0 0 20 20"><path className="arrow-head" d="M9 5 4 10l5 5"/><path className="arrow-tail" d="M5 10h11"/></svg></span></button></header>
     <div className={limitsEnabled ? 'actions' : 'actions single'}><Link href={localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link>{limitsEnabled ? <Link href={dayPassEligible ? `${localePath(locale)}?daypass=1` : localePath(locale, '/account')} className={dayPassEligible ? 'upgrade ready' : 'upgrade'}>✦ <span>{dayPassEligible ? text.dayPass : text.upgrade}</span></Link> : null}</div>
     {limitsEnabled ? <div className="quota" aria-live="polite">
       <span>{accessLabel}</span>
