@@ -29,7 +29,8 @@ function normalizedReport(item: Report) {
   const summary = condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
     : item.summary;
-  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
+  const hasUnsupportedReserveConclusion = item.considerations.some(value => /WEG reserve is adequate/i.test(value));
+  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy && !hasUnsupportedReserveConclusion
     ? item
     : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy } });
 }

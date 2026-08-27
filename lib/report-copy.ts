@@ -2,6 +2,7 @@ import { localizedValue, type Locale } from './i18n.ts';
 import type { Report } from './types';
 import { factualLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
+import { isExplicitNewBuild } from './property-condition.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -63,7 +64,11 @@ export function localizedConsiderations(report: Report, locale: Locale) {
   const { facts } = report;
   const items: string[] = [];
   if (facts.tenancy === 'Rented') items.push('Prüfe Mietvertrag, Nettokaltmiete und Zahlungshistorie.');
-  if (facts.housegeld) items.push(`Prüfe die Aufteilung der ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld und den Stand der WEG-Rücklage.`);
+  if (facts.housegeld) {
+    items.push(isExplicitNewBuild(facts.condition)
+      ? `Prüfe, wie sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld auf laufende Gemeinschafts- und Eigentümerkosten verteilen.`
+      : `Prüfe die Aufteilung der ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld und lass dir den aktuellen Stand der WEG-Rücklage zeigen.`);
+  }
   if (!stated(facts.floor)) items.push('Kläre Etage, Aufzug sowie Straßen- oder Hoflage.');
   if (stated(facts.energy)) items.push(`Vergleiche den ${facts.energyCertificate || 'Energieausweis'} mit echten Energieabrechnungen.`);
   if (facts.features?.some((feature) => /terrasse|garten/i.test(feature))) items.push('Prüfe, ob Terrasse und Garten rechtlich in der Teilungserklärung stehen und wer für die Pflege zuständig ist.');
@@ -90,7 +95,9 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
     else if (facts.availabilityDate) questions.push(`Ist die freie Übergabe am ${formatAvailabilityDate(facts.availabilityDate, 'de')} im Kaufvertrag zugesichert?`);
     else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('Wann wird die Immobilie vollständig frei übergeben?');
     else questions.push('Ist die Immobilie bei der Übergabe vermietet oder frei?');
-    if (report.propertyType === 'flat') questions.push('Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
+    if (report.propertyType === 'flat') questions.push(isExplicitNewBuild(facts.condition)
+      ? 'Welcher anfängliche Beitrag zur WEG-Rücklage ist vorgesehen?'
+      : 'Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
     if (facts.housegeld) questions.push(`Wie teilen sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld in umlagefähige und eigene Kosten?`);
     if (/Needs renovation|Needs modernization/i.test(facts.condition || '')) questions.push('Welche Arbeiten sind nötig, und gibt es dafür Kostenvoranschläge?');
     if (!stated(facts.floor) && report.propertyType === 'flat') questions.push('In welcher Etage liegt die Wohnung, und gibt es einen Aufzug?');
@@ -103,7 +110,9 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   else if (facts.availabilityDate) questions.push(`Is vacant handover on ${formatAvailabilityDate(facts.availabilityDate, 'en')} guaranteed in the purchase contract?`);
   else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('When will the property be handed over vacant?');
   else questions.push('Will the property be rented or vacant at handover?');
-  if (report.propertyType === 'flat') questions.push('What is the WEG reserve, and are any Sonderumlagen planned?');
+  if (report.propertyType === 'flat') questions.push(isExplicitNewBuild(facts.condition)
+    ? 'What initial contribution to the WEG reserve is planned?'
+    : 'What is the WEG reserve, and are any Sonderumlagen planned?');
   if (facts.housegeld) questions.push(`How is the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld split between recoverable and owner-only costs?`);
   if (/Needs renovation|Needs modernization/i.test(facts.condition || '')) questions.push('Which repairs are necessary, and are contractor estimates available?');
   if (!stated(facts.floor) && report.propertyType === 'flat') questions.push('Which floor is the unit on, and is there a lift?');

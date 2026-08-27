@@ -2,6 +2,7 @@ import type { Report } from './types';
 import { calculatePropertyScore } from './property-score.ts';
 import { factualLocation, reportTitle } from './display.ts';
 import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
+import { isExplicitNewBuild } from './property-condition.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -349,7 +350,11 @@ function considerationsFor(report: Pick<Report, 'facts' | 'sunOrientation' | 'da
   const { facts } = report;
   const items: string[] = [];
   if (facts.tenancy === 'Rented') items.push('Check the signed lease, net cold rent and payment history.');
-  if (facts.housegeld) items.push(`Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split and whether the WEG reserve is adequate.`);
+  if (facts.housegeld) {
+    items.push(isExplicitNewBuild(facts.condition)
+      ? `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split between shared running costs and owner-only costs.`
+      : `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split and ask for the current WEG reserve balance.`);
+  }
   if (facts.floor === UNKNOWN) items.push('Confirm the floor, lift access and whether the unit faces the street or courtyard.');
   if (facts.energy !== UNKNOWN) items.push(`Compare the ${facts.energyCertificate || 'Energieausweis'} with actual energy bills.`);
   if (facts.features?.some(feature => /terrasse|garten/i.test(feature))) items.push('Confirm that terrace and garden rights are recorded in the Teilungserklärung and clarify maintenance responsibility.');

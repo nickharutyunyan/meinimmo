@@ -19,6 +19,17 @@ test('fallback offer questions stay short and cover material property-specific g
   assert.match(german.join(' '), /vermietet oder frei/i);
 });
 
+test('new-build reports never imply that an unstated WEG reserve is adequate', () => {
+  const newBuild = {
+    ...report,
+    facts: { ...report.facts, condition: 'New build' },
+    considerations: ['Check how the €320 Hausgeld is split between shared running costs and owner-only costs.'],
+  };
+  assert.doesNotMatch(newBuild.considerations.join(' '), /reserve is adequate/i);
+  assert.match(offerQuestionsFor(newBuild, 'en').join(' '), /initial contribution/i);
+  assert.match(offerQuestionsFor(newBuild, 'de').join(' '), /anfängliche[nrsm]? Beitrag/i);
+});
+
 test('exact-address questions are rejected as too obvious for due diligence', () => {
   assert.equal(isObviousAddressQuestion('What is the exact street address of the property?'), true);
   assert.equal(isObviousAddressQuestion('Could you provide the full address?'), true);

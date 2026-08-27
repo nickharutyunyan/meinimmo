@@ -11,3 +11,6 @@ export function canonicalCondition(value?: string) {
   return clean;
 }
 
+export function isExplicitNewBuild(value?: string) {
+  return canonicalCondition(value) === 'New build';
+}

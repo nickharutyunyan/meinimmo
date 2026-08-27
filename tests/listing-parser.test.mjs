@@ -99,6 +99,8 @@ test('accepts and accurately parses an English-language Berlin Exposé PDF', () 
   assert.equal(report.facts.condition, 'New build');
   assert.equal(report.facts.buyerCommission, '3.00 % plus VAT of the notarized purchase price');
   assert.equal(report.sunOrientation, 'Sunny balcony stated');
+  assert.match(report.considerations.join(' '), /shared running costs and owner-only costs/i);
+  assert.doesNotMatch(report.considerations.join(' '), /reserve is adequate/i);
   assert.doesNotMatch(JSON.stringify(report), /Uthmannstr/);
 });
 
