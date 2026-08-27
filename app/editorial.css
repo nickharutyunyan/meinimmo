@@ -1552,6 +1552,27 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   font-weight: 400;
 }
 
+.comparison-address-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.comparison-address-link span[aria-hidden='true'] {
+  flex: 0 0 auto;
+  font-size: .82em;
+  transition: transform 150ms ease;
+}
+
+.comparison-address-link:hover span[aria-hidden='true'],
+.comparison-address-link:focus-visible span[aria-hidden='true'] {
+  transform: translate(2px, -2px);
+}
+
 .site-footer {
   display: flex;
   justify-content: space-between;

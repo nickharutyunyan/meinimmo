@@ -1,7 +1,7 @@
 import 'server-only';
 import type { NextRequest, NextResponse } from 'next/server';
 import { authDatabase, publicUser, type SessionUser, type UserRow } from './auth-db';
-import { hashPassword, randomToken, sha256Hex, verifyPassword } from './security';
+import { hashPassword, normalizeEmail, randomToken, sha256Hex, validEmail, validPassword, verifyPassword } from './security';
 
 export const SESSION_COOKIE = 'rah_session';
 export const ANON_COOKIE = 'rah_anon';
@@ -33,40 +33,42 @@ export function validUsername(value: string) {
   return /^[a-z0-9][a-z0-9._-]{2,31}$/.test(value);
 }
 
-export function validPassword(value: string) {
-  return value.length >= 10 && value.length <= 128 && /[A-Za-z]/.test(value) && /\d/.test(value);
-}
-
-export async function createCredentialsUser(usernameInput: string, password: string, nameInput?: string) {
+export async function createCredentialsUser(usernameInput: string, password: string, nameInput?: string, emailInput?: string) {
   const username = normalizeUsername(usernameInput);
+  const email = normalizeEmail(emailInput || '');
   if (!validUsername(username)) throw new Error('invalid_username');
+  if (!validEmail(email)) throw new Error('invalid_email');
   if (!validPassword(password)) throw new Error('invalid_password');
   const name = nameInput?.trim().slice(0, 80) || null;
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const passwordData = await hashPassword(password);
   const db = await authDatabase();
+  const existing = await db.prepare('SELECT username, email FROM users WHERE username = ?1 COLLATE NOCASE OR email = ?2 COLLATE NOCASE LIMIT 1')
+    .bind(username, email).first<{ username: string | null; email: string | null }>();
+  if (existing?.username?.toLowerCase() === username) throw new Error('username_taken');
+  if (existing?.email?.toLowerCase() === email) throw new Error('email_taken');
   try {
     await db.batch([
-      db.prepare('INSERT INTO users (id, username, display_name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)').bind(id, username, name, now),
+      db.prepare('INSERT INTO users (id, username, email, display_name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)').bind(id, username, email, name, now),
       db.prepare('INSERT INTO password_credentials (user_id, salt, password_hash, iterations, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(id, passwordData.salt, passwordData.hash, passwordData.iterations, now),
     ]);
   } catch (error) {
-    if (/unique|constraint/i.test(String(error))) throw new Error('username_taken');
+    if (/unique|constraint/i.test(String(error))) throw new Error('account_exists');
     throw error;
   }
-  return { id, username, email: null, name, stripeCustomerId: null } satisfies SessionUser;
+  return { id, username, email, name, stripeCustomerId: null } satisfies SessionUser;
 }
 
-export async function authenticateCredentials(usernameInput: string, password: string) {
-  const username = normalizeUsername(usernameInput);
+export async function authenticateCredentials(identifierInput: string, password: string) {
+  const identifier = identifierInput.trim().toLowerCase();
   const db = await authDatabase();
   const row = await db.prepare(`
     SELECT u.id, u.username, u.email, u.display_name, u.stripe_customer_id, u.created_at,
       p.salt, p.password_hash, p.iterations
     FROM users u JOIN password_credentials p ON p.user_id = u.id
-    WHERE u.username = ?1 COLLATE NOCASE
-  `).bind(username).first<UserRow & { salt: string; password_hash: string; iterations: number }>();
+    WHERE u.username = ?1 COLLATE NOCASE OR u.email = ?1 COLLATE NOCASE
+  `).bind(identifier).first<UserRow & { salt: string; password_hash: string; iterations: number }>();
   if (!row || !await verifyPassword(password, row.salt, row.password_hash, row.iterations)) return null;
   return publicUser(row);
 }
@@ -142,6 +144,21 @@ export async function updateDisplayName(userId: string, nameInput: string) {
   const db = await authDatabase();
   await db.prepare('UPDATE users SET display_name = ?1, updated_at = ?2 WHERE id = ?3').bind(name, new Date().toISOString(), userId).run();
   return name;
+}
+
+export async function updateRecoveryEmail(userId: string, emailInput: string) {
+  const email = normalizeEmail(emailInput);
+  if (!validEmail(email)) throw new Error('invalid_email');
+  const db = await authDatabase();
+  const credential = await db.prepare('SELECT 1 AS present FROM password_credentials WHERE user_id = ?1').bind(userId).first<{ present: number }>();
+  if (!credential) throw new Error('not_credentials_user');
+  try {
+    await db.prepare('UPDATE users SET email = ?1, updated_at = ?2 WHERE id = ?3').bind(email, new Date().toISOString(), userId).run();
+  } catch (error) {
+    if (/unique|constraint/i.test(String(error))) throw new Error('email_taken');
+    throw error;
+  }
+  return email;
 }
 
 export async function authRateLimited(request: NextRequest, identity: string) {

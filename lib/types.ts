@@ -16,6 +16,7 @@ export type Facts = {
   buyerCommission?: string;
   housegeld?: number;
   tenancy?: string;
+  availabilityDate?: string;
   advertisedYield?: number;
   condition?: string;
   features?: string[];

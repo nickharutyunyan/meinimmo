@@ -1,5 +1,5 @@
 import type { Report } from '@/lib/types';
-import { copy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
@@ -35,7 +35,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(report.facts.usableArea ? [[reportText.usable, `${report.facts.usableArea} m²`] as [string, string]] : []),
     ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms)] as [string, string]] : []),
     ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor)] as [string, string]] : []),
-    ...(known(report.facts.tenancy) ? [[reportText.use, localized(report.facts.tenancy)] as [string, string]] : []),
+    ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale)] as [string, string]] : []),
     ...(known(report.facts.condition) ? [[reportText.condition, localized(report.facts.condition)] as [string, string]] : []),
     ...(report.facts.buyerCommission ? [[reportText.commission, localized(report.facts.buyerCommission)] as [string, string]] : []),
     ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { accessState, userReportIds } from '@/lib/access';
 import { sessionUser } from '@/lib/auth';
 import { appEnvironment, authDatabase } from '@/lib/auth-db';
+import { billingAvailability } from '@/lib/billing-config';
 
 export async function GET(request: NextRequest) {
   const user = await sessionUser(request);
   const access = await accessState(request);
   const env = await appEnvironment();
+  const billing = billingAvailability(env);
   const subscription = user ? await (await authDatabase()).prepare(`
     SELECT plan, status, current_period_end, cancel_at_period_end
     FROM subscriptions WHERE user_id = ?1
@@ -27,7 +29,8 @@ export async function GET(request: NextRequest) {
     } : null,
     reportIds: user ? await userReportIds(user.id) : [],
     googleAvailable: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-    billingAvailable: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_DAY_PASS && env.STRIPE_PRICE_PRO && env.STRIPE_PRICE_ULTRA),
+    billingAvailable: billing.subscriptions,
+    dayPassBillingAvailable: billing.dayPass,
   });
   response.headers.set('Cache-Control', 'private, no-store, max-age=0');
   return response;

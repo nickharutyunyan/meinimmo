@@ -35,7 +35,7 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-7NZBW8CKQ3');
+      gtag('config', 'G-7NZBW8CKQ3', { page_location: window.location.origin + window.location.pathname + window.location.search });
     `}</Script>
   </body></html>;
 }

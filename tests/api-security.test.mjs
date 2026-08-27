@@ -20,3 +20,14 @@ test('state-changing public product routes require a same-origin request', async
     assert.match(route, /requireSameOrigin\(request\)/, path);
   }
 });
+
+test('password recovery endpoints require same-origin requests and never disclose whether an account exists', async () => {
+  const forgot = await source('app/api/auth/password/forgot/route.ts');
+  const reset = await source('app/api/auth/password/reset/route.ts');
+  assert.match(forgot, /requireSameOrigin\(request\)/);
+  assert.match(reset, /requireSameOrigin\(request\)/);
+  assert.match(forgot, /If this account has a recovery email/);
+  assert.match(forgot, /authRateLimited/);
+  assert.match(reset, /authRateLimited/);
+  assert.match(reset, /attachSession/);
+});

@@ -1,6 +1,7 @@
 import { localizedValue, type Locale } from './i18n.ts';
 import type { Report } from './types';
 import { factualLocation } from './display.ts';
+import { formatAvailabilityDate } from './availability.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -44,7 +45,10 @@ export function localizedSummary(report: Report, locale: Locale) {
     facts.energySource ? `Energieträger ${facts.energySource}` : '',
   ].filter(Boolean).join(', ');
   const first = `Diese ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
-  const occupancy = facts.tenancy === 'Rented'
+  const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
+  const occupancy = availableFrom
+    ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
+    : facts.tenancy === 'Rented'
     ? `Die Immobilie wird vermietet verkauft${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
     : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
       ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
@@ -83,6 +87,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   const questions: string[] = [];
   if (locale === 'de') {
     if (facts.tenancy === 'Rented') questions.push('Kann ich den Mietvertrag, die aktuelle Nettokaltmiete und die Zahlungshistorie sehen?');
+    else if (facts.availabilityDate) questions.push(`Ist die freie Übergabe am ${formatAvailabilityDate(facts.availabilityDate, 'de')} im Kaufvertrag zugesichert?`);
     else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('Wann wird die Immobilie vollständig frei übergeben?');
     else questions.push('Ist die Immobilie bei der Übergabe vermietet oder frei?');
     if (report.propertyType === 'flat') questions.push('Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
@@ -95,6 +100,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   }
 
   if (facts.tenancy === 'Rented') questions.push('May I see the lease, current net cold rent and payment history?');
+  else if (facts.availabilityDate) questions.push(`Is vacant handover on ${formatAvailabilityDate(facts.availabilityDate, 'en')} guaranteed in the purchase contract?`);
   else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('When will the property be handed over vacant?');
   else questions.push('Will the property be rented or vacant at handover?');
   if (report.propertyType === 'flat') questions.push('What is the WEG reserve, and are any Sonderumlagen planned?');

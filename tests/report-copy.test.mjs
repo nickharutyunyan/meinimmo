@@ -49,6 +49,14 @@ test('all explicit legacy non-rented states use the new rental-status wording', 
   assert.doesNotMatch(localizedSummary(notRented, 'en'), /available to move/i);
 });
 
+test('dated vacant possession is prominent in summaries and questions', () => {
+  const dated = { ...report, facts: { ...report.facts, tenancy: 'Not rented', availabilityDate: '2026-08-27' } };
+  assert.match(localizedSummary(dated, 'de'), /ab 27\. August 2026 bezugsfrei/i);
+  assert.doesNotMatch(localizedSummary(dated, 'de'), /nicht vermietet/i);
+  assert.match(offerQuestionsFor(dated, 'en')[0], /27 August 2026/);
+  assert.match(offerQuestionsFor(dated, 'de')[0], /27\. August 2026/);
+});
+
 test('saniert is always renovated and remains distinct from neuwertig', () => {
   assert.equal(localizedValue('saniert', 'en'), 'Renovated');
   assert.equal(localizedValue('Saniert', 'de'), 'Renoviert');

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
-import { copy, localizedFeatures, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
@@ -85,7 +85,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(facts.usableArea ? [[text.usable, `${facts.usableArea} m²`] as [string, string]] : []),
     ...(stated(facts.rooms) ? [[text.rooms, known(facts.rooms)] as [string, string]] : []),
     ...(stated(facts.floor) ? [[text.floor, known(facts.floor)] as [string, string]] : []),
-    ...(stated(facts.tenancy) ? [[text.use, known(facts.tenancy)] as [string, string]] : []),
+    ...(stated(facts.tenancy) ? [[text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)] as [string, string]] : []),
     ...(stated(facts.condition) ? [[text.condition, known(facts.condition)] as [string, string]] : []),
     ...(facts.buyerCommission ? [[text.commission, known(facts.buyerCommission)] as [string, string]] : []),
     ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}`] as [string, string]] : []),

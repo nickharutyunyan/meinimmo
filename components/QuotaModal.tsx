@@ -56,7 +56,7 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
     const values = new FormData(event.currentTarget);
     const response = await fetch(`/api/auth/${mode}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: values.get('username'), password: values.get('password'), name: values.get('name'), locale }),
+      body: JSON.stringify({ username: values.get('username'), identifier: values.get('identifier'), email: values.get('email'), password: values.get('password'), name: values.get('name'), locale }),
     });
     const data = await response.json() as { user?: User; error?: string };
     if (!response.ok || !data.user) {
@@ -86,10 +86,11 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
         {google ? <div className="auth-divider"><span>{de ? 'oder' : 'or'}</span></div> : null}
         <form className="credential-form" onSubmit={credentials}>
           {mode === 'signup' ? <label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" autoComplete="name" /></label> : null}
-          <label>{de ? 'Nutzername' : 'Username'}<input name="username" autoComplete="username" minLength={3} required /></label>
+          {mode === 'signup' ? <><label>{de ? 'Nutzername' : 'Username'}<input name="username" autoComplete="username" minLength={3} required /></label><label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" required /><small>{de ? 'Damit du dein Passwort sicher zurücksetzen kannst.' : 'So you can securely reset your password.'}</small></label></> : <label>{de ? 'Nutzername oder E-Mail' : 'Username or email'}<input name="identifier" autoComplete="username" required /></label>}
           <label>{de ? 'Passwort' : 'Password'}<input name="password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={10} required /><small>{mode === 'signup' ? (de ? 'Mindestens 10 Zeichen, mit Buchstabe und Zahl.' : 'At least 10 characters, with a letter and a number.') : ''}</small></label>
           <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : mode === 'signup' ? (de ? 'Konto erstellen & weiter' : 'Create account & continue') : (de ? 'Anmelden & weiter' : 'Sign in & continue')}</button>
         </form>
+        {mode === 'login' ? <a className="forgot-password-link" href={localePath(locale, '/account/forgot')}>{de ? 'Passwort vergessen?' : 'Forgot password?'}</a> : null}
         <button className="auth-mode" onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}>{mode === 'signup' ? (de ? 'Schon ein Konto? Anmelden' : 'Already have an account? Sign in') : (de ? 'Noch kein Konto? Erstellen' : 'New here? Create an account')}</button>
       </>}
       {error ? <p className="form-error" role="alert">{error}</p> : null}

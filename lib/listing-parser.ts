@@ -1,6 +1,7 @@
 import type { Report } from './types';
 import { calculatePropertyScore } from './property-score.ts';
 import { factualLocation, reportTitle } from './display.ts';
+import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -322,7 +323,10 @@ function summaryFor(report: Report) {
   const space = facts.area ? ` has ${facts.area} m² of living area${facts.usableArea ? ` and ${facts.usableArea} m² of usable area` : ''}` : '';
   const first = `This ${identity}${space}. ${price}${building ? ` It is ${building}.` : ''}`.trim();
 
-  const investment = facts.tenancy === 'Rented'
+  const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'en');
+  const investment = availableFrom
+    ? `The listing states that the property will be available from ${availableFrom}; confirm vacant handover on that date in the purchase contract.`
+    : facts.tenancy === 'Rented'
     ? `It is sold rented${facts.advertisedYield ? ` and advertised at a ${facts.advertisedYield.toLocaleString('en-GB', { maximumFractionDigits: 2 })}% return` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`
     : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
       ? 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.'
@@ -409,6 +413,7 @@ export function parseListing(raw: string, source: string): Report {
     .slice(0, 12)
     .join(' ');
   const tenancy = normalizedTenancy(tenancyRaw, `${title} ${availabilityPhrase} ${tenancyEvidence}`);
+  const availabilityDate = extractAvailabilityDate(lines);
   const advertisedYield = number(firstMatch([title, ...lines], /([\d,.]+)\s*%\s*(?:Rendite|return)/i) || firstMatch(lines, /(?:Rendite|return)\s*(?:von|:)?\s*([\d,.]+)\s*%/i));
   const housegeld = number(aroundLabel(lines, /^Hausgeld(?:\s+mtl\.)?$/i, currency, 0, 3)
     || firstMatch(lines, /\bHausgeld\s*[:\-]?\s*([\d.]+(?:,\d+)?)\s*(?:€|EUR)/i));
@@ -463,7 +468,7 @@ export function parseListing(raw: string, source: string): Report {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
     buyerCosts: buyerCosts || undefined, brokerFee, buyerCommission: buyerCommission || undefined, housegeld: housegeld || undefined,
-    tenancy, advertisedYield: advertisedYield || undefined, condition, features,
+    tenancy, availabilityDate, advertisedYield: advertisedYield || undefined, condition, features,
     postalCode: postalCode || undefined, city: city || undefined, district: district || undefined,
     street: street || undefined,
     locationPrecision: street ? (hasHouseNumber ? 'address' as const : 'street' as const) : district ? 'neighborhood' as const : postalCode ? 'postal' as const : city ? 'city' as const : undefined,

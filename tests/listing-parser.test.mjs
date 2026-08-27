@@ -133,6 +133,24 @@ test('uses explicit occupancy and condition evidence without inferring from gene
   assert.doesNotMatch(unknown.summary, /sold rented|not rented|available to move|owner-occupied/i);
 });
 
+test('preserves an explicit future availability date instead of flattening it to not rented', () => {
+  const report = parseListing(`
+    Südbalkon-Traum im 1. Obergeschoss
+    Sandhauser Straße 3, Konradshöhe, 13505 Berlin
+    Kaufpreis: 497.000 €
+    Wohnfläche ca.: 87 m²
+    Bezugsfrei ab: 27.8.2026
+    Zimmer: 3
+    Etage: 1 von 1
+    Objektzustand: Neuwertig
+  `, 'Südbalkon-Traum.pdf');
+
+  assert.equal(report.facts.tenancy, 'Not rented');
+  assert.equal(report.facts.availabilityDate, '2026-08-27');
+  assert.match(report.summary, /available from 27 August 2026/i);
+  assert.doesNotMatch(report.summary, /states that it is not rented/i);
+});
+
 test('normalizes a numeric labeled floor without pulling unrelated text', () => {
   const report = parseListing(`
     <title>2-Zimmer-Wohnung in München-Sendling</title><main>

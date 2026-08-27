@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PASSWORD_ITERATIONS, hashPassword, hmacSha256Hex, publicListingUrl, safeReturnTo, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
+import { PASSWORD_ITERATIONS, hashPassword, hmacSha256Hex, normalizeEmail, publicListingUrl, safeReturnTo, validEmail, validPassword, validPasswordResetToken, verifyPassword, verifyStripeSignature } from '../lib/security.ts';
 
 test('production password hashing stays within the Cloudflare Web Crypto limit', () => {
   assert.equal(PASSWORD_ITERATIONS, 100_000);
@@ -13,6 +13,18 @@ test('password hashes are salted and verify without storing the password', async
   assert.notEqual(first.hash, second.hash);
   assert.equal(await verifyPassword('correct-horse-7', first.salt, first.hash, first.iterations), true);
   assert.equal(await verifyPassword('wrong-horse-7', first.salt, first.hash, first.iterations), false);
+});
+
+test('recovery emails and replacement passwords are validated before database use', () => {
+  assert.equal(normalizeEmail('  Nick@Example.COM '), 'nick@example.com');
+  assert.equal(validEmail('nick@example.com'), true);
+  assert.equal(validEmail('nick@example.com\r\nBcc: attacker@example.com'), false);
+  assert.equal(validEmail('not-an-email'), false);
+  assert.equal(validPassword('safe-password-7'), true);
+  assert.equal(validPassword('onlyletters'), false);
+  assert.equal(validPasswordResetToken('A'.repeat(43)), true);
+  assert.equal(validPasswordResetToken('short'), false);
+  assert.equal(validPasswordResetToken(`${'A'.repeat(42)}!`), false);
 });
 
 test('Stripe signatures require a correct signature and a fresh timestamp', async () => {

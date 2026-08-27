@@ -4,6 +4,22 @@ const encoder = new TextEncoder();
 // Store the count with every credential so future algorithms can migrate safely.
 export const PASSWORD_ITERATIONS = 100_000;
 
+export function validPassword(value: string) {
+  return value.length >= 10 && value.length <= 128 && /[A-Za-z]/.test(value) && /\d/.test(value);
+}
+
+export function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function validEmail(value: string) {
+  return value.length <= 254 && /^[^\s@]{1,64}@[^\s@]{1,189}$/.test(value) && !/[\r\n]/.test(value);
+}
+
+export function validPasswordResetToken(value: string) {
+  return /^[A-Za-z0-9_-]{40,100}$/.test(value);
+}
+
 export function bytesToBase64Url(bytes: Uint8Array) {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
