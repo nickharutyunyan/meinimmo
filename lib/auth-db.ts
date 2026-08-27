@@ -7,6 +7,7 @@ export type AppEnv = CloudflareEnv & {
   GOOGLE_CLIENT_SECRET?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_DAY_PASS?: string;
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_ULTRA?: string;
   REPORT_LIMITS_ENABLED?: string;

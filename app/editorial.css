@@ -1129,6 +1129,35 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   font: 400 38px var(--serif);
 }
 
+.finance-calculator .housegeld-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: -5px 0 20px;
+  padding: 7px 10px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.finance-calculator .housegeld-toggle:hover,
+.finance-calculator .housegeld-toggle:focus-within {
+  border-color: rgb(255 255 255 / 30%);
+}
+
+.finance-calculator .housegeld-toggle > span {
+  display: inline;
+  color: #c3cec8;
+  font-size: 12px;
+}
+
+.finance-calculator .housegeld-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--lime);
+}
+
 .finance-meta {
   gap: 1px;
 }

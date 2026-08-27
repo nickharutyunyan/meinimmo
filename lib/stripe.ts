@@ -22,8 +22,12 @@ async function stripeClient() {
 
 export async function createCheckout(user: SessionUser, plan: BillingPlan, origin: string, locale: 'en' | 'de') {
   const env = await appEnvironment();
-  const price = plan === 'pro' ? env.STRIPE_PRICE_PRO : plan === 'ultra' ? env.STRIPE_PRICE_ULTRA : undefined;
-  if (plan !== 'day_pass' && !price) throw new Error('stripe_price_not_configured');
+  const price = plan === 'day_pass'
+    ? env.STRIPE_PRICE_DAY_PASS
+    : plan === 'pro'
+      ? env.STRIPE_PRICE_PRO
+      : env.STRIPE_PRICE_ULTRA;
+  if (!price) throw new Error('stripe_price_not_configured');
   const prefix = locale === 'de' ? '/de' : '';
   const subscription = plan !== 'day_pass';
   const checkoutParams = (customerId?: string): Stripe.Checkout.SessionCreateParams => ({
@@ -33,9 +37,7 @@ export async function createCheckout(user: SessionUser, plan: BillingPlan, origi
     cancel_url: `${origin}${prefix}/account?payment=cancelled`,
     client_reference_id: user.id,
     locale,
-    line_items: subscription
-      ? [{ price, quantity: 1 }]
-      : [{ price_data: { currency: 'eur', unit_amount: 500, product_data: { name: locale === 'de' ? 'Review a House Tagespass' : 'Review a House one-day pass' } }, quantity: 1 }],
+    line_items: [{ price, quantity: 1 }],
     metadata: { user_id: user.id, plan },
     ...(subscription ? {
       allow_promotion_codes: true,

@@ -22,6 +22,14 @@ test('calculates a bounded annuity scenario from acquisition cost, equity and ra
   assert.equal(Math.round(scenario.knownOutlay), 1_925);
 });
 
+test('includes Hausgeld by default and can remove it from the monthly total', () => {
+  const input = { total: 300_000, equity: 60_000, interest: 3.5, repayment: 2, housegeld: 280 };
+  const included = financingScenario(input);
+  const excluded = financingScenario({ ...input, includeHousegeld: false });
+  assert.equal(included.knownOutlay - excluded.knownOutlay, 280);
+  assert.equal(excluded.knownOutlay, excluded.loanPayment);
+});
+
 test('never allows equity or malformed negative inputs to create a negative loan', () => {
   const scenario = financingScenario({ total: 300_000, equity: 500_000, interest: -1, repayment: -2, housegeld: -10 });
   assert.deepEqual(scenario, { loan: 0, loanPayment: 0, knownOutlay: 0 });

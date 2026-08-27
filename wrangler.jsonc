@@ -48,7 +48,8 @@
   "vars": {
     "REPORT_LIMITS_ENABLED": "false",
     "OPENROUTER_MODEL": "google/gemma-4-26b-a4b-it:free",
-    "STRIPE_PRICE_PRO": "price_1U87xiRLQsrvggs4Ut04tFXw",
-    "STRIPE_PRICE_ULTRA": "price_1U87zCRLQsrvggs4VS7c73ud"
+    "STRIPE_PRICE_DAY_PASS": "price_1U8ii4RQaSxEwZxWRf4Aczff",
+    "STRIPE_PRICE_PRO": "price_1U8iiHRQaSxEwZxWKW86QZfe",
+    "STRIPE_PRICE_ULTRA": "price_1U8iiLRQaSxEwZxWGtZM8zax"
   }
 }

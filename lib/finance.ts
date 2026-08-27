@@ -25,12 +25,13 @@ export function financingScenario(input: {
   interest: number;
   repayment: number;
   housegeld?: number;
+  includeHousegeld?: boolean;
 }) {
   const total = finiteNonNegative(input.total);
   const equity = Math.min(total, finiteNonNegative(input.equity));
   const interest = finiteNonNegative(input.interest);
   const repayment = finiteNonNegative(input.repayment);
-  const housegeld = finiteNonNegative(input.housegeld);
+  const housegeld = input.includeHousegeld === false ? 0 : finiteNonNegative(input.housegeld);
   const loan = Math.max(0, total - equity);
   const loanPayment = loan * (interest + repayment) / 100 / 12;
   return { loan, loanPayment, knownOutlay: loanPayment + housegeld };

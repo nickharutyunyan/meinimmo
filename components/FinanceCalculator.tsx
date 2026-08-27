@@ -14,19 +14,26 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
   const [equity, setEquity] = useState(initialEquity);
   const [interest, setInterest] = useState(3.5);
   const [repayment, setRepayment] = useState(2);
+  const [includeHousegeld, setIncludeHousegeld] = useState(true);
   useEffect(() => setEquity(defaultEquity(total)), [total]);
+  useEffect(() => setIncludeHousegeld(true), [report.facts.housegeld]);
   const result = useMemo(() => financingScenario({
     total,
     equity,
     interest,
     repayment,
     housegeld: report.facts.housegeld,
-  }), [equity, interest, repayment, report.facts.housegeld, total]);
+    includeHousegeld,
+  }), [equity, includeHousegeld, interest, repayment, report.facts.housegeld, total]);
 
   const text = copy[locale].finance;
   return <section className="card finance-calculator">
     <p className="eyebrow">{text.label}</p>
-    <div className="finance-total"><small><GlossaryText locale={locale}>{report.facts.housegeld ? text.knownOutlay : text.payment}</GlossaryText></small><strong>{euros(result.knownOutlay)}</strong>{report.facts.housegeld ? <em><GlossaryText locale={locale}>{`${euros(result.loanPayment)} ${locale === 'de' ? 'Kredit' : 'loan'} + ${euros(report.facts.housegeld)} Hausgeld`}</GlossaryText></em> : null}</div>
+    <div className="finance-total"><small><GlossaryText locale={locale}>{report.facts.housegeld && includeHousegeld ? text.knownOutlay : text.payment}</GlossaryText></small><strong>{euros(result.knownOutlay)}</strong>{report.facts.housegeld && includeHousegeld ? <em><GlossaryText locale={locale}>{`${euros(result.loanPayment)} ${locale === 'de' ? 'Kredit' : 'loan'} + ${euros(report.facts.housegeld)} Hausgeld`}</GlossaryText></em> : null}</div>
+    {report.facts.housegeld ? <label className="housegeld-toggle">
+      <input type="checkbox" checked={includeHousegeld} onChange={(event) => setIncludeHousegeld(event.target.checked)} />
+      <span><GlossaryText locale={locale}>{`${text.includeHousegeld} · ${euros(report.facts.housegeld)}`}</GlossaryText></span>
+    </label> : null}
     <div className="finance-meta">
       <span><GlossaryText locale={locale}>{text.loan}</GlossaryText> <b>{euros(result.loan)}</b></span>
       <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{euros(report.facts.price)}</b></span>

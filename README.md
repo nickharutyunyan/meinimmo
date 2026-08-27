@@ -30,6 +30,7 @@ Personal account, credential, session and billing records live in the dedicated 
 
 Create these recurring Stripe prices in EUR before enabling subscriptions:
 
+- `STRIPE_PRICE_DAY_PASS`: €5 one-time payment
 - `STRIPE_PRICE_PRO`: €10 recurring monthly
 - `STRIPE_PRICE_ULTRA`: €20 recurring monthly
 

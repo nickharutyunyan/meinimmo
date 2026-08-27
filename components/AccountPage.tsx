@@ -11,6 +11,7 @@ import { canOfferDayPass } from '@/lib/day-pass';
 type AccountState = {
   user: { username: string | null; email: string | null; name: string | null } | null;
   access: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string };
+  subscription: { plan: 'pro' | 'ultra'; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
   googleAvailable: boolean;
   billingAvailable: boolean;
 };
@@ -24,6 +25,10 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const [dayPassOpen, setDayPassOpen] = useState(false);
   const [returnTo, setReturnTo] = useState('');
   const resumedCheckout = useRef(false);
+  const subscriptionIsCurrent = Boolean(data?.subscription && !['canceled', 'incomplete_expired'].includes(data.subscription.status));
+  const subscriptionDate = data?.subscription?.currentPeriodEnd
+    ? new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(data.subscription.currentPeriodEnd))
+    : null;
   const refresh = () => fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as AccountState).then(setData);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,11 +100,21 @@ export function AccountPage({ locale }: { locale: Locale }) {
         </section> : <section className="account-card usage-card"><span>{de ? 'TESTPHASE' : 'TESTING'}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.'}</small></section>}
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label><button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
+      {data.subscription ? <section className="subscription-card">
+        <div>
+          <p className="eyebrow">{de ? 'DEIN ABO' : 'YOUR SUBSCRIPTION'}</p>
+          <h2>{data.subscription.plan === 'ultra' ? 'Ultra' : 'Pro'}</h2>
+          <p>{data.subscription.cancelAtPeriodEnd
+            ? (subscriptionDate ? (de ? `Dein Abo endet am ${subscriptionDate}. Danach wird nichts mehr berechnet.` : `Your subscription ends on ${subscriptionDate}. You will not be charged again.`) : (de ? 'Dein Abo ist gekündigt und wird nicht noch einmal berechnet.' : 'Your subscription is cancelled and will not renew.'))
+            : (subscriptionDate ? (de ? `Nächste Verlängerung am ${subscriptionDate}.` : `Next renewal on ${subscriptionDate}.`) : (de ? 'Das Abo verlängert sich monatlich.' : 'Renews monthly.'))}</p>
+        </div>
+        <button onClick={portal} disabled={busy}>{de ? 'Abo bei Stripe verwalten oder kündigen' : 'Manage or cancel in Stripe'}</button>
+      </section> : null}
       {canOfferDayPass(data.access) ? <section className="day-pass-offer">
         <div><p className="eyebrow">{de ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</p><h2>{de ? '50 weitere Berichte für heute.' : '50 more reports for today.'}</h2><p>{de ? 'Einmal 5 € zahlen, 24 Stunden nutzen. Der Pass endet automatisch.' : 'Pay €5 once and use them for 24 hours. The pass ends automatically.'}</p></div>
         <button onClick={() => setDayPassOpen(true)}>{de ? 'Tagespass für 5 € kaufen' : 'Buy the €5 day pass'}</button>
       </section> : null}
-      {data.access.limitsEnabled ? <section className="account-plans"><div><p className="eyebrow">{de ? 'MEHR BERICHTE' : 'MORE REPORTS'}</p><h2>{de ? 'Für die aktive Suche.' : 'For an active search.'}</h2><p>{de ? 'Monatlich kündbar. Dein Tageslimit wird jeden Morgen zurückgesetzt.' : 'Cancel monthly. Your daily allowance resets each morning.'}</p></div>
+      {data.access.limitsEnabled && !subscriptionIsCurrent ? <section className="account-plans"><div><p className="eyebrow">{de ? 'MEHR BERICHTE' : 'MORE REPORTS'}</p><h2>{de ? 'Für die aktive Suche.' : 'For an active search.'}</h2><p>{de ? 'Monatlich kündbar. Dein Tageslimit wird jeden Morgen zurückgesetzt.' : 'Cancel monthly. Your daily allowance resets each morning.'}</p></div>
         <article><span>PRO</span><strong>€10<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '10 Berichte pro Tag' : '10 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="pro" locale={locale}>{de ? 'Pro wählen' : 'Choose Pro'}</PlanButton>}</article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '100 Berichte pro Tag' : '100 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="ultra" locale={locale}>{de ? 'Ultra wählen' : 'Choose Ultra'}</PlanButton>}</article>
       </section> : null}
