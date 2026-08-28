@@ -163,7 +163,7 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   color: var(--ink);
 }
 
-.account-menu { position: relative; }
+.account-menu { position: relative; display: flex; align-items: center; }
 .account-menu > summary { cursor: pointer; list-style: none; }
 .account-menu > summary::-webkit-details-marker { display: none; }
 .account-menu > summary b { color: #8d9691; font-size: 12px; font-weight: 500; }
@@ -1648,6 +1648,8 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   .nav-links a {
     font-size: 13px;
   }
+
+  .account-nav { font-size: 13px; }
 
   .nav-links a:first-child { display: none; }
 
