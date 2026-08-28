@@ -7,12 +7,23 @@
 }
 
 .home-mark {
-  width: 31px;
-  height: 31px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   color: var(--ink);
-  filter: drop-shadow(0 3px 7px rgb(25 51 45 / 12%));
-  transition: transform 160ms ease, filter 160ms ease;
+  overflow: visible;
+  filter: drop-shadow(0 3px 8px rgb(25 51 45 / 11%));
+  transition: filter 180ms ease, transform 180ms ease;
+}
+
+.home-mark-field {
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(.2, .75, .3, 1);
+}
+
+.home-mark-check {
+  stroke-dasharray: 18;
+  stroke-dashoffset: 0;
 }
 
 .brand-word {
@@ -22,8 +33,27 @@
 }
 
 .brand-mark:hover .home-mark {
-  filter: drop-shadow(0 5px 10px rgb(25 51 45 / 18%));
-  transform: translateY(-1px) rotate(-2deg);
+  filter: drop-shadow(0 5px 11px rgb(25 51 45 / 16%));
+  transform: translateY(-1px);
+}
+
+.brand-mark:hover .home-mark-field {
+  transform: scale(.98);
+}
+
+.brand-mark:hover .home-mark-check {
+  animation: review-check 420ms cubic-bezier(.45, 0, .2, 1);
+}
+
+@keyframes review-check {
+  from { stroke-dashoffset: 18; }
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-mark,
+  .home-mark-field { transition: none; }
+  .brand-mark:hover .home-mark-check { animation: none; }
 }
 
 .sidebar .brand-mark {
@@ -31,8 +61,8 @@
 }
 
 .sidebar.collapsed .brand-mark {
-  width: 31px;
-  height: 31px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: transparent;
 }
