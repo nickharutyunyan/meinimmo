@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { localePath, type Locale } from '@/lib/i18n';
+import { NavChevron } from './NavChevron';
 
 type Identity = { username: string | null; email: string | null; name: string | null };
 
@@ -18,7 +19,7 @@ export function AccountNav({ locale }: { locale: Locale }) {
   }
   if (!user) return <Link className="account-nav" href={localePath(locale, '/account')}>{label}</Link>;
   return <details className="account-menu">
-    <summary className="account-nav"><span aria-hidden="true">●</span>{label || (locale === 'de' ? 'Konto' : 'Account')}<b aria-hidden="true">⌄</b></summary>
+    <summary className="account-nav"><span className="account-status" aria-hidden="true"/><span className="account-label">{label || (locale === 'de' ? 'Konto' : 'Account')}</span><NavChevron /></summary>
     <div><Link href={localePath(locale, '/account')}>{locale === 'de' ? 'Konto öffnen' : 'Open account'}</Link><button type="button" onClick={signOut}>{locale === 'de' ? 'Abmelden' : 'Sign out'}</button></div>
   </details>;
 }

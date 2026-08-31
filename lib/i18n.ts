@@ -29,11 +29,13 @@ export const copy = {
       scannedPdf: 'This PDF appears to be scanned. Please upload a text-searchable Exposé.',
       pdfError: 'The PDF could not be read. Try a text-searchable Exposé.',
       approachLabel: 'OUR APPROACH',
-      approachTitle: 'Less brochure. More due diligence.',
+      approachTitle: 'Four checks before a listing earns your time.',
+      approachIntro: 'One report brings the source, place, numbers and trade-offs into the same clear view.',
       steps: [
-        ['Read the source', 'We validate the listing and keep marketing claims separate from stated facts.'],
-        ['Build the report', 'Price, costs, location and building details are structured into one calm view.'],
-        ['Prepare the questions', 'Missing evidence becomes a useful question for the seller, agent or WEG.'],
+        ['THE SOURCE', 'Facts, not brochure copy', 'Paste a listing or upload its Exposé. We extract price, space, floor, condition, energy, rental status and commission; unsupported details are never filled in by guesswork.'],
+        ['THE PLACE', 'The most precise proven location', 'A stated address, street or neighborhood anchors the map. If the exact address is missing, the report says so instead of inventing one.'],
+        ['THE NUMBERS', 'A deal you can pressure-test', 'See every component behind the score. Adjust equity, the current German mortgage rate, Tilgung and Hausgeld to test the monthly scenario.'],
+        ['THE DECISION', 'Your shortlist, in one place', 'Pin reports, add private notes, compare two homes side by side, then share or print a clean brief for the people deciding with you.'],
       ],
       faqLabel: 'FREQUENTLY ASKED',
       faqTitle: 'A clearer way through the house hunt.',
@@ -86,11 +88,13 @@ export const copy = {
       scannedPdf: 'Das PDF scheint eingescannt zu sein. Bitte lade ein durchsuchbares Exposé hoch.',
       pdfError: 'Das PDF konnte nicht gelesen werden. Versuch es mit einem durchsuchbaren Exposé.',
       approachLabel: 'SO FUNKTIONIERT’S',
-      approachTitle: 'Weniger Verkaufstext. Mehr Klarheit.',
+      approachTitle: 'Vier Checks, bevor ein Angebot deine Zeit verdient.',
+      approachIntro: 'Ein Bericht bringt Quelle, Lage, Zahlen und Abwägungen in eine klare Ansicht.',
       steps: [
-        ['Quelle lesen', 'Wir prüfen das Angebot und trennen konkrete Angaben von Werbesprache.'],
-        ['Bericht bauen', 'Preis, Kosten, Lage und Gebäudedaten landen in einer ruhigen, klaren Ansicht.'],
-        ['Fragen vorbereiten', 'Aus fehlenden Angaben werden sinnvolle Fragen an Verkäufer, Makler oder WEG.'],
+        ['DIE QUELLE', 'Fakten statt Exposé-Sprache', 'Füge einen Link ein oder lade das Exposé hoch. Wir ziehen Preis, Fläche, Etage, Zustand, Energie, Mietstatus und Provision heraus; unbelegte Details werden nicht dazuerfunden.'],
+        ['DIE LAGE', 'So genau wie wirklich belegt', 'Adresse, Straße oder Viertel verankern die Karte. Fehlt die genaue Adresse, steht das klar im Bericht – erfunden wird nichts.'],
+        ['DIE ZAHLEN', 'Ein Angebot zum Durchrechnen', 'Du siehst alle Einzelwerte hinter dem Score. Passe Eigenkapital, aktuellen Bauzins, Tilgung und Hausgeld an und teste die Monatsrechnung.'],
+        ['DIE ENTSCHEIDUNG', 'Deine Auswahl an einem Ort', 'Pinne Berichte, ergänze private Notizen, vergleiche zwei Immobilien und teile oder drucke eine klare Übersicht für alle, die mitentscheiden.'],
       ],
       faqLabel: 'HÄUFIGE FRAGEN',
       faqTitle: 'Entspannter durch die Immobiliensuche.',
@@ -234,6 +238,17 @@ function englishFeature(feature: string) {
 
 export function localizedFeatures(features: string[] | undefined, locale: Locale) {
   if (!features?.length) return [];
-  const separated = features.flatMap(splitFeatureTerms);
+  // Older saved reports may still contain a decorative section heading that
+  // followed an "Ausstattung" label in the source PDF. Keep headings and
+  // label/value metadata out of Listing details at render time as well.
+  const separated = features
+    .filter(feature => {
+      const clean = feature.replace(/^[\s*•\-–—]+|[\s*•\-–—]+$/g, '').trim();
+      return clean.length >= 2
+        && !/[★☆]/u.test(clean)
+        && !/[?:]\s*/u.test(clean)
+        && !/^(?:wichtiges\s+auf\s+einen\s+blick|auf\s+einen\s+blick|ausstattung|objektdetails|listing\s+details|at\s+a\s+glance|highlights?)$/iu.test(clean);
+    })
+    .flatMap(splitFeatureTerms);
   return locale === 'en' ? separated.map(englishFeature) : separated;
 }

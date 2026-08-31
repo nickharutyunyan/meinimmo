@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import type { Locale } from '@/lib/i18n';
+import { NavChevron } from './NavChevron';
 
 export function LanguageSwitch({ locale }: { locale: Locale }) {
   const pathname = usePathname();
@@ -17,5 +18,6 @@ export function LanguageSwitch({ locale }: { locale: Locale }) {
       <option value="en">EN</option>
       <option value="de">DE</option>
     </select>
+    <NavChevron />
   </label>;
 }

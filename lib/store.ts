@@ -3,7 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
 import { canonicalCondition } from './property-condition.ts';
 import { acquisitionCosts } from './finance.ts';
-import { energyClassFromDemand, refreshDerivedReport } from './listing-parser.ts';
+import { checkedCharacteristic, energyClassFromDemand, refreshDerivedReport } from './listing-parser.ts';
 
 type StoredRow = { data: string };
 
@@ -26,13 +26,18 @@ function normalizedReport(item: Report) {
   const energy = (!item.facts.energy || /not stated|unknown/i.test(item.facts.energy)) && item.facts.energyDemand
     ? energyClassFromDemand(item.facts.energyDemand) || item.facts.energy
     : item.facts.energy;
+  const heating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
+  const energySource = checkedCharacteristic(item.facts.energySource, 'energySource') || undefined;
+  const energyCertificate = checkedCharacteristic(item.facts.energyCertificate, 'energyCertificate') || undefined;
   const summary = condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
     : item.summary;
   const hasUnsupportedReserveConclusion = item.considerations.some(value => /WEG reserve is adequate/i.test(value));
-  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy && !hasUnsupportedReserveConclusion
+  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
+    && heating === item.facts.heating && energySource === item.facts.energySource && energyCertificate === item.facts.energyCertificate
+    && !hasUnsupportedReserveConclusion
     ? item
-    : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy } });
+    : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy, heating, energySource, energyCertificate } });
 }
 
 export async function reports() {

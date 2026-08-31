@@ -26,6 +26,55 @@ export function decodeHtml(value: string) {
 const tidy = (value: string) => decodeHtml(value).replace(/\s+/g, ' ').trim();
 const number = (value?: string) => value ? Number(value.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')) : 0;
 
+export type CharacteristicKind = 'heating' | 'energySource' | 'energyCertificate' | 'condition' | 'tenancy' | 'orientation';
+
+const characteristicRules: Record<CharacteristicKind, { prefix: RegExp; expected: RegExp }> = {
+  heating: {
+    // "sart:" is the exact residue produced when the shorter label
+    // "Heizung" was previously matched inside "Heizungsart".
+    prefix: /^(?:heizungsart|heizung|heating\s+type|sart)\s*[:\-]\s*/i,
+    expected: /(?:heiz|w[aä]rmepumpe|fernw[aä]rme|gas|[oö]l|pellet|solartherm|geotherm|erdw[aä]rme|blockheiz|nachtspeicher|elektr|ofen|kamin|district\s+heat|central\s+heat|underfloor\s+heat|heat\s+pump|boiler|furnace)/i,
+  },
+  energySource: {
+    prefix: /^(?:wesentliche[rs]?\s+energietr[aä]ger|energietr[aä]ger|main\s+energy\s+source)\s*[:\-]\s*/i,
+    expected: /(?:umweltw[aä]rme|fernw[aä]rme|erdw[aä]rme|w[aä]rmepumpe|gas|[oö]l|strom|elektr|solar|pellet|holz|biomasse|kohle|district\s+heat|electric|heat\s+pump)/i,
+  },
+  energyCertificate: {
+    prefix: /^(?:energie\s*ausweistyp|energieausweis|energy\s+certificate)\s*[:\-]\s*/i,
+    expected: /(?:ausweis|verbrauch|bedarf|certificate|consumption|requirement)/i,
+  },
+  condition: {
+    prefix: /^(?:objektzustand|bauzustand|zustand|condition)\s*[:\-]\s*/i,
+    expected: /(?:erstbezug|neubau|saniert|renoviert|gepflegt|neuwertig|modernisierungsbed[uü]rftig|renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|im\s+bau|first\s+occupancy|new\s+build|renovated|maintained|like\s+new|construction)/i,
+  },
+  tenancy: {
+    prefix: /^(?:aktuelle\s+nutzung|nutzung|verf[uü]gbarkeit|occupancy|availability)\s*[:\-]\s*/i,
+    expected: /(?:vermietet|bezugsfrei|beziehbar|verf[uü]gbar|leerstehend|eigengenutzt|selbst\s+genutzt|rented|tenant|vacant|available|owner[- ]occupied)/i,
+  },
+  orientation: {
+    prefix: /^(?:balkon\/terrasse\s+ausrichtung|ausrichtung|himmelsrichtung|orientation)\s*[:\-]\s*/i,
+    expected: /(?:nord|s[uü]d|ost|west|sonn|hof|stra[sß]e|north|south|east|west|sun|courtyard|street)/i,
+  },
+};
+
+/**
+ * Fast, deterministic guard for human-readable characteristics. It repairs a
+ * known leaked field-label prefix, then rejects headings, prompts, URLs and
+ * values whose vocabulary does not fit the requested characteristic.
+ */
+export function checkedCharacteristic(value: string | undefined, kind: CharacteristicKind) {
+  if (!value) return '';
+  const rule = characteristicRules[kind];
+  const clean = tidy(value)
+    .replace(/^[\s*•★☆\-–—]+|[\s*•★☆\-–—]+$/g, '')
+    .replace(rule.prefix, '')
+    .trim();
+  if (clean.length < 2 || clean.length > 100) return '';
+  if (/[:?]|https?:\/\/|www\.|@|★|☆/iu.test(clean)) return '';
+  if (/^(?:wichtiges\s+auf\s+einen\s+blick|auf\s+einen\s+blick|ausstattung|objektdetails|services?\s+f[uü]r\s+dich|jetzt\s+\w+)/iu.test(clean)) return '';
+  return rule.expected.test(clean) ? clean : '';
+}
+
 function contentHtml(raw: string) {
   const beforeFooter = raw.split(/<footer\b/i)[0];
   return beforeFooter
@@ -279,7 +328,7 @@ export function normalizedTenancy(value: string, text = '') {
   const evidence = `${explicit} ${text}`;
   const propertyRented = /(?:vermietete[rsn]?|aktuell\s+vermietet|derzeit\s+vermietet|wird\s+vermietet\s+verkauft|ist\s+vermietet|tenant[- ]occupied|sold\s+with\s+tenant|currently\s+rented)/i;
   if (/^(?:vermietet|rented|tenant[- ]occupied)$/i.test(explicit) || (propertyRented.test(evidence) && !/(?:nicht|un)vermietet|keine[rsn]?\s+mietverh[aä]ltnis/i.test(evidence))) return 'Rented';
-  if (/\b(?:bezugsfrei|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|frei\s+ab|vacant|ready\s+to\s+move\s+in|available\s+immediately|eigengenutzt|eigennutzung|selbst\s+genutzt|vom\s+eigent[uü]mer\s+bewohnt|owner[- ]occupied)\b/i.test(evidence)) return 'Not rented';
+  if (/\b(?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|frei\s+ab|vacant|ready\s+to\s+move\s+in|available\s+immediately|eigengenutzt|eigennutzung|selbst\s+genutzt|vom\s+eigent[uü]mer\s+bewohnt|owner[- ]occupied)\b/i.test(evidence)) return 'Not rented';
   return undefined;
 }
 
@@ -405,23 +454,23 @@ export function parseListing(raw: string, source: string): Report {
     || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3)
     || firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
   const floor = normalizedFloor(floorRaw) || UNKNOWN;
-  const heating = firstMatch(lines, /\b(?:Heizung|Heizungsart|Heating type)\s*[:\-]?\s*([^|;]{3,70})$/i)
-    || aroundLabel(lines, /^(?:Heizung|Heizungsart|Heating type)$/i, /^(.{3,70})$/, 0, 2) || UNKNOWN;
-  const energySource = firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)\s*[:\-]?\s*([^|;]{2,45})$/i)
-    || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)$/i, /^(.{2,45})$/, 0, 2) || undefined;
+  const heating = checkedCharacteristic(firstMatch(lines, /\b(?:Heizungsart|Heizung|Heating type)\b\s*[:\-]?\s*([^|;]{3,70})$/i)
+    || aroundLabel(lines, /^(?:Heizungsart|Heizung|Heating type)$/i, /^(.{3,70})$/, 0, 2), 'heating') || UNKNOWN;
+  const energySource = checkedCharacteristic(firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)\b\s*[:\-]?\s*([^|;]{2,45})$/i)
+    || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)$/i, /^(.{2,45})$/, 0, 2), 'energySource') || undefined;
   const energyDemand = number(firstMatch(lines, /\b(?:Endenergie(?:bedarf|verbrauch)|Final energy demand)\s*[:\-]?\s*([\d.,]+)\s*kWh/i)
     || aroundLabel(lines, /^(?:Endenergie(?:bedarf|verbrauch)|Final energy demand)$/i, /([\d.,]+)\s*kWh/i, 0, 2));
   const energy = aroundLabel(lines, /^(?:Energieeffizienzklasse|Energy efficiency class)$/i, /^([A-H](?:\+)?)$/i, 0, 3)
     || firstMatch(lines, /\b(?:Energieeffizienzklasse|Energy efficiency class)\s*[:\-]?\s*([A-H](?:\+)?)(?![\p{L}\p{N}+])/iu)
     || energyClassFromDemand(energyDemand)
     || UNKNOWN;
-  const energyCertificate = firstMatch(lines, /\b(?:Energie\s*ausweistyp|Energy certificate)\s*[:\-]?\s*([^|;]{3,60})$/i)
-    || aroundLabel(lines, /^(?:Energieausweistyp|Energy certificate)$/i, /^(.{3,60})$/, 0, 2) || undefined;
-  const conditionRaw = firstMatch(lines, /\b(?:Zustand|Objektzustand|Bauzustand|Condition)\s*[:\-]?\s*([^|;]{3,60})$/i)
-    || aroundLabel(lines, /^(?:Zustand|Objektzustand|Bauzustand|Condition)$/i, /^(.{3,60})$/, 0, 2);
+  const energyCertificate = checkedCharacteristic(firstMatch(lines, /\b(?:Energie\s*ausweistyp|Energy certificate)\b\s*[:\-]?\s*([^|;]{3,60})$/i)
+    || aroundLabel(lines, /^(?:Energieausweistyp|Energy certificate)$/i, /^(.{3,60})$/, 0, 2), 'energyCertificate') || undefined;
+  const conditionRaw = checkedCharacteristic(firstMatch(lines, /\b(?:Objektzustand|Bauzustand|Zustand|Condition)\b\s*[:\-]?\s*([^|;]{3,60})$/i)
+    || aroundLabel(lines, /^(?:Objektzustand|Bauzustand|Zustand|Condition)$/i, /^(.{3,60})$/, 0, 2), 'condition');
   const condition = normalizedCondition(conditionRaw, `${title} ${lines.slice(0, 120).join(' ')}`);
-  const tenancyRaw = aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2);
-  const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
+  const tenancyRaw = checkedCharacteristic(aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2), 'tenancy');
+  const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
   const tenancyEvidence = lines
     .filter(line => /(?:wohnung|haus|immobilie|objekt|einheit).{0,100}(?:vermietet|bezugsfrei|beziehbar|unvermietet|leerstehend|eigengenutzt|selbst genutzt)|(?:vermietete|bezugsfreie|unvermietete|leerstehende)\s+(?:wohnung|immobilie|einheit)/i.test(line))
     .slice(0, 12)
@@ -457,9 +506,11 @@ export function parseListing(raw: string, source: string): Report {
   const hasHouseNumber = /\b\d{1,4}[a-z]?\s*$/iu.test(street);
 
   const propertyType: Report['propertyType'] = /(?:einfamilienhaus|reihenhaus|doppelhaush[aä]lfte|haus\s+(?:zum\s+kauf|in)|single.family|\bhouse\b)/i.test(title) ? 'house' : 'flat';
-  const featuresText = aroundLabel(lines, /^Ausstattung$/i, /^(.{3,180})$/, 0, 2);
-  const features = featuresText ? featuresText.split(/,|·/).map(tidy)
-    .filter(feature => feature.length >= 3 && !/^[-–•]?\s*\d|\b(?:m²|qm|Wohnfl[aä]che|Zimmer)\b/i.test(feature)).slice(0, 12) : [];
+  // Never treat the next arbitrary line after an "Ausstattung" heading as a
+  // characteristic. Exposes frequently put another heading there (for
+  // example "★ Wichtiges auf einen Blick ★"), followed by costs or legal
+  // metadata. Only explicit, recognized property features belong here.
+  const features: string[] = [];
   const statedFeatures = [
     ['Balkon', /\b(?:Balkon|Balcony)\b/i], ['Terrasse', /\b(?:Terrasse|Terrace)\b/i], ['Einbauküche', /\b(?:Einbauküche|Fitted kitchen)\b/i],
     ['Keller', /\b(?:Keller|Kellerabteil|Cellar(?: compartment)?)\b/i], ['Aufzug', /\b(?:Aufzug|Fahrstuhl|Lift|Elevator)\b/i],
@@ -469,7 +520,7 @@ export function parseListing(raw: string, source: string): Report {
     if (expression.test(text) && !features.some(feature => expression.test(feature))) features.push(label);
   }
   if (/\b(?:komplett\s+)?möbliert(?:e[nsr]?)?\b/i.test(text) && !features.some(feature => /möbliert/i.test(feature))) features.unshift('Möbliert');
-  const sunOrientation = aroundLabel(lines, /^(?:Ausrichtung|Balkon\/Terrasse Ausrichtung|Himmelsrichtung|Orientation)$/i, /^(.{2,40})$/, 0, 2)
+  const sunOrientation = checkedCharacteristic(aroundLabel(lines, /^(?:Ausrichtung|Balkon\/Terrasse Ausrichtung|Himmelsrichtung|Orientation)$/i, /^(.{2,40})$/, 0, 2), 'orientation')
     || (/\bsunny\s+balcony\b/i.test(text) ? 'Sunny balcony stated' : UNKNOWN);
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'

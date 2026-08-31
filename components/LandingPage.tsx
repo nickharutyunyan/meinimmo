@@ -12,6 +12,45 @@ import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
 import { MAX_PDF_BYTES } from '@/lib/pdf-source';
 import { pdfTextFromItems } from '@/lib/pdf-text';
 
+const PDF_PAGE_BATCH_SIZE = 4;
+
+const importPdfJs = () => import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs) => {
+  // Keep the worker on ReviewAHouse's own CDN. The previous third-party CDN
+  // request made a cold PDF upload depend on another origin before parsing
+  // could even start.
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+    import.meta.url,
+  ).toString();
+  return pdfjs;
+});
+
+let pdfJsPromise: ReturnType<typeof importPdfJs> | undefined;
+const loadPdfJs = () => pdfJsPromise ||= importPdfJs();
+
+async function extractPdfText(file: File) {
+  const pdfjs = await loadPdfJs();
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages: string[] = [];
+
+  // Text extraction is independent per page. Small batches cut multi-page
+  // Exposes from a serial waterfall without creating excessive worker load for
+  // unusually long documents.
+  for (let firstPage = 1; firstPage <= pdf.numPages; firstPage += PDF_PAGE_BATCH_SIZE) {
+    const lastPage = Math.min(pdf.numPages, firstPage + PDF_PAGE_BATCH_SIZE - 1);
+    const batch = await Promise.all(Array.from(
+      { length: lastPage - firstPage + 1 },
+      async (_, offset) => {
+        const page = await pdf.getPage(firstPage + offset);
+        return pdfTextFromItems((await page.getTextContent()).items);
+      },
+    ));
+    pages.push(...batch);
+  }
+
+  return pages.join('\n');
+}
+
 export function LandingPage({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [url, setUrl] = useState('');
@@ -66,14 +105,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
     }
     setStatus(text.readingPdf);
     try {
-      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.394/pdf.worker.min.mjs';
-      const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
-      let content = '';
-      for (let page = 1; page <= pdf.numPages; page += 1) {
-        const pageContent = await pdf.getPage(page).then((item) => item.getTextContent());
-        content += pdfTextFromItems(pageContent.items) + '\n';
-      }
+      const content = await extractPdfText(file);
       if (content.trim().length < 150) {
         setStatus(text.scannedPdf);
         return;
@@ -97,7 +129,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
       <div className="intake-panel">
         <p className="eyebrow">{text.start}</p>
         <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} type="url" required/></label><button>{text.assess}</button></form>
-        <div className="upload-row"><span>{text.or}</span><label>{text.upload} <input onChange={upload} accept="application/pdf" type="file"/></label></div>
+        <div className="upload-row"><span>{text.or}</span><label onPointerEnter={() => void loadPdfJs()} onFocus={() => void loadPdfJs()}>{text.upload} <input onChange={upload} accept="application/pdf" type="file"/></label></div>
         {status ? <p className={isReading ? 'hint' : 'error'}>{status}</p> : null}
         {dayPassEligible ? <div className="day-pass-inline">
           <div><span>{locale === 'de' ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</span><strong>{locale === 'de' ? 'Heute weitersuchen?' : 'Keep searching today?'}</strong><p>{locale === 'de' ? '50 Berichte für 24 Stunden.' : '50 reports for the next 24 hours.'}</p></div>
@@ -105,8 +137,8 @@ export function LandingPage({ locale }: { locale: Locale }) {
         </div> : null}
       </div>
     </section>
-    <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><h2>{text.approachTitle}</h2></section>
-    <section className="steps">{text.steps.map(([title, description], index) => <div key={title}><b>{String(index + 1).padStart(2, '0')}</b><h2>{title}</h2><p><GlossaryText locale={locale}>{description}</GlossaryText></p></div>)}</section>
+    <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><div><h2>{text.approachTitle}</h2><p>{text.approachIntro}</p></div></section>
+    <section className="approach-grid">{text.steps.map(([kicker, title, description], index) => <article key={title}><div className="approach-meta"><span>{String(index + 1).padStart(2, '0')}</span><b>{kicker}</b></div><h3>{title}</h3><p><GlossaryText locale={locale}>{description}</GlossaryText></p></article>)}</section>
     <AdSlot locale={locale} kind="finance" />
     <section id="faq" className="faq-section">
       <div className="faq-intro"><p className="eyebrow">{text.faqLabel}</p><h2>{text.faqTitle}</h2><p>{text.faqIntro}</p></div>

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { looksLikePropertyListing, parseListing } from '../lib/listing-parser.ts';
+import { checkedCharacteristic, looksLikePropertyListing, parseListing } from '../lib/listing-parser.ts';
+import { localizedFeatures } from '../lib/i18n.ts';
 
 const tableRow = (label, value) => `<tr><td><div>${label}</div></td><td><div>${value}</div></td></tr>`;
 
@@ -102,6 +103,65 @@ test('accepts and accurately parses an English-language Berlin Exposé PDF', () 
   assert.match(report.considerations.join(' '), /shared running costs and owner-only costs/i);
   assert.doesNotMatch(report.considerations.join(' '), /reserve is adequate/i);
   assert.doesNotMatch(JSON.stringify(report), /Uthmannstr/);
+});
+
+test('never turns a decorative heading after Ausstattung into a listing feature', () => {
+  const pdfText = `
+    Bezugsfreie 3-Zimmer-Altbauwohnung zwischen Arkonaplatz und Mauerpark
+    Mitte (Ortsteil), 10435 Berlin
+    Kaufpreis: 399.000 €
+    Wohnfläche ca.: 61 m²
+    Zimmer: 3
+    Etage: 1 von 5
+    Baujahr: 1900
+    Objektzustand: Saniert
+    Online-Besichtigung Einbauküche Keller
+    Ausstattung
+    ★ Wichtiges auf einen Blick ★
+    *Vermietet: nein
+    *Größe der WEG: 11 Einheiten
+    *Hausgeld im Monat ca.: 443€ (ab Jan. 2027)
+    *Denkmalschutz: nein
+    Energieeffizienzklasse: B
+  `;
+
+  const report = parseListing(pdfText, 'Arkonaplatz Exposé');
+  assert.deepEqual(report.facts.features, ['Einbauküche', 'Keller']);
+  assert.equal(report.facts.tenancy, 'Not rented');
+  assert.doesNotMatch(JSON.stringify(report.facts.features), /Wichtiges auf einen Blick/i);
+
+  // Existing saved reports are cleaned at render time too.
+  assert.deepEqual(
+    localizedFeatures(['★ Wichtiges auf einen Blick ★', 'Einbauküche', 'Keller'], 'en'),
+    ['Fitted kitchen', 'Basement / cellar'],
+  );
+});
+
+test('keeps field-label fragments and unrelated words out of characteristics', () => {
+  const pdfText = `
+    Perfekt für Paare – mit Platz fürs Homeoffice
+    Ella-Kay-Straße, 10405 Berlin
+    Kaufpreis: 494.000 €
+    Wohnfläche: 67,23 m²
+    Zimmer: 2,5
+    Baujahr: 2027
+    Heizungsart: Wärmepumpe
+    Energieträger: Umweltwärme
+    Energieausweistyp: Bedarfsausweis
+    Objektzustand: Erstbezug
+  `;
+
+  const report = parseListing(pdfText, 'Property Exposé');
+  assert.equal(report.facts.heating, 'Wärmepumpe');
+  assert.equal(report.facts.energySource, 'Umweltwärme');
+  assert.equal(report.facts.energyCertificate, 'Bedarfsausweis');
+  assert.equal(report.facts.condition, 'Erstbezug');
+  assert.doesNotMatch(JSON.stringify(report.facts), /sart:/i);
+
+  // Previously saved malformed values are safely repaired at read time.
+  assert.equal(checkedCharacteristic('sart: Wärmepumpe', 'heating'), 'Wärmepumpe');
+  assert.equal(checkedCharacteristic('Jetzt Plus aktivieren', 'heating'), '');
+  assert.equal(checkedCharacteristic('https://example.test', 'energySource'), '');
 });
 
 test('English text still needs several independent property signals', () => {

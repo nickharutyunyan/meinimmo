@@ -1,7 +1,8 @@
 .account-nav {
   display: inline-flex;
+  min-height: 36px;
   max-width: 170px;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
   overflow: hidden;
   color: var(--ink);
@@ -11,7 +12,19 @@
   white-space: nowrap;
 }
 
-.account-nav span { color: #78964d; font-size: 8px; }
+.account-status {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #78964d;
+}
+
+.account-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .account-page {
   min-height: 100vh;
