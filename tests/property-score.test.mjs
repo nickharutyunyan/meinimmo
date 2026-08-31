@@ -47,3 +47,18 @@ test('source completeness is only five percent of the total score', () => {
   assert.ok(score.breakdown.source >= 8);
   assert.ok(score.total < score.breakdown.source);
 });
+
+test('new construction with a heat pump scores strongly without inventing an energy class', () => {
+  const report = parseListing(`
+    <title>2,5-Zimmer-Neubauwohnung in Berlin</title><main>
+    ${row('Kaufpreis', '494.000 €')}${row('Wohnfläche', '67,23 m²')}
+    ${row('Baujahr', '2027')}${row('Objektzustand', 'Erstbezug')}
+    ${row('Heizungsart', 'Wärmepumpe')}${row('Wesentliche Energieträger', 'Umweltwärme')}
+    ${row('Energieausweistyp', 'Bedarfsausweis')}${row('Energieeffizienzklasse', '')}
+    </main>`, 'PDF Exposé');
+
+  const score = calculatePropertyScore(report);
+  assert.equal(report.facts.energy, 'not stated');
+  assert.equal(score.breakdown.energy, 9);
+  assert.ok(score.breakdown.energy < 10, 'an unstated class must not be treated as verified A+');
+});

@@ -93,9 +93,21 @@ function energyScore(report: Report) {
   const classes: Record<string, number> = { 'A+': 10, A: 9.4, B: 8.4, C: 7.3, D: 6.1, E: 4.7, F: 3.3, G: 2.1, H: 1 };
   let score = known(energy) ? classes[energy.toUpperCase()] ?? 5 : 0;
   if (!score && energyDemand) score = band(energyDemand, [[30, 9.8], [50, 9], [75, 8], [100, 6.8], [130, 5.5], [160, 4], [200, 2.5]], 1.5);
-  if (!score) score = 4.5;
   const system = `${energySource || ''} ${heating || ''}`;
-  if (/w[aä]rmepumpe|fernw[aä]rme|solar/i.test(system)) score += 0.4;
+  const efficientSystem = /w[aä]rmepumpe|umweltw[aä]rme|erdw[aä]rme|geotherm|solar/i.test(system);
+  const recentYear = Number(report.facts.year.match(/\b20\d{2}\b/)?.[0] || 0);
+  const newConstruction = recentYear >= 2020
+    && /erstbezug|neubau|new build|new construction|under construction/i.test(report.facts.condition || '');
+  const hasMeasuredPerformance = score > 0;
+
+  // A missing class or demand figure is uncertainty, not evidence of mediocre
+  // performance. Use the stated building and heating facts as a conservative
+  // fallback, while keeping the result below a verified A/A+ certificate.
+  if (!score) score = newConstruction && efficientSystem ? 9
+    : newConstruction ? 7.8
+      : efficientSystem ? 7
+        : 4.5;
+  if (hasMeasuredPerformance && /w[aä]rmepumpe|fernw[aä]rme|solar/i.test(system)) score += 0.4;
   if (/[oö]l|coal|kohle/i.test(system)) score -= 0.7;
   return clamp(score);
 }
