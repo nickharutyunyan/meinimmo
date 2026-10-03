@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { scoreAvailable, reportVerdict, reportConflicts } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
@@ -15,11 +16,13 @@ import { PlanButton } from './PlanButton';
 import { LocationCard } from './LocationCard';
 import { OfferQuestions } from './OfferQuestions';
 import { Sidebar } from './Sidebar';
+import { CountrySwitch } from './CountrySwitch';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
 import { ReportPrintButton } from './ReportPrintButton';
+import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxonomy';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -28,7 +31,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (report.aiLocationChecked && report.aiFactChecked) return;
+    if ((report.verificationAttempted || (report.aiLocationChecked && report.aiFactChecked)) && (!report.taxonomyEvidence || (report.jevCategorized && report.taxonomy?.version === TAXONOMY_VERSION))) return;
     let active = true;
     let attempts = 0;
     let timeout: ReturnType<typeof setTimeout>;
@@ -38,16 +41,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         if (!response.ok || !active) return;
         const latest = await response.json() as Report;
         if (!active) return;
-        setReport(current => {
-          const locationChanged = current.location !== latest.location
-            || current.facts.district !== latest.facts.district
-            || current.facts.street !== latest.facts.street;
-          return locationChanged ? latest : current;
-        });
-        if (latest.aiLocationChecked && latest.aiFactChecked) {
-          setReport(latest);
-          return;
-        }
+        setReport(latest);
+        if ((latest.verificationAttempted || (latest.aiLocationChecked && latest.aiFactChecked)) && (!latest.taxonomyEvidence || latest.jevCategorized)) return;
       } catch {
         // The saved deterministic report remains usable while verification retries.
       }
@@ -56,7 +51,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     };
     timeout = setTimeout(refresh, 1_000);
     return () => { active = false; clearTimeout(timeout); };
-  }, [report.aiFactChecked, report.aiLocationChecked, report.id]);
+  }, [report.aiFactChecked, report.aiLocationChecked, report.jevCategorized, report.taxonomy?.version, report.id]);
 
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
@@ -98,10 +93,12 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   ];
   const propertyScore = calculatePropertyScore(report);
   const breakdown = propertyScore.breakdown;
+  const showScore = scoreAvailable(report);
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
   const features = localizedFeatures(facts.features, locale);
+  const propertyCategories = localizedFactualTaxonomy(report, locale);
 
   async function copyLink() {
     try {
@@ -125,20 +122,23 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     <main className="workspace" lang={locale}>
       <header className="report-head">
         <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink} aria-label={copied ? text.copied : text.copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span className="action-label-long" aria-live="polite">{copied ? text.copied : text.copyLink}</span><span className="action-label-short" aria-hidden="true">{copied ? (locale === 'de' ? 'Kopiert' : 'Copied') : (locale === 'de' ? 'Link' : 'Copy')}</span></button><ReportPrintButton reportId={report.id} locale={locale}/><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
-        <div className="report-title-block"><p className="eyebrow">{text.brief}</p><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
+        <div className="report-title-block"><div className="report-market-line"><p className="eyebrow">{text.brief}</p><CountrySwitch locale={locale}/></div><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{propertyScore.total.toFixed(2)}</strong><i>/ 10</i></span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{text.scoreExplainer}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{breakdown[key as keyof typeof breakdown].toFixed(1)}</b></span>)}</div></div></details></div>
-        <div className="verdict-copy"><h2>{propertyScoreTitle(propertyScore.total, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? propertyScore.total.toFixed(1) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{showScore ? text.scoreExplainer : (locale === 'de' ? 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.' : 'No score while key facts are missing or conflicting.')}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{showScore ? breakdown[key as keyof typeof breakdown].toFixed(1) : '—'}</b></span>)}</div></div></details></div>
+        <div className="verdict-copy"><h2>{reportVerdict(report, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
+      {reportConflicts(report).length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{warnings.filter(w => !/exact street|exact floor/.test(w)).map(w => <p key={w}>{w}</p>)}</section> : null}
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
+          {propertyCategories.length ? <section className="card property-profile"><p className="eyebrow">{text.profile}</p><div className="feature-list">{propertyCategories.map(category => <span key={category}>{category}</span>)}</div></section> : null}
           {features.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
           {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText locale={locale}>{item}</GlossaryText></p>)}</section> : null}
+          {report.evidence ? <details className="card source-evidence"><summary>{locale === 'de' ? 'Belege aus dem Angebot ansehen' : 'View source evidence'}</summary><p>{locale === 'de' ? 'Auszüge aus der Quelle. Angaben des Verkäufers sind nicht unabhängig bestätigt.' : 'Excerpts from the source. Seller statements have not been independently verified.'}</p>{Object.entries(report.evidence).filter(([, lines]) => lines.length).map(([field, lines]) => <div key={field}>{lines.map((line, i) => <blockquote key={i}>{line}</blockquote>)}</div>)}</details> : null}
           {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
         </div>
         <aside>

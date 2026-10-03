@@ -2,7 +2,7 @@ import { localizedValue, type Locale } from './i18n.ts';
 import type { Report } from './types';
 import { factualLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
-import { isExplicitNewBuild } from './property-condition.ts';
+import { isNewOrFirstOccupancy } from './property-condition.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -47,14 +47,14 @@ export function localizedSummary(report: Report, locale: Locale) {
   ].filter(Boolean).join(', ');
   const first = `Diese ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
   const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
-  const occupancy = availableFrom
+  const occupancy = facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom
     ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
     : facts.tenancy === 'Rented'
     ? `Die Immobilie wird vermietet verkauft${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
     : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
       ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
       : '';
-  const costs = facts.housegeld ? ` Das Hausgeld liegt laut Angebot bei ${facts.housegeld.toLocaleString('de-DE')} € im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
+  const costs = facts.housegeld ? ` Das Hausgeld${facts.housegeldYear ? ` für ${facts.housegeldYear}` : ''} liegt laut Angebot bei ${facts.housegeld.toLocaleString('de-DE')} € im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
   const second = `${occupancy}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
 }
@@ -63,9 +63,10 @@ export function localizedConsiderations(report: Report, locale: Locale) {
   if (locale === 'en') return report.considerations;
   const { facts } = report;
   const items: string[] = [];
+  if (facts.tenancy === 'Occupancy unclear') items.push('Kläre den rechtlichen Status der Bewohner und eine verbindliche Vereinbarung zur freien Übergabe.');
   if (facts.tenancy === 'Rented') items.push('Prüfe Mietvertrag, Nettokaltmiete und Zahlungshistorie.');
   if (facts.housegeld) {
-    items.push(isExplicitNewBuild(facts.condition)
+    items.push(isNewOrFirstOccupancy(facts.condition)
       ? `Prüfe, wie sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld auf laufende Gemeinschafts- und Eigentümerkosten verteilen.`
       : `Prüfe die Aufteilung der ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld und lass dir den aktuellen Stand der WEG-Rücklage zeigen.`);
   }
@@ -79,6 +80,13 @@ export function localizedConsiderations(report: Report, locale: Locale) {
 export function localizedWarnings(report: Report, locale: Locale) {
   if (locale === 'en') return report.qualityWarnings || [];
   return (report.qualityWarnings || []).map((warning) => {
+    if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
+    if (/purchase price, buyer costs/.test(warning)) return 'Kaufpreis, Kaufnebenkosten und Gesamtsumme widersprechen sich. Die Finanzierung nutzt die angegebene Gesamtsumme; kläre die Aufschlüsselung.';
+    if (/Construction year and new-build/.test(warning)) return 'Baujahr und Neubauzustand widersprechen sich. Kläre den tatsächlichen Zustand.';
+    if (/Hausgeld amount refers to/.test(warning)) return `Die Hausgeldangabe bezieht sich auf ${report.facts.housegeldYear}. Prüfe den aktuellen Wirtschaftsplan.`;
+    if (/conflicting room counts/.test(warning)) return 'Das Angebot enthält widersprüchliche Zimmerzahlen. Prüfe den Grundriss; der Titel nennt deshalb keine Zimmerzahl.';
+    if (/energy class and consumption/.test(warning)) return 'Die angegebene Energieklasse und der Verbrauch passen nicht zu den üblichen Klassengrenzen. Prüfe den Energieausweis.';
+    if (/portal says not rented/.test(warning)) return 'Das Portal meldet nicht vermietet, aber laut Beschreibung wohnen noch Menschen in der Wohnung. Kläre ihren rechtlichen Status und die freie Übergabe.';
     if (/exact street address/i.test(warning)) return 'Die genaue Straßenadresse steht nicht im Angebot.';
     if (/exact floor/i.test(warning)) return 'Die genaue Etage steht nicht im Angebot.';
     if (/complete acquisition total/i.test(warning)) return 'Im Angebot fehlt eine vollständige Gesamtsumme. Die Finanzierung nutzt deshalb eine grobe Schätzung der Kaufnebenkosten.';
@@ -95,7 +103,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
     else if (facts.availabilityDate) questions.push(`Ist die freie Übergabe am ${formatAvailabilityDate(facts.availabilityDate, 'de')} im Kaufvertrag zugesichert?`);
     else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('Wann wird die Immobilie vollständig frei übergeben?');
     else questions.push('Ist die Immobilie bei der Übergabe vermietet oder frei?');
-    if (report.propertyType === 'flat') questions.push(isExplicitNewBuild(facts.condition)
+    if (report.propertyType === 'flat') questions.push(isNewOrFirstOccupancy(facts.condition)
       ? 'Welcher anfängliche Beitrag zur WEG-Rücklage ist vorgesehen?'
       : 'Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
     if (facts.housegeld) questions.push(`Wie teilen sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld in umlagefähige und eigene Kosten?`);
@@ -110,7 +118,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   else if (facts.availabilityDate) questions.push(`Is vacant handover on ${formatAvailabilityDate(facts.availabilityDate, 'en')} guaranteed in the purchase contract?`);
   else if (['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')) questions.push('When will the property be handed over vacant?');
   else questions.push('Will the property be rented or vacant at handover?');
-  if (report.propertyType === 'flat') questions.push(isExplicitNewBuild(facts.condition)
+  if (report.propertyType === 'flat') questions.push(isNewOrFirstOccupancy(facts.condition)
     ? 'What initial contribution to the WEG reserve is planned?'
     : 'What is the WEG reserve, and are any Sonderumlagen planned?');
   if (facts.housegeld) questions.push(`How is the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld split between recoverable and owner-only costs?`);

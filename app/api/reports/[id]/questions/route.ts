@@ -12,6 +12,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const current = await findReport(id);
 
   if (!current) return NextResponse.json({ error: 'Report not found.' }, { status: 404 });
+  if (current.country === 'AM') return NextResponse.json({ offerQuestions: current.offerQuestions || [], aiEnriched: false });
   if (current.aiEnriched && questionsAreConcise(current.offerQuestions) && questionsAreConcise(current.offerQuestionsDe)) {
     return NextResponse.json({
       offerQuestions: current.offerQuestions,

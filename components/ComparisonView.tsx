@@ -1,14 +1,16 @@
+import { scoreAvailable } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
 import { calculatePropertyScore } from '@/lib/property-score';
-import { copy, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { ComparisonShareButton } from './ComparisonShareButton';
 import { visibleComparisonRows } from '@/lib/comparison';
+import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -55,12 +57,14 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.usable, first.facts.usableArea ? `${first.facts.usableArea} m²` : '—', second.facts.usableArea ? `${second.facts.usableArea} m²` : '—'],
     [text.rooms, known(first.facts.rooms), known(second.facts.rooms)],
     [text.floor, known(first.facts.floor), known(second.facts.floor)],
+    [locale === 'de' ? 'Tageslicht' : 'Daylight', localizedTaxonomyValue(first, 'daylight', locale) || '—', localizedTaxonomyValue(second, 'daylight', locale) || '—'],
+    [locale === 'de' ? 'Ausrichtung' : 'Orientation', localizedTaxonomyValue(first, 'orientation', locale) || '—', localizedTaxonomyValue(second, 'orientation', locale) || '—'],
     [text.use, tenancy(first), tenancy(second)],
     [text.condition, known(first.facts.condition), known(second.facts.condition)],
     [text.housegeld, first.facts.housegeld ? `${money(first.facts.housegeld)} ${text.monthly}` : '—', second.facts.housegeld ? `${money(second.facts.housegeld)} ${text.monthly}` : '—'],
     [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
     [text.energy, energy(first), energy(second)],
-    [text.score, `${firstScore.total.toFixed(2)} / 10`, `${secondScore.total.toFixed(2)} / 10`],
+    [text.score, scoreAvailable(first) ? `${firstScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first'), scoreAvailable(second) ? `${secondScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first')],
   ] as const);
 
   return <main className="comparison-page" lang={locale}>
@@ -69,13 +73,13 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     <h1>{text.title}</h1>
     <div className="comparison-table-scroll"><section className="comparison-grid">
       <div className="metric">{text.property}</div>
-      <div><small>{text.option} A</small><h2>{reportTitle(first, locale)}</h2></div>
-      <div><small>{text.option} B</small><h2>{reportTitle(second, locale)}</h2></div>
+      <div><small>{text.option} A</small><h2><a href={localePath(locale, `/r/${first.id}`)}>{reportTitle(first, locale)}</a></h2></div>
+      <div><small>{text.option} B</small><h2><a href={localePath(locale, `/r/${second.id}`)}>{reportTitle(second, locale)}</a></h2></div>
       {rows.map(([label, a, b]) => <Fragment key={label}><div className="metric"><GlossaryText locale={locale}>{label}</GlossaryText></div><div>{comparisonValue(label, a, 1)}</div><div>{comparisonValue(label, b, 2)}</div></Fragment>)}
     </section></div>
     <section className="comparison-mobile" aria-label={text.title}>{[[first, 'A', 1], [second, 'B', 2]].map(([item, option, valueIndex]) => {
       const property = item as Report;
-      return <article key={String(option)}><small>{text.option} {String(option)}</small><h2>{reportTitle(property, locale)}</h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
+      return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
     <SiteFooter locale={locale} />
   </main>;

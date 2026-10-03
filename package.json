@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "helper:package": "cd extensions/reviewahouse && zip -j -FS ../../public/downloads/reviewahouse-helper.zip manifest.json background.js bridge.js policy.mjs extract.mjs README.md",
     "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -22,6 +23,7 @@
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.2",
     "next": "16.3.2",
+    "parse5": "^7.3.0",
     "pdfjs-dist": "5.4.394",
     "react": "19.2.1",
     "react-dom": "19.2.1",

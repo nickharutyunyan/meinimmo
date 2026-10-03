@@ -97,7 +97,7 @@ test('accepts and accurately parses an English-language Berlin Exposé PDF', () 
   assert.equal(report.facts.energy, 'A+');
   assert.equal(report.facts.energyDemand, 26.6);
   assert.equal(report.facts.housegeld, 333);
-  assert.equal(report.facts.condition, 'New build');
+  assert.equal(report.facts.condition, 'First occupancy');
   assert.equal(report.facts.buyerCommission, '3.00 % plus VAT of the notarized purchase price');
   assert.equal(report.sunOrientation, 'Sunny balcony stated');
   assert.match(report.considerations.join(' '), /shared running costs and owner-only costs/i);
@@ -264,7 +264,8 @@ test('preserves an explicit future availability date instead of flattening it to
     Objektzustand: Neuwertig
   `, 'Südbalkon-Traum.pdf');
 
-  assert.equal(report.facts.tenancy, 'Not rented');
+  // Future vacant possession is not evidence of current tenancy.
+  assert.equal(report.facts.tenancy, undefined);
   assert.equal(report.facts.availabilityDate, '2026-08-27');
   assert.match(report.summary, /available from 27 August 2026/i);
   assert.doesNotMatch(report.summary, /states that it is not rented/i);
@@ -408,12 +409,14 @@ test('parses a PDF financing block without treating its monthly quote as the tot
   assert.equal(report.facts.tenancy, 'Not rented');
   assert.equal(report.facts.condition, 'Well maintained');
   assert.equal(report.facts.energyDemand, 154.1);
-  assert.equal(report.facts.energy, 'E');
+  // Consumption is known, but an unreadable graphical badge is not an
+  // explicitly extracted certificate class. Keep it unknown, not inferred.
+  assert.equal(report.facts.energy, 'not stated');
   assert.equal(report.facts.district, 'Kreuzberg');
   assert.equal(report.facts.street, 'Möckernstraße');
   assert.equal(report.facts.locationPrecision, 'street');
   assert.equal(report.title, '3-room flat · Möckernstraße');
-  assert.equal(report.address, 'Address not stated');
+  assert.equal(report.address, 'Möckernstraße, 10963 Berlin');
 });
 
 test('uses a named property street directly when no house number is disclosed', () => {

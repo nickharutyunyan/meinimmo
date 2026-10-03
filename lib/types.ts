@@ -1,3 +1,5 @@
+import type { FactualTaxonomy, TaxonomyEvidence } from './property-taxonomy';
+
 export type Facts = {
   price: number;
   area: number;
@@ -15,6 +17,7 @@ export type Facts = {
   brokerFee?: number;
   buyerCommission?: string;
   housegeld?: number;
+  housegeldYear?: string;
   tenancy?: string;
   availabilityDate?: string;
   advertisedYield?: number;
@@ -47,12 +50,54 @@ export type ScoreBreakdown = {
   source: number;
 };
 
+export type PropertyCategoryDecision = {
+  value: string;
+  confidence: number;
+};
+
+export type PropertyCategories = {
+  schemaVersion: 1;
+  model: string;
+  buildingProfile: PropertyCategoryDecision;
+  buyerFit: PropertyCategoryDecision;
+  locationStyle: PropertyCategoryDecision;
+  purchaseSituation: PropertyCategoryDecision;
+};
+
 export type Report = {
+  extractionVersion?: number;
+  verificationAttempted?: boolean;
+  sourceUnavailable?: boolean;
+  sourceReviewAttemptedAt?: string;
+  evidence?: Record<string, string[]>;
+  country?: 'DE' | 'AM';
+  armenia?: {
+    currency: 'AMD';
+    originalPrice: number;
+    originalCurrency: 'AMD' | 'USD' | 'EUR' | 'RUB';
+    priceBasis: 'total' | 'per-m2';
+    fx?: { rate: number; date: string; sourceUrl: string };
+    plotArea?: number;
+    livingArea?: number;
+    landUse?: string;
+    buildingFloors?: number;
+    construction?: string;
+    renovation?: string;
+    newConstruction?: boolean;
+    elevator?: string;
+    balcony?: string;
+    utilities?: string;
+    roadAccess?: string;
+    approximate: boolean;
+    sourceUpdated?: string;
+    importMethod: 'url' | 'text' | 'pdf' | 'browser';
+    evidence: Record<string, string>;
+  };
   id: string;
   title: string;
   address: string;
   location?: string;
-  propertyType: 'flat' | 'house';
+  propertyType: 'flat' | 'house' | 'land';
   source: string;
   sourceFile?: {
     displayName: string;
@@ -73,6 +118,10 @@ export type Report = {
   aiEnriched: boolean;
   aiLocationChecked?: boolean;
   aiFactChecked?: boolean;
+  jevCategorized?: boolean;
+  categories?: PropertyCategories;
+  taxonomyEvidence?: TaxonomyEvidence;
+  taxonomy?: FactualTaxonomy;
   locationEvidence?: string;
 };
 export type Comparison = { id: string; reportIds: [string, string]; createdAt: string };

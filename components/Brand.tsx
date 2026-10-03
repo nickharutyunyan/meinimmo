@@ -8,8 +8,8 @@ export function HomeMark({ decorative = true }: { decorative?: boolean }) {
   </svg>;
 }
 
-export function Brand({ className = '', locale = 'en' }: { className?: string; locale?: Locale }) {
-  return <Link href={localePath(locale)} className={`brand-mark ${className}`.trim()} aria-label={locale === 'de' ? 'Review a House Startseite' : 'Review a House home'}>
+export function Brand({ className = '', locale = 'en', href }: { className?: string; locale?: Locale; href?: string }) {
+  return <Link href={href || localePath(locale)} className={`brand-mark ${className}`.trim()} aria-label={locale === 'de' ? 'Review a House Startseite' : 'Review a House home'}>
     <HomeMark />
     <span className="brand-word">Review a House</span>
   </Link>;

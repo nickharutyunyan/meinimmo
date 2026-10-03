@@ -14,3 +14,9 @@ export function canonicalCondition(value?: string) {
 export function isExplicitNewBuild(value?: string) {
   return canonicalCondition(value) === 'New build';
 }
+
+// First occupancy does not establish building age, but questions should not
+// assume an established owners' association reserve or past utility bills.
+export function isNewOrFirstOccupancy(value?: string) {
+  return isExplicitNewBuild(value) || /^(?:Erstbezug|First occupancy)$/i.test((value || '').trim());
+}

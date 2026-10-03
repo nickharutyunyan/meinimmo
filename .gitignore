@@ -7,4 +7,5 @@
 data/reports.json
 node_modules/
 .next/
+tmp/jev-eval/
 .DS_Store

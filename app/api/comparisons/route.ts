@@ -9,7 +9,9 @@ export async function POST(request: NextRequest) {
   if (!Array.isArray(reportIds) || reportIds.length !== 2 || new Set(reportIds).size !== 2 || !reportIds.every(validReportId)) {
     return NextResponse.json({ error: 'Select two properties.' }, { status: 400 });
   }
-  if (!await report(reportIds[0]) || !await report(reportIds[1])) return NextResponse.json({ error: 'Property not found.' }, { status: 404 });
+  const [first, second] = await Promise.all(reportIds.map(report));
+  if (!first || !second) return NextResponse.json({ error: 'Property not found.' }, { status: 404 });
+  if ((first.country || 'DE') !== (second.country || 'DE')) return NextResponse.json({ error: 'Choose two properties in the same country. Prices and financing assumptions differ across countries.' }, { status: 400 });
   const item = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 16), reportIds: reportIds as [string, string], createdAt: new Date().toISOString() };
   await saveComparison(item);
   return NextResponse.json(item, { status: 201 });

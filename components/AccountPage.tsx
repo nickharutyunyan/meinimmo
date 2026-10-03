@@ -6,6 +6,7 @@ import { PlanButton } from './PlanButton';
 import { QuotaModal } from './QuotaModal';
 import { localePath, type Locale } from '@/lib/i18n';
 import { SiteFooter } from './SiteFooter';
+import { requestJson } from '@/lib/client-request';
 import { canOfferDayPass } from '@/lib/day-pass';
 
 type AccountState = {
@@ -31,14 +32,27 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const subscriptionDate = data?.subscription?.currentPeriodEnd
     ? new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(data.subscription.currentPeriodEnd))
     : null;
-  const refresh = () => fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as AccountState).then(setData);
+  const inFlight = useRef(false);
+  const networkError = de ? 'Verbindung fehlgeschlagen. Bitte versuche es erneut.' : 'Connection failed. Please try again.';
+  const refresh = async () => {
+    const { response, data: result } = await requestJson<AccountState>('/api/auth/me', { cache: 'no-store' });
+    if (!response.ok) throw new Error('account_unavailable');
+    setData(result);
+    window.dispatchEvent(new Event('account-changed'));
+  };
+  const load = () => { setError(''); return refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden. Bitte versuche es erneut.' : 'The account could not be loaded. Please try again.')); };
+  async function run(action: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setError('');
+    try { await action(); } catch { setError(networkError); }
+    finally { inFlight.current = false; setBusy(false); }
+  }
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedReturn = params.get('returnTo');
     setReturnTo(requestedReturn && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') && !/[\r\n]/.test(requestedReturn) ? requestedReturn : '');
     if (params.get('mode') === 'login') setMode('login');
     setPasswordReset(params.get('passwordReset') === '1');
-    const load = () => refresh().catch(() => setError(de ? 'Konto konnte nicht geladen werden.' : 'The account could not be loaded.'));
     load();
     window.addEventListener('focus', load);
     return () => window.removeEventListener('focus', load);
@@ -59,28 +73,32 @@ export function AccountPage({ locale }: { locale: Locale }) {
   }, [data?.user, data?.billingAvailable, de, locale]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault();
     const values = new FormData(event.currentTarget);
-    const response = await fetch(`/api/auth/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: values.get('username'), identifier: values.get('identifier'), email: values.get('email'), password: values.get('password'), name: values.get('name'), locale }) });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setError(result.error || (de ? 'Das hat nicht geklappt.' : 'That did not work.')); setBusy(false); return; }
-    if (returnTo) { window.location.href = returnTo; return; }
-    await refresh(); setBusy(false);
+    await run(async () => {
+      const { response, data: result } = await requestJson<{ error?: string }>(`/api/auth/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: values.get('username'), identifier: values.get('identifier'), email: values.get('email'), password: values.get('password'), name: values.get('name'), locale }) });
+      if (!response.ok) { setError(result.error || networkError); return; }
+      if (returnTo) { window.location.href = returnTo; return; }
+      await refresh();
+    });
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    await refresh();
+    await run(async () => {
+      const { response } = await requestJson('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('logout_failed');
+      await refresh();
+    });
   }
 
   async function saveName(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true);
+    event.preventDefault();
     const values = new FormData(event.currentTarget);
-    const response = await fetch('/api/account', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: values.get('name'), email: values.get('email'), locale }) });
-    const result = await response.json() as { error?: string };
-    if (response.ok) await refresh();
-    else setError(result.error || (de ? 'Das Profil konnte nicht gespeichert werden.' : 'The profile could not be saved.'));
-    setBusy(false);
+    await run(async () => {
+      const { response, data: result } = await requestJson<{ error?: string }>('/api/account', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: values.get('name'), email: values.get('email'), locale }) });
+      if (!response.ok) { setError(result.error || networkError); return; }
+      await refresh();
+    });
   }
 
   async function portal() {
@@ -93,7 +111,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
 
   return <main className="account-page" lang={locale}>
     <SiteNav locale={locale} />
-    {!data ? <section className="account-shell"><p>{de ? 'Konto wird geladen…' : 'Loading account…'}</p></section> : data.user ? <section className="account-shell">
+    {!data ? <section className="account-shell">{error ? <><p className="form-error" role="alert">{error}</p><button onClick={load}>{de ? 'Erneut versuchen' : 'Try again'}</button></> : <p>{de ? 'Konto wird geladen…' : 'Loading account…'}</p>}</section> : data.user ? <section className="account-shell">
       <div className="account-heading"><p className="eyebrow">{de ? 'DEIN KONTO' : 'YOUR ACCOUNT'}</p><h1>{de ? 'Schön, dass du da bist.' : 'Good to have you here.'}</h1><p>{data.user.email || `@${data.user.username}`}</p>{passwordReset ? <div className="account-success" role="status">{de ? 'Dein Passwort wurde geändert und du bist wieder angemeldet.' : 'Your password has been changed and you are signed in again.'}</div> : null}</div>
       <div className="account-grid">
         {data.access.limitsEnabled ? <section className="account-card usage-card">
@@ -103,7 +121,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
           <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
         </section> : <section className="account-card usage-card"><span>{de ? 'TESTPHASE' : 'TESTING'}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.'}</small></section>}
-        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required /><small>{de ? 'Hierhin schicken wir einen Link, falls du dein Passwort vergisst.' : 'We’ll send a secure link here if you forget your password.'}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout}>{de ? 'Abmelden' : 'Sign out'}</button></section>
+        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required /><small>{de ? 'Hierhin schicken wir einen Link, falls du dein Passwort vergisst.' : 'We’ll send a secure link here if you forget your password.'}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {data.subscription ? <section className="subscription-card">
         <div>
@@ -124,7 +142,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{de ? '/Monat' : '/month'}</small></strong><p>{de ? '100 Berichte pro Tag' : '100 reports per day'}</p>{data.access.kind === 'pro' || data.access.kind === 'ultra' ? <button onClick={portal}>{de ? 'Abo verwalten' : 'Manage subscription'}</button> : <PlanButton plan="ultra" locale={locale}>{de ? 'Ultra wählen' : 'Choose Ultra'}</PlanButton>}</article>
       </section> : null}
       <p className="separation-note">{de ? 'Deine persönlichen Kontodaten werden in einer eigenen Datenbank gespeichert – getrennt von Immobilien-Berichten.' : 'Your personal account data is stored in its own database, separate from property reports.'}</p>
-      {error ? <p className="form-error">{error}</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
     </section> : <section className="account-shell auth-shell">
       <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'signup' ? (de ? 'In einer Minute startklar.' : 'Ready in a minute.') : (de ? 'Willkommen zurück.' : 'Welcome back.')}</h1><p>{de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.'}</p></div>
       <div className="auth-card">
@@ -137,7 +155,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : mode === 'signup' ? (de ? 'Konto erstellen' : 'Create account') : (de ? 'Anmelden' : 'Sign in')}</button>
         </form>
         {mode === 'login' ? <a className="forgot-password-link" href={localePath(locale, '/account/forgot')}>{de ? 'Passwort vergessen?' : 'Forgot password?'}</a> : null}
-        <button className="auth-mode" onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}>{mode === 'signup' ? (de ? 'Schon ein Konto? Anmelden' : 'Already have an account? Sign in') : (de ? 'Noch kein Konto? Erstellen' : 'New here? Create an account')}</button>
+        <button className="auth-mode" disabled={busy} onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}>{mode === 'signup' ? (de ? 'Schon ein Konto? Anmelden' : 'Already have an account? Sign in') : (de ? 'Noch kein Konto? Erstellen' : 'New here? Create an account')}</button>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       </div>
     </section>}

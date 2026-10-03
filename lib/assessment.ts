@@ -1,4 +1,6 @@
 import 'server-only';
+import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './location-validation';
+import { guardEnrichment } from './verification-guard';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
 import { htmlToLines, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
@@ -74,21 +76,22 @@ function mergeLocation(report: Report, value: unknown, searchableSource: string)
   const location = value as AiLocation;
   const city = validPlace(location.city, searchableSource);
   const district = validPlace(location.district, searchableSource);
-  const street = validPlace(location.street, searchableSource, 100).replace(/,?\s*\b\d{5}\b[\s\S]*$/u, '').replace(/\s+0\s*$/u, '').trim();
+  const street = cleanAddressPlaceholders(validPlace(location.street, searchableSource, 100).replace(/,?\s*\b\d{5}\b[\s\S]*$/u, ''));
   const stop = validPlace(location.transitStop, searchableSource);
   const postal = typeof location.postalCode === 'string' && /^\d{5}$/.test(location.postalCode.trim()) && sourceContains(searchableSource, location.postalCode.trim()) ? location.postalCode.trim() : '';
   const evidence = typeof location.evidence === 'string' && sourceContains(searchableSource, location.evidence) ? location.evidence.trim().slice(0, 240) : '';
 
   if (city && !report.facts.city) report.facts.city = city;
   if (postal && !report.facts.postalCode) report.facts.postalCode = postal;
-  const improvesDistrict = district && (!report.facts.district || (/kiez$/i.test(district) && !/kiez$/i.test(report.facts.district)));
+  // A named nearby Kiez must not replace the district in the property address.
+  const improvesDistrict = district && !report.facts.district;
   if (improvesDistrict) {
     report.facts.district = district;
     report.location = district;
   } else if (city && !report.facts.district) report.location = city;
   if (stop) report.facts.transitStop = stop;
-  if (street && propertyStreetSupported(street, searchableSource, report) && /(?:straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)\b/iu.test(street)) {
-    const hasNumber = /\b\d{1,4}[a-z]?\s*$/iu.test(street);
+  if (street && validStreet(street) && propertyStreetSupported(street, searchableSource, report) && /(?:straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)\b/iu.test(street)) {
+    const hasNumber = hasHouseNumber(street);
     report.facts.street = street;
     report.facts.locationPrecision = hasNumber ? 'address' : 'street';
     report.address = hasNumber ? displayAddress(`${street}${postal ? `, ${postal}` : ''}${report.facts.city ? ` ${report.facts.city}` : ''}`) : 'Address not stated';
@@ -173,6 +176,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     ...report,
     offerQuestions: validatedQuestions(report.offerQuestions, report, 'en') || defaultOfferQuestions(report, 'en'),
     offerQuestionsDe: validatedQuestions(report.offerQuestionsDe, report, 'de') || defaultOfferQuestions(report, 'de'),
+    verificationAttempted: verifySourceFacts || report.verificationAttempted,
     aiLocationChecked: verifySourceFacts ? false : report.aiLocationChecked,
     aiFactChecked: verifySourceFacts ? false : report.aiFactChecked,
   };
@@ -226,7 +230,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     const data = await response.json() as { model?: string; choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content || '';
     const parsed = parseAiJson(content) as { location?: unknown; factEvidence?: unknown; offerQuestionsEn?: unknown; offerQuestionsDe?: unknown };
-    const enriched = verifySourceFacts
+    let enriched = verifySourceFacts
       ? mergeVerifiedFacts(mergeLocation({ ...fallback, facts: { ...fallback.facts } }, parsed.location, searchableSource), parsed.factEvidence, searchableSource)
       : { ...fallback, facts: { ...fallback.facts } };
     const english = verifySourceFacts ? undefined : validatedQuestions(parsed.offerQuestionsEn, enriched, 'en');
@@ -234,8 +238,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     enriched.offerQuestions = english || fallback.offerQuestions;
     enriched.offerQuestionsDe = german || fallback.offerQuestionsDe;
     enriched.aiEnriched = verifySourceFacts ? false : Boolean(english && german);
-    enriched.aiLocationChecked = verifySourceFacts;
-    enriched.aiFactChecked = verifySourceFacts;
+    if (verifySourceFacts) enriched = guardEnrichment(report, enriched);
     console.info('OpenRouter enrichment complete', { purpose: verifySourceFacts ? 'facts' : 'questions', model: data.model || 'unknown' });
     return refreshDerivedReport(enriched);
   } catch (error) {

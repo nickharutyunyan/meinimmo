@@ -14,6 +14,8 @@ export type AppEnv = CloudflareEnv & {
   REPORT_LIMITS_ENABLED?: string;
   RESEND_API_KEY?: string;
   PASSWORD_RESET_FROM?: string;
+  TYPESAFE_API_KEY?: string;
+  JEV_MODEL?: string;
 };
 
 export async function appEnvironment() {

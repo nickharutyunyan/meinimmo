@@ -28,16 +28,17 @@ export function neighborhoodFromAddress(address: Record<string, string | undefin
     .find(candidate => candidate && !/^\d{5}$/.test(candidate) && candidate.toLocaleLowerCase('de-DE') !== normalizedCity) || '';
 }
 
-export async function geocodeGermanLocation(query: string, city = ''): Promise<GermanPlace | undefined> {
+export async function geocodeGermanLocation(query: string, city = '', country: 'de' | 'am' = 'de'): Promise<GermanPlace | undefined> {
   const url = new URL('https://nominatim.openstreetmap.org/search');
   url.searchParams.set('format', 'jsonv2');
   url.searchParams.set('limit', '1');
-  url.searchParams.set('countrycodes', 'de');
+  url.searchParams.set('countrycodes', country);
   url.searchParams.set('addressdetails', '1');
   url.searchParams.set('q', query);
   const response = await fetch(url, {
     headers: { 'User-Agent': 'ReviewAHousePropertyAssessment/1.0' },
     next: { revalidate: 60 * 60 * 24 * 30 },
+    signal: AbortSignal.timeout(5000),
   });
   if (!response.ok) throw new Error('Geocoding service unavailable');
   const [place] = await response.json() as NominatimPlace[];

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { PrintReport } from '@/components/PrintReport';
 import { acquisitionCosts } from '@/lib/finance';
+import { currentMortgageRate } from '@/lib/current-mortgage-rate';
 import { printFinanceSettings } from '@/lib/print-finance';
 import { report } from '@/lib/store';
 import { printDocumentTitle } from '@/lib/print-title';
@@ -20,7 +21,9 @@ export default async function PrintableReport({ params, searchParams }: {
 }) {
   const item = await getReport((await params).id);
   if (!item) notFound();
+  if (item.country === 'AM') redirect(`/r/${item.id}`);
   const query = await searchParams;
-  const finance = printFinanceSettings(query, acquisitionCosts(item.facts).total);
+  const benchmark = await currentMortgageRate();
+  const finance = printFinanceSettings(query, acquisitionCosts(item.facts).total, benchmark?.rate);
   return <PrintReport report={item} locale="en" finance={finance} autoPrint={query.print === '1'} />;
 }

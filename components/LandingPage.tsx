@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
@@ -10,6 +10,7 @@ import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
 import { MAX_PDF_BYTES } from '@/lib/pdf-source';
+import { requestJson } from '@/lib/client-request';
 import { pdfTextFromItems } from '@/lib/pdf-text';
 
 const PDF_PAGE_BATCH_SIZE = 4;
@@ -28,7 +29,7 @@ const importPdfJs = () => import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs)
 let pdfJsPromise: ReturnType<typeof importPdfJs> | undefined;
 const loadPdfJs = () => pdfJsPromise ||= importPdfJs();
 
-async function extractPdfText(file: File) {
+export async function extractPdfText(file: File) {
   const pdfjs = await loadPdfJs();
   const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   const pages: string[] = [];
@@ -54,6 +55,10 @@ async function extractPdfText(file: File) {
 export function LandingPage({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [listingText, setListingText] = useState('');
   const [status, setStatus] = useState('');
   const [quotaOpen, setQuotaOpen] = useState(false);
   const [dayPassEligible, setDayPassEligible] = useState(false);
@@ -72,11 +77,10 @@ export function LandingPage({ locale }: { locale: Locale }) {
   async function assess(payload: object | FormData) {
     const formData = payload instanceof FormData ? payload : null;
     if (formData) formData.set('locale', locale);
-    const response = await fetch('/api/assess', {
+    const { response, data } = await requestJson<{ error?: string; id?: string; code?: string }>('/api/assess', {
       method: 'POST',
       ...(formData ? { body: formData } : { headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, locale }) }),
     });
-    const data = await response.json() as { error?: string; id?: string; code?: string };
     if (!response.ok || !data.id) {
       if (data.code === 'quota_exceeded') {
         setStatus('');
@@ -84,25 +88,31 @@ export function LandingPage({ locale }: { locale: Locale }) {
         setQuotaOpen(true);
         return;
       }
-      setStatus(data.error || text.genericError);
-      return;
+      throw new Error(data.error || text.genericError);
     }
     router.push(localePath(locale, `/r/${data.id}`));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setStatus(text.readingListing);
-    await assess({ url });
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setStatus(text.readingListing);
+    try {
+      await assess(pasteOpen ? { text: listingText, name: locale === 'de' ? 'Eingefügtes Immobilienangebot' : 'Pasted property listing' } : { url });
+    } catch (error) {
+      const fallback = locale === 'de' ? 'Die Verbindung ist fehlgeschlagen oder hat zu lange gedauert. Versuche es erneut. Deine Eingabe bleibt erhalten.' : 'The connection failed or took too long. Please try again. Your input has been kept.';
+      setStatus(error instanceof Error && !/fetch|network|request_timeout|json|unexpected|load failed/i.test(error.message) ? error.message : fallback);
+    } finally { inFlight.current = false; setBusy(false); }
   }
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || inFlight.current) return;
     if (file.size > MAX_PDF_BYTES) {
       setStatus(locale === 'de' ? 'Das PDF darf höchstens 15 MB groß sein.' : 'The PDF must be 15 MB or smaller.');
       return;
     }
+    inFlight.current = true; setBusy(true);
     setStatus(text.readingPdf);
     try {
       const content = await extractPdfText(file);
@@ -115,9 +125,9 @@ export function LandingPage({ locale }: { locale: Locale }) {
       payload.set('name', file.name);
       payload.set('file', file, file.name);
       await assess(payload);
-    } catch {
-      setStatus(text.pdfError);
-    }
+    } catch (error) {
+      setStatus(error instanceof Error && !/fetch|network|request_timeout|json|unexpected/i.test(error.message) ? error.message : text.pdfError);
+    } finally { inFlight.current = false; setBusy(false); event.target.value = ''; }
   }
 
   const isReading = status === text.readingListing || status === text.readingPdf;
@@ -128,9 +138,11 @@ export function LandingPage({ locale }: { locale: Locale }) {
       <div className="hero-copy"><p className="eyebrow">{text.audience}</p><h1>{text.headline}<br/><em>{text.emphasis}</em></h1></div>
       <div className="intake-panel">
         <p className="eyebrow">{text.start}</p>
-        <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} type="url" required/></label><button>{text.assess}</button></form>
-        <div className="upload-row"><span>{text.or}</span><label onPointerEnter={() => void loadPdfJs()} onFocus={() => void loadPdfJs()}>{text.upload} <input onChange={upload} accept="application/pdf" type="file"/></label></div>
-        {status ? <p className={isReading ? 'hint' : 'error'}>{status}</p> : null}
+        <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} aria-label={text.input} type="url" required={!pasteOpen} disabled={busy}/></label><button disabled={busy}>{busy ? text.readingListing : text.assess}</button></form>
+        <div className="upload-row"><span>{text.or}</span><label onPointerEnter={() => void loadPdfJs().catch(() => undefined)} onFocus={() => void loadPdfJs().catch(() => undefined)}>{text.upload} <input onChange={upload} accept="application/pdf" type="file" aria-label={text.upload} disabled={busy}/></label></div>
+        <button type="button" className="text-button" disabled={busy} aria-expanded={pasteOpen} onClick={() => setPasteOpen(!pasteOpen)}>{locale === 'de' ? 'Angebotstext einfügen' : 'Paste listing text'}</button>
+        {pasteOpen ? <label className="paste-listing">{locale === 'de' ? 'Vollständiger Angebotstext' : 'Full listing text'}<textarea value={listingText} onChange={event => setListingText(event.target.value)} rows={8} maxLength={200000} disabled={busy}/><small>{locale === 'de' ? 'Kopiere Preis, Lage, Beschreibung und alle Objektdaten. Der Link ist dann optional.' : 'Copy the price, location, description and all property details. The URL is optional when pasting text.'}</small></label> : null}
+        {status ? <p role={busy ? 'status' : 'alert'} className={isReading ? 'hint' : 'error'}>{status}</p> : null}
         {dayPassEligible ? <div className="day-pass-inline">
           <div><span>{locale === 'de' ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</span><strong>{locale === 'de' ? 'Heute weitersuchen?' : 'Keep searching today?'}</strong><p>{locale === 'de' ? '50 Berichte für 24 Stunden.' : '50 reports for the next 24 hours.'}</p></div>
           <button type="button" onClick={() => setQuotaOpen(true)}>{locale === 'de' ? 'Tagespass für 5 €' : '€5 day pass'}</button>
