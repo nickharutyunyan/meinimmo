@@ -1,3 +1,4 @@
+import { localizedWarnings } from '@/lib/report-copy';
 import { scoreAvailable } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import type { Report } from '@/lib/types';
@@ -46,11 +47,13 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       ? <a className="comparison-address-link" href={mapsHref} target="_blank" rel="noreferrer" aria-label={`${value} — Google Maps`}><GlossaryText locale={locale}>{value}</GlossaryText><span aria-hidden="true">↗</span></a>
       : <GlossaryText locale={locale}>{value}</GlossaryText>;
   };
+  const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
   const rows = visibleComparisonRows([
     [text.address, address(first), address(second)],
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
     [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
     [text.acquisition, first.facts.totalCost ? money(first.facts.totalCost) : '—', second.facts.totalCost ? money(second.facts.totalCost) : '—'],
+    [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', first.facts.parkingPrice ? money(first.facts.parkingPrice) : '—', second.facts.parkingPrice ? money(second.facts.parkingPrice) : '—'],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
     [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
     [text.living, first.facts.area ? `${first.facts.area} m²` : '—', second.facts.area ? `${second.facts.area} m²` : '—'],
@@ -61,9 +64,10 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [locale === 'de' ? 'Ausrichtung' : 'Orientation', localizedTaxonomyValue(first, 'orientation', locale) || '—', localizedTaxonomyValue(second, 'orientation', locale) || '—'],
     [text.use, tenancy(first), tenancy(second)],
     [text.condition, known(first.facts.condition), known(second.facts.condition)],
-    [text.housegeld, first.facts.housegeld ? `${money(first.facts.housegeld)} ${text.monthly}` : '—', second.facts.housegeld ? `${money(second.facts.housegeld)} ${text.monthly}` : '—'],
+    [text.housegeld, housegeld(first), housegeld(second)],
     [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
     [text.energy, energy(first), energy(second)],
+    [copy[locale].report.notes, localizedWarnings(first, locale).join(' ') || '—', localizedWarnings(second, locale).join(' ') || '—'],
     [text.score, scoreAvailable(first) ? `${firstScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first'), scoreAvailable(second) ? `${secondScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first')],
   ] as const);
 
@@ -81,6 +85,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       const property = item as Report;
       return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
+    <p className="finance-note">{copy[locale].report.scoreExplainer}</p>
     <SiteFooter locale={locale} />
   </main>;
 }

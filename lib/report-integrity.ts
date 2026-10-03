@@ -1,7 +1,7 @@
 import type { Report } from './types';
 import { validStreet } from './location-validation.ts';
 
-export const EXTRACTION_VERSION = 2026100302;
+export const EXTRACTION_VERSION = 2026100304;
 
 export function reportConflicts(report: Report) {
   const problems: string[] = [];
@@ -10,7 +10,7 @@ export function reportConflicts(report: Report) {
   if (f.street && !validStreet(f.street)) problems.push('The extracted street is not a valid property location.');
   if (f.buyerCosts !== undefined && f.totalCost >= f.price && Math.abs(f.price + f.buyerCosts - f.totalCost) > 2) problems.push('The stated purchase price, buyer costs and total do not agree. Financing uses the stated total; confirm the breakdown.');
   if (/^New build$/i.test(f.condition || '') && Number(f.year) < Number(report.createdAt.slice(0, 4)) - 5) problems.push('Construction year and new-build condition conflict. Confirm the actual condition.');
-  problems.push(...(report.qualityWarnings || []).filter(w => /conflicting|occupants remain|class and consumption|needs a fresh source review/i.test(w)));
+  problems.push(...(report.qualityWarnings || []).filter(w => /conflicting|occupants remain|class and consumption|needs a fresh source review|separately quotes/i.test(w)));
   return [...new Set(problems)];
 }
 
@@ -29,7 +29,7 @@ export function evidenceForFacts(lines: string[], facts: Report['facts']) {
     rooms: /Zimmer|rooms/i, year: /Baujahr|built|errichtet|erbaut/i,
     condition: /Zustand|gepflegt|renoviert|saniert|modernisierung|verbesserungsbedürftig/i,
     occupancy: /vermietet|bewohnt|Bewohner|bezugsfrei|verfügbar|unvermietet/i,
-    buyerCosts: /Kaufnebenkosten|Gesamtkosten/i, housegeld: /Hausgeld|Community fees/i,
+    buyerCosts: /Kaufnebenkosten|Gesamtkosten|Kaufpreis Garage|Kaufpreis Stellplatz/i, housegeld: /Hausgeld|Community fees/i,
     location: /\b\d{5}\s+[A-ZÄÖÜ]|^(?:Adresse|Anschrift|Ort|Stadtteil)/u,
     floor: /Etage|Stockwerk|Obergeschoss|Hochparterre/i,
     energy: /Energieeffizienzklasse|Endenergie|Energieträger|Heizungsart|Heizung/i,

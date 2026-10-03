@@ -43,10 +43,10 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),
     ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy)] as [string, string]] : []),
     ...(known(report.facts.heating) ? [[reportText.heating, localized(report.facts.heating)] as [string, string]] : []),
-    ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}`] as [string, string]] : []),
+    ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`] as [string, string]] : []),
   ];
   const labels = de ? {
-    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Sollzins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF',
+    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Kalkulationszins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF',
   } : {
     document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Listing rubric', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer', pdfSource: 'Exposé PDF',
   };
@@ -83,7 +83,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
         <div className="print-finance-grid">
           <div><small>{labels.loanPayment}</small><strong>{euros(scenario.loanPayment)}</strong></div>
           <div><small>{labels.equity}</small><strong>{euros(finance.equity)}</strong></div>
-          <div><small>{labels.terms}</small><strong>{finance.interest.toFixed(2)}% + {finance.repayment.toFixed(1)}%</strong></div>
+          <div><small>{labels.terms}</small><strong>{finance.interest.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% + {finance.repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</strong></div>
           <div><small>{labels.total}</small><strong>{euros(costs.total)}</strong></div>
         </div>
         <p>{financeText.note}</p>
@@ -94,6 +94,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
         <div><h3>{labels.details}</h3><div className="print-score-grid">{Object.entries(reportText.components).map(([key, label]) => <span key={key}>{label}<b>{showScore ? score.breakdown[key as keyof typeof score.breakdown].toFixed(1) : '—'}</b></span>)}</div></div>
       </section>
 
+      <p className="print-section">{reportText.scoreExplainer}</p>
       {warnings.length ? <section className="print-section print-warnings"><h3>{labels.notes}</h3><ul>{warnings.map(item => <li key={item}>{item}</li>)}</ul></section> : null}
 
       <footer className="print-footer">

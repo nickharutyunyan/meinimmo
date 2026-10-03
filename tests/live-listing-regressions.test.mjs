@@ -94,3 +94,34 @@ Community fees: ${fees} EUR`, 'QA number formats');
     assert.equal(r.facts.housegeld, 256.5);
   }
 });
+
+
+test('fresh Lichterfelde listing keeps monthly fees distinct from per-m² figures and nearby streets', () => {
+ const r = parse('501508');
+ assert.equal(r.facts.price, 297000);
+ assert.equal(r.facts.housegeld, 142.59);
+ assert.equal(r.facts.floor, 'Hochparterre');
+ assert.equal(r.facts.street, undefined);
+ assert.doesNotMatch(r.title, /Schloßstraße|Einkaufsmeile/);
+});
+test('fresh Wannsee listing flags separate garage cost and excludes staged furniture', () => {
+ const r = parse('501404');
+ assert.equal(r.facts.price, 824000);
+ assert.equal(r.facts.parkingPrice, 25000);
+ assert.equal(r.facts.totalCost, 883768);
+ assert.equal(r.facts.energyDemand, 192);
+ assert.equal(r.facts.energy, 'not stated');
+ assert.ok(!r.facts.features.includes('Möbliert'));
+ assert.match(r.qualityWarnings.join(' '), /separately quotes/);
+});
+
+
+test('fresh Prenzlauer Berg listing keeps the EUR-suffixed fee and does not invent a house number', () => {
+ const r = parse('500988');
+ assert.equal(r.facts.price, 329000);
+ assert.equal(r.facts.area, 42.42);
+ assert.equal(r.facts.housegeld, 187.92);
+ assert.equal(r.facts.street, 'Chodowieckistr.');
+ assert.equal(r.facts.locationPrecision, 'street');
+ assert.doesNotMatch(r.address, /Chodowieckistr\. 0/);
+});

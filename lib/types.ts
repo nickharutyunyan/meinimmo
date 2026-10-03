@@ -14,6 +14,7 @@ export type Facts = {
   energyCertificate?: string;
   totalCost: number;
   buyerCosts?: number;
+  parkingPrice?: number;
   brokerFee?: number;
   buyerCommission?: string;
   housegeld?: number;

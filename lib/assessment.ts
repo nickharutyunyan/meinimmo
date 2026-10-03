@@ -3,7 +3,7 @@ import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './locatio
 import { guardEnrichment } from './verification-guard';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
-import { htmlToLines, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
+import { htmlToLines, parseListingNumber, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
 import { displayAddress, resolveLocation } from './display';
 import { isObviousAddressQuestion, offerQuestionsFor } from './report-copy';
 import { listingAiExcerpt, parseAiJson } from './ai-input';
@@ -65,8 +65,10 @@ function propertyStreetSupported(street: string, source: string, report: Report)
     if (/\b(?:Makler|Anbieter|Anbietende|Gewerblich|Impressum|Immobilienb(?:ü|u)ro|Scout-ID|Objekt-ID|Kontakt)\b/i.test(context)) continue;
     const postals = [...context.matchAll(/\b(\d{5})\b/g)].map(match => match[1]);
     if (report.facts.postalCode && postals.length && !postals.includes(report.facts.postalCode)) continue;
-    if (/\b(?:Adresse|Anschrift|Straße|Lage)\s*[:\-]|\b(?:nahe|Nähe|unweit|bei|direkt\s+(?:an|bei)|gelegen\s+(?:an|bei)|in\s+der)\b/iu.test(context)) return true;
-    if (report.facts.postalCode && postals.includes(report.facts.postalCode)) return true;
+    const line = lines[index];
+    if (/\b(?:nahe|Nähe|unweit|Einkaufsmeile|Umgebung)\b/iu.test(line)) continue;
+    if (/^\s*(?:Adresse|Anschrift|Straße|Lage)\s*[:\-]|\b(?:Wohnung|Haus|Immobilie|Objekt)\s+(?:liegt|befindet\s+sich)\s+(?:direkt\s+)?(?:in\s+der|an\s+der)\b/iu.test(line)) return true;
+    if (report.facts.postalCode && line.includes(report.facts.postalCode)) return true;
   }
   return false;
 }
@@ -109,9 +111,7 @@ function verifiedEvidence(value: unknown, source: string) {
   return clean.length >= 3 && sourceContains(source, clean) ? clean : '';
 }
 
-function decimal(value: string) {
-  return Number(value.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, ''));
-}
+const decimal = parseListingNumber;
 
 function mergeVerifiedFacts(report: Report, value: unknown, source: string) {
   if (!value || typeof value !== 'object') return report;
@@ -213,7 +213,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     response_format: { type: 'json_object' },
     messages: verifySourceFacts ? [
       { role: 'system', content: 'Verify German property-listing facts. Never invent or infer. Every value must be supported by a short verbatim excerpt from this property listing, never publisher, agency, legal, office, footer or nearby-property text. A nearby station is only a transitStop.' },
-      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"price":string|null,"rooms":string|null,"area":string|null,"housegeld":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Price evidence must include the explicit Kaufpreis label and amount, never price per m², financing, total costs or monthly payments. Occupancy must distinguish rented from explicitly not rented; do not infer it when unstated. Street is only the property's stated or explicitly nearby street, never an agency or contact address. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
+      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"price":string|null,"rooms":string|null,"area":string|null,"housegeld":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Price evidence must include the explicit Kaufpreis label and amount, never price per m², financing, total costs or monthly payments. Occupancy must distinguish rented from explicitly not rented; do not infer it when unstated. Street is only the property's explicitly stated address, never a nearby street, never an agency or contact address. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
     ] : [
       { role: 'system', content: 'Write concise due-diligence questions for German home buyers. Ask only about material unresolved risks in the supplied property report. Keep each question plain, specific, under 20 words and limited to one request. Never ask for the exact address or street address; that is an obvious viewing detail, not useful due diligence.' },
       { role: 'user', content: `Return JSON only: {"offerQuestionsEn":["exactly four English questions"],"offerQuestionsDe":["exactly four German questions"]}. Do not repeat known facts as questions and do not ask for the exact address. PROPERTY REPORT:\n${JSON.stringify(questionContext)}` },

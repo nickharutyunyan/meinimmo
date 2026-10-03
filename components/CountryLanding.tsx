@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { requestJson } from '@/lib/client-request';
 import { countries, type CountryCode } from '@/lib/countries';
@@ -16,6 +16,7 @@ export function CountryLanding({ country }: { country: Exclude<CountryCode, 'DE'
   const [url, setUrl] = useState(''); const [text, setText] = useState('');
   const [pasteOpen, setPasteOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [helperReady, setHelperReady] = useState(false);
+  const inFlight = useRef(false);
   const [progress, setProgress] = useState('');
   useEffect(() => {
     let active = true;
@@ -29,7 +30,8 @@ export function CountryLanding({ country }: { country: Exclude<CountryCode, 'DE'
     router.push(`/r/${data.id}`);
   }
   async function submit(event: FormEvent) {
-    event.preventDefault(); if (busy) return;
+    event.preventDefault(); if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true); setError('');
     const englishUrl = listAmUrl(url) || url;
     setUrl(englishUrl);
@@ -44,17 +46,18 @@ export function CountryLanding({ country }: { country: Exclude<CountryCode, 'DE'
         setProgress('Reading listing…');
         await assess({ url: englishUrl, text: pasteOpen ? text : undefined });
       }
-    } catch (e) { setError(e instanceof Error && !/fetch|network|request_timeout|json/i.test(e.message) ? e.message : 'The connection failed or took too long. Please try again; your input has been kept.'); } finally { setBusy(false); setProgress(''); }
+    } catch (e) { setError(e instanceof Error && !/fetch|network|request_timeout|json/i.test(e.message) ? e.message : 'The connection failed or took too long. Please try again; your input has been kept.'); } finally { inFlight.current = false; setBusy(false); setProgress(''); }
   }
   async function upload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]; if (!file || busy) return;
+    const file = event.target.files?.[0]; if (!file || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true); setError('');
     try {
       if (file.size > MAX_PDF_BYTES) throw new Error('Upload a PDF no larger than 15 MB.');
       const content = await extractPdfText(file);
       const form = new FormData(); form.set('file', file); form.set('name', file.name); form.set('text', content);
       await assess(form);
-    } catch (e) { setError(e instanceof Error ? e.message : 'This PDF could not be read.'); } finally { setBusy(false); }
+    } catch (e) { setError(e instanceof Error && e.message === 'pdf_too_long' ? 'Upload a shorter Exposé: at most 150 pages and 200,000 text characters.' : 'This PDF could not be read or imported. Try a text-searchable PDF or paste the listing text.'); } finally { inFlight.current = false; setBusy(false); event.target.value = ''; }
   }
   return <>{market.ready && <Sidebar locale="en" homeHref="/am"/>}<main className={`landing country-landing${market.ready ? ' market-workspace' : ''}`}>
     <SiteNav locale="en" country={country} landing/>
@@ -62,9 +65,9 @@ export function CountryLanding({ country }: { country: Exclude<CountryCode, 'DE'
       <h1>{market.ready ? 'Find your place.' : 'A new place.'}<br/><em>{market.ready ? 'Know what you’re buying.' : 'The same clear view.'}</em></h1>
       <p className="market-intro">{market.ready ? 'Apartments, houses and land in Armenia. The asking price, the useful details, and the questions to settle before you buy.' : `${market.name} reports are under construction. We’re preparing local pricing, financing and property checks.`}</p></div>
       {market.ready ? <div className="intake-panel"><p className="eyebrow">Start with a List.am sale listing</p>
-        <form onSubmit={submit} data-browser-import><div className="intake"><label><span>↗</span><input aria-label="List.am listing URL" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://www.list.am/en/item/…" type="url" required={!pasteOpen}/></label><button disabled={busy}>{busy ? (progress || 'Reading listing…') : 'Create report'}</button></div>
-          <div className="market-input-options"><button className="text-button" type="button" onClick={() => setPasteOpen(!pasteOpen)} aria-expanded={pasteOpen}>{pasteOpen ? 'Hide pasted text' : 'Paste listing text'}</button><label className="text-button">Upload PDF<input aria-label="Upload Armenian property PDF" type="file" accept="application/pdf" disabled={busy} onChange={upload}/></label></div>
-          {pasteOpen && <label className="paste-listing">Full listing text<textarea aria-label="Full listing text" value={text} onChange={e => setText(e.target.value)} rows={8} maxLength={200000} placeholder="Open List.am in English and copy the listing, including For Sale, its title, asking price, property details and Location."/><small>Copy the full English page. We don’t infer amenities from greyed-out labels. The link above is optional for pasted text.</small></label>}
+        <form onSubmit={submit} data-browser-import><div className="intake"><label><span>↗</span><input aria-label="List.am listing URL" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://www.list.am/en/item/…" type="url" required={!pasteOpen} disabled={busy}/></label><button disabled={busy}>{busy ? (progress || 'Reading listing…') : 'Create report'}</button></div>
+          <div className="market-input-options"><button className="text-button" type="button" disabled={busy} onClick={() => setPasteOpen(!pasteOpen)} aria-expanded={pasteOpen}>{pasteOpen ? 'Hide pasted text' : 'Paste listing text'}</button><label className="text-button">Upload PDF<input aria-label="Upload Armenian property PDF" type="file" accept="application/pdf" disabled={busy} onChange={upload}/></label></div>
+          {pasteOpen && <label className="paste-listing">Full listing text<textarea aria-label="Full listing text" disabled={busy} value={text} onChange={e => setText(e.target.value)} rows={8} maxLength={200000} placeholder="Open List.am in English and copy the listing, including For Sale, its title, asking price, property details and Location."/><small>Copy the full English page. We don’t infer amenities from greyed-out labels. The link above is optional for pasted text.</small></label>}
         </form>
         <p className="market-helper">Paste a List.am link in any language—we automatically use its English version. Text and PDF imports currently require English listing details.</p>
         <p className="market-helper" role="status">{helperReady ? 'Browser helper connected · Listings are read through Chrome.' : <>If List.am blocks the link, use Paste listing text or Upload PDF above. The <a href="/am/browser-helper">Chrome helper</a> is an additional option for desktop Chrome; it does not run on mobile browsers.</>}</p>

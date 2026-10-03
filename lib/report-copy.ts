@@ -80,6 +80,7 @@ export function localizedConsiderations(report: Report, locale: Locale) {
 export function localizedWarnings(report: Report, locale: Locale) {
   if (locale === 'en') return report.qualityWarnings || [];
   return (report.qualityWarnings || []).map((warning) => {
+    if (/separately quotes/.test(warning)) return `Das Angebot nennt separat ${report.facts.parkingPrice?.toLocaleString('de-DE')} € für Garage oder Stellplatz. Kläre, ob dieser Kauf verpflichtend und zusätzlich ist; der Betrag ist nicht in der angegebenen Gesamtsumme enthalten.`;
     if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
     if (/purchase price, buyer costs/.test(warning)) return 'Kaufpreis, Kaufnebenkosten und Gesamtsumme widersprechen sich. Die Finanzierung nutzt die angegebene Gesamtsumme; kläre die Aufschlüsselung.';
     if (/Construction year and new-build/.test(warning)) return 'Baujahr und Neubauzustand widersprechen sich. Kläre den tatsächlichen Zustand.';

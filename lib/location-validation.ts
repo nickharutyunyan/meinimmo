@@ -26,6 +26,6 @@ export function cleanReportAddress(report: Report): Report {
 export function validStreet(value: string) {
   const clean = value.trim();
   return Boolean(clean && clean.length <= 100 && /\p{L}/u.test(clean)
-    && !/verkäufer|verkaufer|käufer|anbieter|kontakt|nachricht|anfrage|telefon|e-?mail|https?:|@|not stated|unknown/iu.test(clean)
+    && !/verkäufer|verkaufer|käufer|anbieter|kontakt|nachricht|anfrage|telefon|e-?mail|https?:|@|not stated|unknown|nähe|nahe|unweit|Einkaufsmeile|beliebte|Anliegerstraße/iu.test(clean)
     && !/^(?:den|dem|der|die|das|zum|zur)\s+(?:anbieter|makler|eigentümer|seller|owner)/iu.test(clean));
 }

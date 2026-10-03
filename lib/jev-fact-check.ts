@@ -27,7 +27,7 @@ const rules = {
   energyCertificate: 'explicit certificate type (Bedarf/Verbrauch), not its class or general availability',
   city: 'city of the offered property, NOT an agency office or another advertised property',
   district: 'explicit district or micro-neighborhood of this property, NOT inferred from postcode or a nearby attraction',
-  street: 'property street or explicitly nearby street; exclude agent, developer, footer and contact addresses. No invented house number or zero house number',
+  street: 'explicit property street, never a nearby street; exclude agent, developer, footer and contact addresses. No invented house number or zero house number',
   postalCode: 'five-digit property postcode, NOT agency or contact postcode',
   transitStop: 'explicitly named nearby transit stop, NOT a made-up station or street treated as a station',
   buyerCommission: 'explicit buyer commission (including Commission-free only if no buyer commission is explicitly stated)',

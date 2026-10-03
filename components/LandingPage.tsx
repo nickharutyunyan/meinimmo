@@ -27,29 +27,33 @@ const importPdfJs = () => import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs)
 });
 
 let pdfJsPromise: ReturnType<typeof importPdfJs> | undefined;
-const loadPdfJs = () => pdfJsPromise ||= importPdfJs();
+const loadPdfJs = () => pdfJsPromise ||= importPdfJs().catch(error => { pdfJsPromise = undefined; throw error; });
 
 export async function extractPdfText(file: File) {
   const pdfjs = await loadPdfJs();
   const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   const pages: string[] = [];
+  try {
+    if (pdf.numPages > 150) throw new Error('pdf_too_long');
 
-  // Text extraction is independent per page. Small batches cut multi-page
-  // Exposes from a serial waterfall without creating excessive worker load for
-  // unusually long documents.
-  for (let firstPage = 1; firstPage <= pdf.numPages; firstPage += PDF_PAGE_BATCH_SIZE) {
-    const lastPage = Math.min(pdf.numPages, firstPage + PDF_PAGE_BATCH_SIZE - 1);
-    const batch = await Promise.all(Array.from(
-      { length: lastPage - firstPage + 1 },
-      async (_, offset) => {
-        const page = await pdf.getPage(firstPage + offset);
-        return pdfTextFromItems((await page.getTextContent()).items);
-      },
-    ));
-    pages.push(...batch);
-  }
+    // Text extraction is independent per page. Small batches cut multi-page
+    // Exposes from a serial waterfall without creating excessive worker load for
+    // unusually long documents.
+    for (let firstPage = 1; firstPage <= pdf.numPages; firstPage += PDF_PAGE_BATCH_SIZE) {
+      const lastPage = Math.min(pdf.numPages, firstPage + PDF_PAGE_BATCH_SIZE - 1);
+      const batch = await Promise.all(Array.from(
+        { length: lastPage - firstPage + 1 },
+        async (_, offset) => {
+          const page = await pdf.getPage(firstPage + offset);
+          return pdfTextFromItems((await page.getTextContent()).items);
+        },
+      ));
+      pages.push(...batch);
+      if (pages.reduce((length, text) => length + text.length, 0) > 200_000) throw new Error('pdf_too_long');
+    }
 
-  return pages.join('\n');
+    return pages.join('\n');
+  } finally { await pdf.destroy(); }
 }
 
 export function LandingPage({ locale }: { locale: Locale }) {
@@ -110,6 +114,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
     if (!file || inFlight.current) return;
     if (file.size > MAX_PDF_BYTES) {
       setStatus(locale === 'de' ? 'Das PDF darf höchstens 15 MB groß sein.' : 'The PDF must be 15 MB or smaller.');
+      event.target.value = '';
       return;
     }
     inFlight.current = true; setBusy(true);
@@ -126,7 +131,9 @@ export function LandingPage({ locale }: { locale: Locale }) {
       payload.set('file', file, file.name);
       await assess(payload);
     } catch (error) {
-      setStatus(error instanceof Error && !/fetch|network|request_timeout|json|unexpected/i.test(error.message) ? error.message : text.pdfError);
+      setStatus(error instanceof Error && error.message === 'pdf_too_long'
+        ? (locale === 'de' ? 'Bitte lade ein kürzeres Exposé mit höchstens 150 Seiten und 200.000 Textzeichen hoch.' : 'Upload a shorter Exposé: at most 150 pages and 200,000 text characters.')
+        : error instanceof Error && !/fetch|network|request_timeout|json|unexpected|invalid pdf|password|pdf structure/i.test(error.message) ? error.message : text.pdfError);
     } finally { inFlight.current = false; setBusy(false); event.target.value = ''; }
   }
 

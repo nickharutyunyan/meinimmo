@@ -34,9 +34,9 @@ function normalizedReport(item: Report) {
   const heating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
   const energySource = checkedCharacteristic(item.facts.energySource, 'energySource') || undefined;
   const energyCertificate = checkedCharacteristic(item.facts.energyCertificate, 'energyCertificate') || undefined;
-  const summary = condition === 'Renovated'
+  const summary = (condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
-    : item.summary;
+    : item.summary).replace(/It is built in /g, 'Listing details: built in ');
   const hasUnsupportedReserveConclusion = item.considerations.some(value => /WEG reserve is adequate/i.test(value));
   return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
     && heating === item.facts.heating && energySource === item.facts.energySource && energyCertificate === item.facts.energyCertificate
@@ -53,7 +53,7 @@ export async function saveReportSource(id: string, source: string) {
 const refreshing = new Map<string, Promise<Report>>();
 async function refreshSavedReport(item: Report): Promise<Report> {
   if (item.country === 'AM' || item.extractionVersion === EXTRACTION_VERSION) return normalizedReport(item);
-  if (item.sourceReviewAttemptedAt && Date.now() - Date.parse(item.sourceReviewAttemptedAt) < 3600000) return normalizedReport(item);
+  if (item.sourceUnavailable && item.sourceReviewAttemptedAt && Date.now() - Date.parse(item.sourceReviewAttemptedAt) < 3600000) return normalizedReport(item);
   const pending = refreshing.get(item.id);
   if (pending) return pending;
   const task = (async () => {

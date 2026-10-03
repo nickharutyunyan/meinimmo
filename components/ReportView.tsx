@@ -83,7 +83,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(stated(facts.tenancy) ? [[text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)] as [string, string]] : []),
     ...(stated(facts.condition) ? [[text.condition, known(facts.condition)] as [string, string]] : []),
     ...(facts.buyerCommission ? [[text.commission, known(facts.buyerCommission)] as [string, string]] : []),
-    ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}`] as [string, string]] : []),
+    ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`] as [string, string]] : []),
     ...(facts.advertisedYield ? [[text.return, `${facts.advertisedYield.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')}%`] as [string, string]] : []),
     ...(stated(report.sunOrientation) ? [[text.sun, known(report.sunOrientation)] as [string, string]] : []),
     ...(report.daylight ? [[text.daylight, known(report.daylight)] as [string, string]] : []),

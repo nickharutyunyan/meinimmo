@@ -419,7 +419,7 @@ test('parses a PDF financing block without treating its monthly quote as the tot
   assert.equal(report.address, 'Möckernstraße, 10963 Berlin');
 });
 
-test('uses a named property street directly when no house number is disclosed', () => {
+test('does not turn a nearby street into the property address', () => {
   const report = parseListing(`
     2-Zimmer-Wohnung zum Kauf
     10439 Berlin, Prenzlauer Berg
@@ -429,8 +429,8 @@ test('uses a named property street directly when no house number is disclosed', 
     Baujahr: 1910
   `, 'Street Exposé');
 
-  assert.equal(report.facts.street, 'Danziger Straße');
-  assert.equal(report.facts.locationPrecision, 'street');
-  assert.equal(report.title, '2-room flat · Danziger Straße');
+  assert.equal(report.facts.street, undefined);
+  assert.notEqual(report.facts.locationPrecision, 'street');
+  assert.doesNotMatch(report.title, /Danziger/);
   assert.equal(report.address, 'Address not stated');
 });
