@@ -15,7 +15,7 @@ import { visibleComparisonRows } from '@/lib/comparison';
 import { redFlagSummary } from '@/lib/red-flags';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
-import { area, money, percent } from '@/lib/format';
+import { area, money, moneyPerSqm, percent } from '@/lib/format';
 
 function scoreCell(item: Report, total: number, locale: Locale) {
   if (!scoreAvailable(item)) return '—';
@@ -65,7 +65,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.acquisition, amount(first.facts.totalCost), amount(second.facts.totalCost)],
     [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', amount(first.facts.parkingPrice), amount(second.facts.parkingPrice)],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
-    [text.perSqm, first.facts.price && first.facts.area ? money(first.facts.price / first.facts.area, locale) : '—', second.facts.price && second.facts.area ? money(second.facts.price / second.facts.area, locale) : '—'],
+    [text.perSqm, first.facts.price && first.facts.area ? moneyPerSqm(first.facts.price / first.facts.area, locale) : '—', second.facts.price && second.facts.area ? moneyPerSqm(second.facts.price / second.facts.area, locale) : '—'],
     [priceCheckCompare(first, locale).label, priceCheckCompare(first, locale).value, priceCheckCompare(second, locale).value],
     [text.living, space(first.facts.area), space(second.facts.area)],
     [text.usable, space(first.facts.usableArea), space(second.facts.usableArea)],
@@ -83,6 +83,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.score, scoreCell(first, firstScore.total, locale), scoreCell(second, secondScore.total, locale)],
   ] as const);
 
+  const mixesPriceCheck = (firstScore.breakdown.price === null) !== (secondScore.breakdown.price === null);
   const priceNotes = [first, second].flatMap((item, index) => {
     const score = index === 0 ? firstScore : secondScore;
     if (score.breakdown.price !== null) return [];
@@ -110,6 +111,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
     <p className="finance-note">{copy[locale].report.scoreExplainer} <Link href={localePath(locale, '/method')}>{copy[locale].report.howWeReview}</Link></p>
+    {mixesPriceCheck ? <p className="finance-note">{text.mixedPrice}</p> : null}
     {priceNotes.length ? <p className="finance-note">{priceNotes.join(' · ')}</p> : null}
     {lowNotes.length ? <p className="finance-note">{lowNotes.join(' · ')}</p> : null}
     <SiteFooter locale={locale} />

@@ -1,12 +1,13 @@
 import type { Report } from './types';
-import { calculatePropertyScore } from './property-score.ts';
+import { energyClassFromDemand, energyClassGap } from './property-score.ts';
+export { energyClassFromDemand };
 import { reportTitle } from './display.ts';
 import { extractAvailabilityDate } from './availability.ts';
 import { canonicalCondition } from './property-condition.ts';
 import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, splitSentences } from './red-flags.ts';
 import { money } from './format.ts';
 import { localizedConsiderations, localizedSummary } from './report-copy.ts';
-import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
+import { EXTRACTION_VERSION, attachCalculatedScore, evidenceForFacts, reportConflicts } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
@@ -57,7 +58,7 @@ const characteristicRules: Record<CharacteristicKind, { prefix: RegExp; expected
     // "sart:" is the exact residue produced when the shorter label
     // "Heizung" was previously matched inside "Heizungsart".
     prefix: /^(?:heizungsart|heizung|heating\s+type|sart)\s*[:\-]\s*/i,
-    expected: /(?:heiz|w[aä]rmepumpe|fernw[aä]rme|gas|[oö]l|pellet|solartherm|geotherm|erdw[aä]rme|blockheiz|nachtspeicher|elektr|ofen|kamin|district\s+heat|central\s+heat|underfloor\s+heat|heat\s+pump|boiler|furnace)/i,
+    expected: /(?:heiz|w[aä]rmepumpe|fernw[aä]rme|nahw[aä]rme|(?<![\p{L}\p{N}])gas(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:öl|oel|heizöl|heizoel)(?![\p{L}\p{N}])|pellet|solartherm|geotherm|erdw[aä]rme|umweltw[aä]rme|blockheiz|nachtspeicher|elektr|ofen|kamin|district\s+heat|central\s+heat|underfloor|heat\s+pump|boiler|furnace)/iu,
   },
   energySource: {
     prefix: /^(?:wesentliche[rs]?\s+energietr[aä]ger|energietr[aä]ger|main\s+energy\s+source)\s*[:\-]\s*/i,
@@ -96,7 +97,19 @@ export function checkedCharacteristic(value: string | undefined, kind: Character
   if (clean.length < 2 || clean.length > 100) return '';
   if (/[:?]|https?:\/\/|www\.|@|★|☆/iu.test(clean)) return '';
   if (/^(?:wichtiges\s+auf\s+einen\s+blick|auf\s+einen\s+blick|ausstattung|objektdetails|services?\s+f[uü]r\s+dich|jetzt\s+\w+)/iu.test(clean)) return '';
-  return rule.expected.test(clean) ? clean : '';
+  const phrase = kind === 'heating' ? heatingPhrase(clean) : clean;
+  if (!phrase) return '';
+  return rule.expected.test(phrase) ? phrase : '';
+}
+
+/** Drop shutters and other fittings that share a line with the heating system. */
+function heatingPhrase(value: string) {
+  const stripped = value
+    .replace(/\s*(?:,|&|\+|und|mit|sowie|plus|inkl\.?|including)\s+(?:rolll[aä]den|rolladen|rollos?|fensterl[aä]den|fenster|markisen?|jalousien|einbauk[uü]che)\b.*$/i, '')
+    .replace(/^(?:und|mit|sowie|plus)\s+/i, '')
+    .trim();
+  if (/^(?:rolll[aä]den|rolladen|rollos?|fenster|markisen?)$/i.test(stripped)) return '';
+  return stripped;
 }
 
 const SUN_ORIENTATION = /\b(?:(?:Nord|Süd|Sued|Ost|West)-\/(?:Nord|Süd|Sued|Ost|West)(?:west|ost)?|(?:Nord|Süd|Sued|Ost|West)-(?:Nord|Süd|Sued|Ost|West)|(?:Süd|Sued|Nord)(?:west|ost)-?(?=balkon|terrasse)|nach\s+(?:Norden|Süden|Sueden|Osten|Westen)\s+ausgerichtet(?:e|en|er|es)?)/iu;
@@ -604,17 +617,18 @@ export function normalizedFloor(value: string) {
   return Number(numbered) === 0 ? 'EG' : `${Number(numbered)}. OG`;
 }
 
-export function energyClassFromDemand(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '';
-  if (value < 30) return 'A+';
-  if (value < 50) return 'A';
-  if (value < 75) return 'B';
-  if (value < 100) return 'C';
-  if (value < 130) return 'D';
-  if (value < 160) return 'E';
-  if (value < 200) return 'F';
-  if (value < 250) return 'G';
-  return 'H';
+function completionYearNote(year: string, lines: string[]) {
+  const built = Number(year.match(/\b(18|19|20)\d{2}\b/)?.[0]);
+  if (!built) return '';
+  let completion = 0;
+  for (const line of lines.slice(0, 240)) {
+    const match = line.match(/Fertigstellung(?:[^0-9]{0,30}(?:\d{1,2}\s*[./]\s*)?)(20\d{2})/i);
+    if (!match) continue;
+    completion = Number(match[1]);
+    break;
+  }
+  if (!completion || Math.abs(completion - built) < 2) return '';
+  return `The year built is ${built}, but the listing also says completion in ${completion}. Check which date applies.`;
 }
 
 function summaryFor(report: Report) {
@@ -625,19 +639,67 @@ function considerationsFor(report: Report) {
   return localizedConsiderations(report, 'en');
 }
 
+const WALK_WORDS: Record<string, number> = {
+  ein: 1, eine: 1, einer: 1, zwei: 2, drei: 3, vier: 4, funf: 5, fünf: 5,
+  sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10,
+};
+
+function walkingFragments(line: string) {
+  const protectedLine = line.replace(/\b(ca|bzw|ggf|usw|z|nr|str)\.\s+/gi, '$1 ');
+  return protectedLine.split(/[,;|•]|\.\s+/);
+}
+
+function walkingMinutesIn(fragment: string) {
+  if (/\b(?:auto|fahrrad|rad|bus|pkw|bahn)minuten\b/i.test(fragment) && !/\bgehminuten\b/i.test(fragment)) {
+    // A car or cycle time in the same fragment is not a walk, unless a walking time is also written.
+  }
+  const values: number[] = [];
+  const numeric = /(?:(?:ca|rund|etwa|gut|circa|approx)\s+)?(\d{1,2})\s*(?:gehminuten|gehmin|minuten|min|minutes)(?![\p{L}])/giu;
+  for (const match of fragment.matchAll(numeric)) {
+    const before = fragment.slice(Math.max(0, (match.index ?? 0) - 16), match.index ?? 0);
+    if (/\b(?:auto|fahrrad|rad|bus|pkw)\s*$/i.test(before)) continue;
+    if (/autominuten|fahrradminuten|busminuten/i.test(match[0])) continue;
+    const value = Number(match[1]);
+    if (value > 0 && value <= 90) values.push(value);
+  }
+  const words = /(?:(?:ca|rund|etwa|gut)\s+)?(ein(?:e|er)?|zwei|drei|vier|f[uü]nf|sechs|sieben|acht|neun|zehn)\s+(?:gehminuten|gehmin|minuten)(?![\p{L}])/giu;
+  for (const match of fragment.matchAll(words)) {
+    const before = fragment.slice(Math.max(0, (match.index ?? 0) - 16), match.index ?? 0);
+    if (/\b(?:auto|fahrrad|rad|bus|pkw)\s*$/i.test(before)) continue;
+    const key = match[1].toLocaleLowerCase('de-DE').replace('ü', 'u').replace(/^eine?r?$/, 'ein');
+    const normalized = match[1].toLocaleLowerCase('de-DE');
+    const value = WALK_WORDS[normalized] ?? WALK_WORDS[key];
+    if (value) values.push(value);
+  }
+  for (const match of fragment.matchAll(/\b(\d{2,4})\s*(?:m|meter)\b/gi)) {
+    const value = Math.max(1, Math.round(Number(match[1]) / 80));
+    if (value <= 90) values.push(value);
+  }
+  return values;
+}
+
 function proximityEvidence(lines: string[], subject: RegExp) {
-  const candidates = lines
-    .flatMap(line => line.split(/[,;|•]|\.\s+/))
-    .filter(fragment => subject.test(fragment))
-    .slice(0, 20);
-  const minutes = candidates.flatMap(line => {
-    const subjectIndex = line.match(subject)?.index ?? 0;
-    const values = [...line.matchAll(/\b(\d{1,2})\s*(?:gehmin(?:uten)?|min(?:\.|uten)?|minutes?)\b/gi)].map(match => ({ value: Number(match[1]), index: match.index }));
-    const metres = [...line.matchAll(/\b(\d{2,4})\s*(?:m|meter)\b/gi)].map(match => ({ value: Math.max(1, Math.round(Number(match[1]) / 80)), index: match.index }));
-    return [...values, ...metres].sort((a, b) => Math.abs(a.index - subjectIndex) - Math.abs(b.index - subjectIndex)).slice(0, 1).map(item => item.value);
-  }).filter(value => value > 0 && value <= 90);
+  const windows: string[] = [];
+  for (let index = 0; index < lines.length && windows.length < 20; index += 1) {
+    const parts = walkingFragments(lines[index]);
+    for (let part = 0; part < parts.length && windows.length < 20; part += 1) {
+      if (!subject.test(parts[part])) continue;
+      if (walkingMinutesIn(parts[part]).length) {
+        windows.push(parts[part]);
+        continue;
+      }
+      // A line break in the middle of a sentence can separate the stop from its
+      // walking time. A finished sentence does not lend its minutes to the next line.
+      const sameLine = parts[part + 1] || '';
+      const unfinished = !/[.!?]\s*$/.test(lines[index].trim()) && lines[index].trim().length >= 40;
+      const nextLine = unfinished ? (walkingFragments(lines[index + 1] || '')[0] || '') : '';
+      const nextPart = sameLine || nextLine;
+      windows.push(nextPart && !subject.test(nextPart) ? `${parts[part]} ${nextPart}` : parts[part]);
+    }
+  }
+  const minutes = windows.flatMap(walkingMinutesIn).filter(value => value > 0 && value <= 90);
   return {
-    mentioned: candidates.length > 0,
+    mentioned: windows.length > 0,
     minutes: minutes.length ? Math.min(...minutes) : undefined,
   };
 }
@@ -730,15 +792,10 @@ function formatStreetAddress(street: string, postalCode: string, city: string) {
 }
 
 function publishScore(report: Report) {
-  const calculation = calculatePropertyScore(report);
   delete report.scoreTitle;
-  if (!scoreAvailable(report)) {
-    report.score = null;
-    report.scoreBreakdown = undefined;
-    return report;
-  }
-  report.score = calculation.total;
-  report.scoreBreakdown = calculation.breakdown;
+  const scored = attachCalculatedScore(report);
+  report.score = scored.score;
+  report.scoreBreakdown = scored.scoreBreakdown;
   return report;
 }
 
@@ -880,7 +937,7 @@ export function parseListing(raw: string, source: string): Report {
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'
     : firstMatch(lines, /((?:viel|reichlich)\s+Tageslicht[^.]{0,80})/i) || undefined;
-  const transit = proximityEvidence(lines, /\b(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|public transport)\b/i);
+  const transit = proximityEvidence(lines, /\b(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|Bushaltestelle|Haltestelle|public transport)\b/i);
   const transitStop = namedTransitStop(lines);
   const park = proximityEvidence(lines, /\b(?:Park(?!ett|platz|möglichkeiten|en)|Grünanlage|Grünfläche|Spielfläche|Spielplatz|Volkspark|Stadtpark|green space)\w*/i);
   const dailyNeeds = proximityEvidence(lines, /\b(?:Supermarkt|Einkauf|Nahversorgung|Bäcker|Apotheke|Schule|Grundschule|Kita|Kindertagesstätte|daily needs|grocer)\w*/i);
@@ -922,7 +979,12 @@ export function parseListing(raw: string, source: string): Report {
     parkingPrice ? `The listing separately quotes ${money(parkingPrice, 'en')} for parking. Confirm whether this is additional and required; it is not included in the stated total.` : '',
     housegeldYear ? `The Hausgeld amount refers to ${housegeldYear}; confirm the current economic plan before budgeting.` : '',
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',
-    energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy ? 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.' : '',
+    energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy
+      ? (energyClassGap({ facts: { energy, energyDemand } }) === 1
+        ? 'The stated energy class is one step off the stated demand. The score uses the lower class.'
+        : 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.')
+      : '',
+    completionYearNote(year, lines),
     occupancyConflict ? 'The portal says not rented, but the description says occupants remain. Confirm their legal status and vacant handover before proceeding.' : '',
     headerLocation.malformedPostal ? `The listing prints "${headerLocation.malformedPostal}" as the postcode, which is not a valid 5-digit code. The town is still used.` : '',
     !street ? 'Exact street address is not disclosed in the listing.' : '',

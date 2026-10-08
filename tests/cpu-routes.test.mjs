@@ -153,7 +153,9 @@ test('cached report HTML is the anonymous document', () => {
   assert.equal(reportHtmlIsShared(shared), true);
   assert.equal(reportHtmlIsShared(shared.replace('Sign in', 'Sign out') + ' class="account-menu"'), false);
   assert.equal(reportHtmlIsShared('<html>rah_session=abc</html>'), false);
+  assert.equal(reportHtmlIsShared('<html>rah_google_oauth=abc</html>'), false);
   assert.equal(reportHtmlIsShared('<input name="csrf" value="t">'), false);
+  assert.equal(reportHtmlIsShared('<img src="https://media.example/a.jpg?sig=YcsrfoeC&amp;exp=1790000000">'), true);
   assert.equal(reportHtmlIsShared(''), false);
 });
 
