@@ -3,7 +3,7 @@ import { calculatePropertyScore } from './property-score.ts';
 import { factualLocation, reportTitle } from './display.ts';
 import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
-import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts } from './report-integrity.ts';
+import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
@@ -257,6 +257,96 @@ function jsonAddress(raw: string) {
 }
 
 const STREET_NAME = String.raw`[A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
+const STREET_SUFFIX = String.raw`(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
+const HEADER_WORD = String.raw`[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}`;
+const HEADER_MINOR = String.raw`(?:der|die|den|dem|des|am|an|auf|im|zum|zur|von|van|und|de|la|le)`;
+const HEADER_HEAD = String.raw`(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder|${HEADER_WORD})`;
+const HEADER_STREET = String.raw`${HEADER_HEAD}(?:\s+(?:${HEADER_MINOR}|${HEADER_WORD})){0,5}`;
+const HOUSE_NO = String.raw`\d{1,4}[a-z]?(?:\s*[-–/]\s*\d{1,4}[a-z]?)?`;
+const HEADER_AREA = String.raw`[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}(?:\s+[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}){0,2}`;
+const HEADER_CITY = String.raw`[A-ZÄÖÜ][\p{L}äöüß.-]+(?:\s+(?:am|an|im|auf)\s+[A-ZÄÖÜ][\p{L}äöüß.-]+)?`;
+const BUNDESLAND = String.raw`Schleswig-Holstein|Niedersachsen|Nordrhein-Westfalen|Bayern|Baden-W[uü]rttemberg|Hessen|Rheinland-Pfalz|Sachsen-Anhalt|Sachsen|Th[uü]ringen|Brandenburg|Mecklenburg-Vorpommern|Saarland|Berlin|Hamburg|Bremen`;
+
+type AddressHeader = {
+  street?: string;
+  postalCode?: string;
+  malformedPostal?: string;
+  city?: string;
+  district?: string;
+  found: boolean;
+};
+
+function headerFragment(line: string) {
+  if (!line || line.length > 90 || /^\d{1,2}$/.test(line)) return false;
+  if (/[€%]|\bm²\b|\b(?:Zimmer|Wohnfläche|Kaufpreis|Objektart|Objekttyp|Grundstück)\b/i.test(line)) return false;
+  return true;
+}
+
+function acceptTown(postal: string, city: string, district: string, state: string) {
+  if (!city || /^(?:deutschland|germany)$/i.test(city)) return false;
+  if (new RegExp(`^(?:${BUNDESLAND})$`, 'iu').test(city)) return false;
+  if (state) return true;
+  if (/^\d{5}$/.test(postal)) return true;
+  return /^\d{3,4}$/.test(postal) && Boolean(district);
+}
+
+/** Portal address header, not seller prose. A street without a suffix still counts when it has a house number. */
+function matchAddressHeader(value: string): AddressHeader | undefined {
+  const streetMatch = value.match(new RegExp(
+    `^(?:(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*)?(${HEADER_STREET})(?:\\s+(${HOUSE_NO}))?\\s*,?\\s+(?:(${HEADER_AREA})\\s*,\\s*)?(\\d{5})\\s+(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(?:${BUNDESLAND}))?(?![\\p{L}\\d])`,
+    'u',
+  ));
+  if (streetMatch) {
+    const name = tidy(streetMatch[1]);
+    const number = tidy(streetMatch[2] || '');
+    const area = tidy(streetMatch[3] || '');
+    const postalCode = streetMatch[4];
+    const city = tidy(streetMatch[5]);
+    const parenthetical = tidy(streetMatch[6] || '');
+    const hasSuffix = new RegExp(STREET_SUFFIX, 'iu').test(name);
+    const street = tidy(number ? `${name} ${number}` : name);
+    const barePreposition = /^(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder)$/iu.test(name);
+    if ((number || hasSuffix) && !barePreposition && validStreet(street) && city) {
+      return { street, postalCode, city, district: parenthetical || area, found: true };
+    }
+  }
+  const townMatch = value.match(new RegExp(
+    `^(?:(\\d{3,5})\\s+)?(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(${BUNDESLAND}))?(?![\\p{L}\\d])`,
+    'u',
+  ));
+  if (!townMatch) return undefined;
+  const postal = townMatch[1] || '';
+  const city = tidy(townMatch[2]);
+  const district = tidy(townMatch[3] || '');
+  const state = townMatch[4] || '';
+  if (!acceptTown(postal, city, district, state)) return undefined;
+  const validPostal = /^\d{5}$/.test(postal);
+  return {
+    postalCode: validPostal ? postal : undefined,
+    malformedPostal: postal && !validPostal ? postal : undefined,
+    city,
+    district,
+    found: true,
+  };
+}
+
+function parseAddressHeader(lines: string[]): AddressHeader {
+  const limit = Math.min(lines.length, 80);
+  let town: AddressHeader | undefined;
+  for (let index = 0; index < limit; index += 1) {
+    if (!headerFragment(lines[index]) || agencyContext(lines, index)) continue;
+    const parts = [lines[index]];
+    for (let extra = 1; extra < 4 && index + extra < limit && headerFragment(lines[index + extra]); extra += 1) parts.push(lines[index + extra]);
+    for (let size = parts.length; size >= 1; size -= 1) {
+      const joined = cleanAddressPlaceholders(tidy(parts.slice(0, size).join(' ')));
+      const hit = matchAddressHeader(joined);
+      if (!hit) continue;
+      if (hit.street) return hit;
+      if (!town) town = hit;
+    }
+  }
+  return town || { found: false };
+}
 
 function visibleLocation(lines: string[], title: string) {
   const text = lines.slice(0, 500).join(' \n ');
@@ -408,25 +498,28 @@ function summaryFor(report: Report) {
       ? 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.'
       : '';
   const occupancyWarning = facts.tenancy === 'Occupancy unclear' ? 'The portal says not rented, but the description says occupants remain. Current occupancy and vacant handover need clarification.' : '';
-  const costs = facts.housegeld ? ` Monthly Hausgeld${facts.housegeldYear ? ` for ${facts.housegeldYear}` : ''} is stated at €${facts.housegeld.toLocaleString('de-DE')}; separate recoverable tenant costs from the owner-only share.` : '';
+  const costs = facts.housegeld && report.propertyType !== 'house' ? ` Monthly Hausgeld${facts.housegeldYear ? ` for ${facts.housegeldYear}` : ''} is stated at €${facts.housegeld.toLocaleString('de-DE')}; separate recoverable tenant costs from the owner-only share.` : '';
   const second = `${occupancyWarning || investment}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
 }
 
-function considerationsFor(report: Pick<Report, 'facts' | 'sunOrientation' | 'daylight'>) {
+function considerationsFor(report: Pick<Report, 'facts' | 'sunOrientation' | 'daylight' | 'propertyType'>) {
   const { facts } = report;
+  const house = report.propertyType === 'house';
   const items: string[] = [];
   if (facts.tenancy === 'Occupancy unclear') items.push('Confirm the occupants’ legal status and a binding vacant-handover agreement.');
   if (facts.tenancy === 'Rented') items.push('Check the signed lease, net cold rent and payment history.');
-  if (facts.housegeld) {
+  if (facts.housegeld && !house) {
     items.push(isNewOrFirstOccupancy(facts.condition)
       ? `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split between shared running costs and owner-only costs.`
       : `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split and ask for the current WEG reserve balance.`);
   }
-  if (facts.floor === UNKNOWN) items.push('Confirm the floor, lift access and whether the unit faces the street or courtyard.');
+  if (!house && facts.floor === UNKNOWN) items.push('Confirm the floor, lift access and whether the unit faces the street or courtyard.');
   if (facts.energy !== UNKNOWN) items.push(`Compare the ${facts.energyCertificate || 'Energieausweis'} with actual energy bills.`);
-  if (facts.features?.some(feature => /terrasse|garten/i.test(feature))) items.push('Confirm that terrace and garden rights are recorded in the Teilungserklärung and clarify maintenance responsibility.');
-  if (!items.length) items.push('Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
+  if (!house && facts.features?.some(feature => /terrasse|garten/i.test(feature))) items.push('Confirm that terrace and garden rights are recorded in the Teilungserklärung and clarify maintenance responsibility.');
+  if (!items.length) items.push(house
+    ? 'Request the complete Exposé, Energieausweis and an itemized list of running costs before making an offer.'
+    : 'Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
   return items.slice(0, 4);
 }
 
@@ -447,6 +540,107 @@ function proximityEvidence(lines: string[], subject: RegExp) {
   };
 }
 
+function roomNumber(value: string) {
+  const number = Number(value.replace(',', '.'));
+  return Number.isFinite(number) && number > 0 && number < 40 ? number : undefined;
+}
+
+/** Ranges and sentences about other units are not this home's room count. */
+function ignoresRoomLine(line: string) {
+  if (/\b(?:die meisten|viele von ihnen|viele davon|nachbarwohnungen|übrigen)\b/i.test(line) && /zimmer/i.test(line)) return true;
+  if (/\d+(?:[,.]\d+)?\s*-?\s*zimmer[\s-]*wohnungen\b/i.test(line)) return true;
+  if (/\d+(?:[,.]\d+)?\s*(?:-|–|bis)\s*(?:bis\s+|hin\s+zu\s+)?\d+/i.test(line) && /zimmer/i.test(line)) return true;
+  if (/\beinheiten\b/i.test(line) && /\d+(?:[,.]\d+)?\s*-?\s*zimmer/i.test(line)) return true;
+  return false;
+}
+
+function unitRoomTokens(line: string) {
+  if (ignoresRoomLine(line)) return [];
+  return [...line.matchAll(/\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|rooms?)\b/gi)].map(match => match[1]);
+}
+
+function labelledRoomTokens(lines: string[]) {
+  const found: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (ignoresRoomLine(line)) continue;
+    const exact = line.match(/^(\d+(?:[,.]\d+)?)\s*(?:Zimmer|Zi\.|rooms?)$/i)?.[1]
+      || line.match(/^(?:Anzahl\s+)?(?:Zimmer|Rooms?)\s*[:\-]\s*(\d+(?:[,.]\d+)?)(?!\s*%)/i)?.[1];
+    if (exact) found.push(exact);
+    const shortLabel = !/wohnzimmer|schlafzimmer|kinderzimmer|badezimmer|arbeitszimmer|esszimmer|gästezimmer|gaestezimmer/i.test(line)
+      && line.length < 40
+      ? line.match(/^(?:Anzahl\s+)?(?:Zimmer|Rooms?)\s+(\d+(?:[,.]\d+)?)(?!\s*%)/i)?.[1]
+      : undefined;
+    if (shortLabel) found.push(shortLabel);
+    if (/^(?:Anzahl\s+)?(?:Zimmer|Rooms?)$/i.test(line)) {
+      const neighbors = [...lines.slice(Math.max(0, index - 2), index).reverse(), ...lines.slice(index + 1, index + 3)];
+      const adjacent = neighbors.map(item => item.match(/^(\d+(?:[,.]\d+)?)$/)?.[1]).find(Boolean);
+      if (adjacent) found.push(adjacent);
+    }
+  }
+  return found;
+}
+
+const HOUSE_TYPE = /bungalows?\b|\b(?:einfamilienhaus|reihen(?:end|mittel)?haus|doppelhaush[aä]lfte|stadthaus|holzhaus|zweifamilienhaus|mehrfamilienhaus|villa)\b|\bDHH\b|\bHaus(?!geld|nummer|wirtschaft|flur|ordnung|meister|verwaltung)(?:es|en|er)?\b/iu;
+const FLAT_TYPE = /\b(?:eigentumswohnung|etagenwohnung|erdgeschosswohnung|dachgeschosswohnung|souterrainwohnung|maisonette|penthouse|apartment|loft|wohnung)\b/i;
+
+function classifyTypeLabel(value: string): Report['propertyType'] | undefined {
+  const flat = FLAT_TYPE.test(value);
+  const house = HOUSE_TYPE.test(value);
+  if (flat && house) {
+    if (/\b(?:einfamilienhaus|reihen(?:end|mittel)?haus|doppelhaush[aä]lfte|stadthaus|holzhaus|zweifamilienhaus|bungalow|villa)\b|\bDHH\b|bungalows?\b/iu.test(value)) return 'house';
+    if (/\b(?:wohnung|apartment|maisonette|penthouse)\b/i.test(value)) return 'flat';
+  }
+  if (house) return 'house';
+  if (flat) return 'flat';
+  return undefined;
+}
+
+function typeFromJsonLd(raw: string): Report['propertyType'] | undefined {
+  const property = propertyJsonLd(raw);
+  if (!property) return undefined;
+  const types = (Array.isArray(property['@type']) ? property['@type'] : [property['@type']]).filter((type): type is string => typeof type === 'string');
+  const blob = types.join(' ');
+  if (/apartment/i.test(blob)) return 'flat';
+  if (/house|singlefamily/i.test(blob)) return 'house';
+  return undefined;
+}
+
+function resolvePropertyType(raw: string, lines: string[], title: string, propertyLines: string[]): { propertyType: Report['propertyType']; typeSource: NonNullable<Report['typeSource']> } {
+  for (const label of [/^Objektart\b/i, /^Objekttyp\b/i]) {
+    const row = lines.find(line => label.test(line));
+    const value = row?.replace(/^(?:Objektart|Objekttyp)\s*[:\-]?\s*/i, '') || '';
+    const structured = value ? classifyTypeLabel(value) : undefined;
+    if (structured) return { propertyType: structured, typeSource: 'structured' };
+  }
+  const jsonType = typeFromJsonLd(raw);
+  if (jsonType) return { propertyType: jsonType, typeSource: 'structured' };
+  const fromTitle = classifyTypeLabel(title);
+  if (fromTitle) return { propertyType: fromTitle, typeSource: 'keyword' };
+  const fromBody = classifyTypeLabel(propertyLines.join(' '));
+  if (fromBody) return { propertyType: fromBody, typeSource: 'keyword' };
+  return { propertyType: 'flat', typeSource: 'fallback' };
+}
+
+function formatStreetAddress(street: string, postalCode: string, city: string) {
+  const place = [postalCode, city].filter(Boolean).join(' ');
+  return tidy(place ? `${street}, ${place}` : street);
+}
+
+function publishScore(report: Report) {
+  const calculation = calculatePropertyScore(report);
+  if (!scoreAvailable(report)) {
+    report.score = null;
+    report.scoreTitle = undefined;
+    report.scoreBreakdown = undefined;
+    return report;
+  }
+  report.score = calculation.total;
+  report.scoreTitle = calculation.title;
+  report.scoreBreakdown = calculation.breakdown;
+  return report;
+}
+
 export function parseListing(raw: string, source: string): Report {
   const lines = htmlToLines(raw);
   const text = lines.join(' \n ');
@@ -460,11 +654,11 @@ export function parseListing(raw: string, source: string): Report {
     || firstMatch(lines, /\b(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)\s+(?:Wohnfl[aä]che|Living area)/i));
   const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 1, 3));
-  const roomsValue = firstMatch(lines, /\b(?:Zimmer|Anzahl Zimmer|Rooms?)\s*[:\-]?\s*(\d+(?:[,.]\d+)?)(?!\s*%)/i)
-    || aroundLabel(lines, /^(?:Zimmer|Anzahl Zimmer|Rooms?)$/i, /^(\d+(?:[,.]\d+)?)$/, 2, 2)
-    || firstMatch([title, ...lines.slice(0, 250)], /\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|Raum(?:wohnung)?|rooms?)\b/i);
-  const roomCounts = new Set([roomsValue, ...[title, ...lines].flatMap(line => [...line.matchAll(/\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|rooms?)\b/gi)].map(match => match[1]))].filter(Boolean).map(value => Number(value.replace(',', '.'))));
+  const labelledRooms = labelledRoomTokens(lines);
+  const unitRooms = [title, ...lines].flatMap(unitRoomTokens);
+  const roomCounts = new Set([...labelledRooms, ...unitRooms].map(roomNumber).filter((value): value is number => value !== undefined));
   const roomsConflict = roomCounts.size > 1;
+  const roomsValue = labelledRooms[0] || unitRooms[0] || '';
   const rooms = roomsConflict ? UNKNOWN : roomsValue || UNKNOWN;
   const yearValue = aroundLabel(lines, /^(?:Baujahr|Year of construction)$/i, /\b(18\d{2}|19\d{2}|20\d{2})\b/, 0, 3)
     || firstMatch(lines, /\b(?:Baujahr|Year of construction)\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})\b/i)
@@ -525,20 +719,25 @@ export function parseListing(raw: string, source: string): Report {
 
   const jsonLocation = jsonAddress(raw);
   const shownLocation = visibleLocation(lines, title);
-  const postalCode = jsonLocation.postalCode || shownLocation.postalCode;
-  const city = jsonLocation.city || shownLocation.city;
-  const district = jsonLocation.district || shownLocation.district;
+  const headerLocation = parseAddressHeader(lines);
+  const postalCode = headerLocation.malformedPostal
+    ? ''
+    : (headerLocation.postalCode || jsonLocation.postalCode || shownLocation.postalCode);
+  const city = headerLocation.city || jsonLocation.city || shownLocation.city;
+  const district = headerLocation.district || jsonLocation.district || shownLocation.district;
   const location = district || city;
-  const visibleStreet = visiblePropertyStreet(lines);
+  const visibleStreet = headerLocation.street || visiblePropertyStreet(lines);
   const statedAddress = jsonLocation.street
     ? tidy(`${jsonLocation.street}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`)
-    : visibleAddress(lines, city, postalCode)
-      || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`) : '');
+    : headerLocation.street
+      ? formatStreetAddress(headerLocation.street, postalCode, city)
+      : visibleAddress(lines, city, postalCode)
+        || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`) : '');
   const address = statedAddress || 'Address not stated';
-  const street = jsonLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet);
+  const street = jsonLocation.street || headerLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet);
   const exactStreet = hasHouseNumber(street);
 
-  const propertyType: Report['propertyType'] = /(?:einfamilienhaus|reihenhaus|doppelhaush[aä]lfte|haus\s+(?:zum\s+kauf|in)|single.family|\bhouse\b)/i.test(title) ? 'house' : 'flat';
+  const { propertyType, typeSource } = resolvePropertyType(raw, lines, title, propertyLines);
   // Never treat the next arbitrary line after an "Ausstattung" heading as a
   // characteristic. Exposes frequently put another heading there (for
   // example "★ Wichtiges auf einen Blick ★"), followed by costs or legal
@@ -589,8 +788,9 @@ export function parseListing(raw: string, source: string): Report {
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',
     energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy ? 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.' : '',
     occupancyConflict ? 'The portal says not rented, but the description says occupants remain. Confirm their legal status and vacant handover before proceeding.' : '',
-    !exactStreet ? 'Exact street address is not disclosed in the listing.' : '',
-    floor === UNKNOWN ? 'The listing does not disclose an exact floor.' : '',
+    headerLocation.malformedPostal ? `The listing prints "${headerLocation.malformedPostal}" as the postcode, which is not a valid 5-digit code. The town is still used.` : '',
+    !street ? 'Exact street address is not disclosed in the listing.' : '',
+    floor === UNKNOWN && propertyType !== 'house' ? 'The listing does not disclose an exact floor.' : '',
     !explicitTotal ? 'The listing does not provide a complete acquisition total; the financing card uses a rough buyer-cost estimate.' : '',
     tenancy === 'Rented' && !advertisedYield ? 'The unit is rented but no verified yield was extracted.' : '',
   ].filter(Boolean);
@@ -603,6 +803,7 @@ export function parseListing(raw: string, source: string): Report {
     address,
     location,
     propertyType,
+    typeSource,
     source,
     createdAt: new Date().toISOString(),
     facts,
@@ -619,11 +820,7 @@ export function parseListing(raw: string, source: string): Report {
   report.title = reportTitle(report);
   report.summary = summaryFor(report);
   report.considerations = considerationsFor(report);
-  const calculation = calculatePropertyScore(report);
-  report.score = calculation.total;
-  report.scoreTitle = calculation.title;
-  report.scoreBreakdown = calculation.breakdown;
-  return report;
+  return publishScore(report);
 }
 
 export function refreshDerivedReport(report: Report) {
@@ -632,11 +829,7 @@ export function refreshDerivedReport(report: Report) {
   report.title = reportTitle(report);
   report.summary = summaryFor(report);
   report.considerations = considerationsFor(report);
-  const calculation = calculatePropertyScore(report);
-  report.score = calculation.total;
-  report.scoreTitle = calculation.title;
-  report.scoreBreakdown = calculation.breakdown;
-  return report;
+  return publishScore(report);
 }
 
 export function unsupportedListingReason(raw: string) {

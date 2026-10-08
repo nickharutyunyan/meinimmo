@@ -1,7 +1,8 @@
 import type { Report } from './types';
 import { validStreet } from './location-validation.ts';
+import { defaultScoreComponents } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100304;
+export const EXTRACTION_VERSION = 2026100801;
 
 export function reportConflicts(report: Report) {
   const problems: string[] = [];
@@ -15,7 +16,13 @@ export function reportConflicts(report: Report) {
 }
 
 export function scoreAvailable(report: Report) {
-  return Boolean(report.facts.price > 0 && report.facts.area > 0 && (report.facts.city || report.location) && !reportConflicts(report).length);
+  // Armenian reports use a separate rubric and must keep the previous rule.
+  if (report.country === 'AM') return Boolean(report.facts.price > 0 && report.facts.area > 0 && (report.facts.city || report.location) && !reportConflicts(report).length);
+  if (!(report.facts.price > 0 && report.facts.area > 0)) return false;
+  if (!report.facts.city) return false;
+  if (report.typeSource === 'fallback') return false;
+  if (defaultScoreComponents(report).length >= 2) return false;
+  return reportConflicts(report).length === 0;
 }
 
 export function reportVerdict(report: Report, locale: 'en' | 'de') {

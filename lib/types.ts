@@ -99,6 +99,8 @@ export type Report = {
   address: string;
   location?: string;
   propertyType: 'flat' | 'house' | 'land';
+  /** Where propertyType came from. Fallback means the listing did not state a type. */
+  typeSource?: 'structured' | 'keyword' | 'fallback';
   source: string;
   sourceFile?: {
     displayName: string;
@@ -106,7 +108,8 @@ export type Report = {
   };
   createdAt: string;
   facts: Facts;
-  score: number;
+  /** Null when the page withholds the score, so the API cannot show a number the page hides. */
+  score: number | null;
   scoreTitle?: string;
   scoreBreakdown?: ScoreBreakdown;
   summary: string;
