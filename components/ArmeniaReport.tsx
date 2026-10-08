@@ -7,18 +7,26 @@ import { Sidebar } from './Sidebar';
 import { SiteFooter } from './SiteFooter';
 import { ArmeniaFinance } from './ArmeniaFinance';
 import { ReportNote } from './ReportNote';
+import { hasStoredGeocode, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL } from '@/lib/osm-map';
 
 export function ArmeniaReport({ report }: { report: Report }) {
   const am = report.armenia!; const f = report.facts; const land = report.propertyType === 'land';
-  const [copied, setCopied] = useState(false); const [place, setPlace] = useState<{lat:number;lon:number} | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [place, setPlace] = useState<{lat:number;lon:number} | null>(hasStoredGeocode(report.geocode) ? { lat: report.geocode.lat, lon: report.geocode.lon } : null);
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem('habitat-history') || '[]') as string[];
     if (!ids.includes(report.id)) localStorage.setItem('habitat-history', JSON.stringify([...ids, report.id].slice(-30)));
     window.dispatchEvent(new Event('habitat-history-changed'));
+  }, [report.id]);
+  useEffect(() => {
+    if (hasStoredGeocode(report.geocode)) {
+      setPlace({ lat: report.geocode.lat, lon: report.geocode.lon });
+      return;
+    }
     let active = true;
-    fetch(`/api/geocode?q=${encodeURIComponent(`${report.address}, Armenia`)}&country=AM`).then(r => r.ok ? r.json() as Promise<{lat:number;lon:number}> : null).then(data => active && setPlace(data)).catch(() => undefined);
+    fetch(`/api/geocode?q=${encodeURIComponent(`${report.address}, Armenia`)}&country=AM&report=${encodeURIComponent(report.id)}`).then(r => r.ok ? r.json() as Promise<{lat:number;lon:number}> : null).then(data => active && setPlace(data)).catch(() => undefined);
     return () => { active = false; };
-  }, [report.id, report.address]);
+  }, [report.id, report.address, report.geocode]);
   const rows = [
     ['Asking price', amd(f.price)], [land ? 'Plot size' : 'Advertised area', `${f.area} m²`],
     ...(!land ? [['Rooms', f.rooms], ['Floor', f.floor ? `${f.floor}${am.buildingFloors ? ` / ${am.buildingFloors}` : ''}` : ''], ['Living area', am.livingArea ? `${am.livingArea} m²` : ''], ['New building', am.newConstruction === undefined ? '' : am.newConstruction ? 'Yes' : 'No'], ['Construction', am.construction], ['Renovation', am.renovation === 'None' ? 'Not renovated' : am.renovation], ['Building state', f.condition], ['Occupancy', f.tenancy], ['Elevator', am.elevator], ['Balcony', am.balcony]] : [['Advertised land use', am.landUse], ['Road access', am.roadAccess]]),
@@ -34,6 +42,7 @@ export function ArmeniaReport({ report }: { report: Report }) {
       <section className="card"><p className="eyebrow">Questions worth asking</p><ol className="am-questions">{report.offerQuestions?.map(q => <li key={q}>{q}</li>)}</ol></section>
       <section className="card"><p className="eyebrow">Location</p><h2><a className="report-address-link" href={mapsLink(report.address)} target="_blank" rel="noreferrer">{report.address} ↗</a></h2><p className="am-source-note">{am.approximate ? 'Approximate area: the exact address was not disclosed.' : 'Address as stated by the seller; location has not been independently verified.'}</p>
         {place ? <iframe className="am-map" title={`Area map: ${report.address}`} loading="lazy" src={`https://www.openstreetmap.org/export/embed.html?bbox=${place.lon-.012},${place.lat-.007},${place.lon+.012},${place.lat+.007}&layer=mapnik`}/> : <p className="am-source-note">Use the Google Maps link to explore the stated location.</p>}
+        <p className="map-credit"><a href={OSM_COPYRIGHT_URL} target="_blank" rel="noreferrer">{OSM_ATTRIBUTION}</a></p>
       </section><ReportNote reportId={report.id} locale="en"/>
       {am.importMethod === 'pdf' && !report.sourceFile && <p className="am-source-note">The PDF was read to create this report. Original-file storage is not available, so keep your own copy; a download is not retained here.</p>}
       <section className="card"><p className="eyebrow">Source</p>{report.sourceFile ? <a href={`/api/reports/${report.id}/source`}>{report.sourceFile.displayName} ↓</a> : /^https:\/\//.test(report.source) ? <a href={report.source} target="_blank" rel="noreferrer">View original listing ↗</a> : <span>{report.source}</span>}<p className="am-source-note">{am.importMethod === 'text' ? 'Based on pasted listing text' : am.importMethod === 'browser' ? 'Based on browser-provided listing text' : am.importMethod === 'pdf' ? 'Exposé PDF' : 'Imported listing'} · Report saved {report.createdAt.slice(0,10)}{am.sourceUpdated ? ` · Listing renewed ${am.sourceUpdated}` : ''}</p><details><summary>Extracted source facts</summary><dl className="am-evidence">{Object.entries(am.evidence).map(([key,value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></details></section>

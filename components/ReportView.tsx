@@ -158,7 +158,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
           {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText locale={locale}>{item}</GlossaryText></p>)}</section> : null}
           {evidenceRows.length ? <details className="card source-evidence"><summary>{sourceCopy.viewEvidence}</summary><p>{sourceCopy.evidenceNote}</p>{evidenceRows.map(row => <div key={row.field}><h3>{row.label}</h3><blockquote>{row.excerpt}</blockquote></div>)}</details> : null}
-          {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
+          {location.mapQuery ? <LocationCard location={location} locale={locale} reportId={report.id} geocode={report.geocode} /> : null}
         </div>
         <aside>
           <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} reportingEnabled={reportingEnabled} />
