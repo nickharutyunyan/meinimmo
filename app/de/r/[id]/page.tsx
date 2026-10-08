@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { report } from '@/lib/store';
+import { cachedMortgageRate } from '@/lib/current-mortgage-rate';
 import { reportPageMetadata } from '@/lib/page-meta';
 import { ReportView } from '@/components/ReportView';
 
@@ -16,5 +17,6 @@ export default async function GermanReport({ params }: { params: Promise<{ id: s
   const item = await getReport((await params).id);
   if (!item) notFound();
   if (item.country === 'AM') redirect(`/r/${item.id}`);
-  return <ReportView report={item} locale="de" />;
+  const mortgageRate = await cachedMortgageRate();
+  return <ReportView report={item} locale="de" mortgageRate={mortgageRate} />;
 }

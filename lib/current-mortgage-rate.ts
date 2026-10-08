@@ -2,6 +2,19 @@ import 'server-only';
 import { FMH_MORTGAGE_RATE_SOURCE_URL, parseFmhMortgageRate, type MortgageRateSnapshot } from './fmh-mortgage-rate';
 import { markMortgageRateStale, saveMortgageRate, storedMortgageRate } from './mortgage-rate-store';
 const REFRESH_AFTER_MS = 60 * 60 * 1_000;
+/** D1 snapshot only. Report HTML must not wait on the live rate source. */
+export async function cachedMortgageRate(): Promise<MortgageRateSnapshot | undefined> {
+  try {
+    const stored = await storedMortgageRate();
+    if (!stored) return undefined;
+    const fetchedAt = Date.parse(stored.fetchedAt);
+    if (!Number.isFinite(fetchedAt)) return undefined;
+    return Date.now() - fetchedAt < REFRESH_AFTER_MS ? stored : markMortgageRateStale(stored);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function currentMortgageRate(): Promise<MortgageRateSnapshot | undefined> {
   let stored;
   try {

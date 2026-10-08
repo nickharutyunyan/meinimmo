@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { report } from '@/lib/store';
+import { cachedMortgageRate } from '@/lib/current-mortgage-rate';
 import { reportPageMetadata } from '@/lib/page-meta';
 import { ReportView } from '@/components/ReportView';
 import { ArmeniaReport } from '@/components/ArmeniaReport';
@@ -24,5 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const item = await getReport((await params).id);
   if (!item) notFound();
-  return item.country === 'AM' ? <ArmeniaReport report={item} /> : <ReportView report={item} locale="en" />;
+  if (item.country === 'AM') return <ArmeniaReport report={item} />;
+  const mortgageRate = await cachedMortgageRate();
+  return <ReportView report={item} locale="en" mortgageRate={mortgageRate} />;
 }
