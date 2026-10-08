@@ -73,7 +73,7 @@ const SCORES = {
   adlershof: { total: 5.77, confidence: 'high', price: 1.5 },
   bochum: { total: 8.03, confidence: 'medium', price: null },
   chodowiecki: { total: 6.04, confidence: 'high', price: 2.5 },
-  cologne: { total: 7.12, confidence: 'medium', price: null },
+  cologne: { total: 5.96, confidence: 'medium', price: 3.3 },
   erfde: { total: 7.58, confidence: 'medium', price: null },
   hohenschoenhausen: { total: null, confidence: 'high', price: 7.5 },
   lichterfelde: { total: 6.22, confidence: 'high', price: 2.4 },

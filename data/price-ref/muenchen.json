@@ -1,0 +1,740 @@
+{
+  "$schema": "price-ref/v1",
+  "city": "München",
+  "aliases": [
+    "München",
+    "Muenchen",
+    "Munich"
+  ],
+  "tier": "city",
+  "rangeKind": "none",
+  "source": {
+    "publisher": "Gutachterausschuss München",
+    "title": "Halbjahresreport 2026",
+    "url": "https://stadt.muenchen.de/dam/jcr%3A1ab1829c-2c44-4fdc-b03b-6646c7849fab/Halbjahresreport_2026.pdf",
+    "dataYear": 2025,
+    "licence": "no open licence — 'Nachdruck nur mit Genehmigung, auszugsweise nur mit Quellenangabe und bei Übersendung eines Belegexemplars'",
+    "licenceQuote": "no open licence — 'Nachdruck nur mit Genehmigung, auszugsweise nur mit Quellenangabe und bei Übersendung eines Belegexemplars'"
+  },
+  "resaleByBuildYear": [
+    {
+      "from": 1950,
+      "to": 1959,
+      "mean": 7730
+    },
+    {
+      "from": 1960,
+      "to": 1969,
+      "mean": 6400
+    },
+    {
+      "from": 1970,
+      "to": 1979,
+      "mean": 6450
+    },
+    {
+      "from": 1980,
+      "to": 1989,
+      "mean": 6930
+    },
+    {
+      "from": 1990,
+      "to": 1999,
+      "mean": 7370
+    },
+    {
+      "from": 2000,
+      "to": 2009,
+      "mean": 8290
+    },
+    {
+      "from": 2010,
+      "to": 2023,
+      "mean": 9190
+    }
+  ],
+  "newBuild": {
+    "year": 2026,
+    "period": "H1 2026",
+    "goodLocation": 10550,
+    "averageLocation": 9800
+  },
+  "ceilingMean": 10550,
+  "mapping": {
+    "central": [
+      "Altstadt-Lehel",
+      "Au-Haidhausen",
+      "Ludwigsvorstadt-Isarvorstadt",
+      "Maxvorstadt",
+      "Schwabing-West"
+    ],
+    "plzToStadtbezirk": {
+      "80331": [
+        [
+          "Altstadt-Lehel",
+          0.93
+        ],
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.07
+        ]
+      ],
+      "80333": [
+        [
+          "Maxvorstadt",
+          0.8
+        ],
+        [
+          "Altstadt-Lehel",
+          0.2
+        ]
+      ],
+      "80335": [
+        [
+          "Maxvorstadt",
+          0.7
+        ],
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.25
+        ]
+      ],
+      "80336": [
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.96
+        ]
+      ],
+      "80337": [
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.95
+        ],
+        [
+          "Sendling",
+          0.05
+        ]
+      ],
+      "80339": [
+        [
+          "Schwanthalerhöhe",
+          0.96
+        ]
+      ],
+      "80469": [
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.92
+        ],
+        [
+          "Altstadt-Lehel",
+          0.08
+        ]
+      ],
+      "80538": [
+        [
+          "Altstadt-Lehel",
+          0.72
+        ],
+        [
+          "Schwabing-Freimann",
+          0.2
+        ],
+        [
+          "Ludwigsvorstadt-Isarvorstadt",
+          0.06
+        ]
+      ],
+      "80539": [
+        [
+          "Maxvorstadt",
+          0.55
+        ],
+        [
+          "Altstadt-Lehel",
+          0.41
+        ]
+      ],
+      "80634": [
+        [
+          "Neuhausen-Nymphenburg",
+          1
+        ]
+      ],
+      "80636": [
+        [
+          "Neuhausen-Nymphenburg",
+          0.81
+        ],
+        [
+          "Maxvorstadt",
+          0.13
+        ],
+        [
+          "Schwanthalerhöhe",
+          0.06
+        ]
+      ],
+      "80637": [
+        [
+          "Neuhausen-Nymphenburg",
+          0.86
+        ],
+        [
+          "Moosach",
+          0.14
+        ]
+      ],
+      "80638": [
+        [
+          "Neuhausen-Nymphenburg",
+          0.94
+        ],
+        [
+          "Moosach",
+          0.06
+        ]
+      ],
+      "80639": [
+        [
+          "Neuhausen-Nymphenburg",
+          0.94
+        ]
+      ],
+      "80686": [
+        [
+          "Laim",
+          0.65
+        ],
+        [
+          "Sendling-Westpark",
+          0.35
+        ]
+      ],
+      "80687": [
+        [
+          "Laim",
+          0.87
+        ],
+        [
+          "Pasing-Obermenzing",
+          0.11
+        ]
+      ],
+      "80689": [
+        [
+          "Hadern",
+          0.41
+        ],
+        [
+          "Laim",
+          0.38
+        ],
+        [
+          "Pasing-Obermenzing",
+          0.21
+        ]
+      ],
+      "80796": [
+        [
+          "Schwabing-West",
+          1
+        ]
+      ],
+      "80797": [
+        [
+          "Schwabing-West",
+          0.68
+        ],
+        [
+          "Neuhausen-Nymphenburg",
+          0.16
+        ],
+        [
+          "Maxvorstadt",
+          0.1
+        ],
+        [
+          "Milbertshofen-Am Hart",
+          0.05
+        ]
+      ],
+      "80798": [
+        [
+          "Maxvorstadt",
+          0.7
+        ],
+        [
+          "Schwabing-West",
+          0.3
+        ]
+      ],
+      "80799": [
+        [
+          "Maxvorstadt",
+          0.94
+        ]
+      ],
+      "80801": [
+        [
+          "Schwabing-West",
+          0.61
+        ],
+        [
+          "Schwabing-Freimann",
+          0.39
+        ]
+      ],
+      "80802": [
+        [
+          "Schwabing-Freimann",
+          0.97
+        ]
+      ],
+      "80803": [
+        [
+          "Schwabing-Freimann",
+          0.56
+        ],
+        [
+          "Schwabing-West",
+          0.44
+        ]
+      ],
+      "80804": [
+        [
+          "Schwabing-West",
+          0.78
+        ],
+        [
+          "Schwabing-Freimann",
+          0.22
+        ]
+      ],
+      "80805": [
+        [
+          "Schwabing-Freimann",
+          0.98
+        ]
+      ],
+      "80807": [
+        [
+          "Schwabing-Freimann",
+          0.52
+        ],
+        [
+          "Milbertshofen-Am Hart",
+          0.48
+        ]
+      ],
+      "80809": [
+        [
+          "Milbertshofen-Am Hart",
+          0.89
+        ],
+        [
+          "Schwabing-West",
+          0.07
+        ]
+      ],
+      "80933": [
+        [
+          "Feldmoching-Hasenbergl",
+          0.93
+        ],
+        [
+          "Milbertshofen-Am Hart",
+          0.07
+        ]
+      ],
+      "80935": [
+        [
+          "Feldmoching-Hasenbergl",
+          0.93
+        ],
+        [
+          "Milbertshofen-Am Hart",
+          0.07
+        ]
+      ],
+      "80937": [
+        [
+          "Milbertshofen-Am Hart",
+          1
+        ]
+      ],
+      "80939": [
+        [
+          "Schwabing-Freimann",
+          0.95
+        ]
+      ],
+      "80992": [
+        [
+          "Moosach",
+          0.96
+        ]
+      ],
+      "80993": [
+        [
+          "Moosach",
+          1
+        ]
+      ],
+      "80995": [
+        [
+          "Feldmoching-Hasenbergl",
+          0.95
+        ]
+      ],
+      "80997": [
+        [
+          "Allach-Untermenzing",
+          0.61
+        ],
+        [
+          "Moosach",
+          0.31
+        ],
+        [
+          "Feldmoching-Hasenbergl",
+          0.06
+        ]
+      ],
+      "80999": [
+        [
+          "Allach-Untermenzing",
+          0.97
+        ]
+      ],
+      "81241": [
+        [
+          "Pasing-Obermenzing",
+          0.98
+        ]
+      ],
+      "81243": [
+        [
+          "Aubing-Lochhausen-Langwied",
+          0.63
+        ],
+        [
+          "Pasing-Obermenzing",
+          0.37
+        ]
+      ],
+      "81245": [
+        [
+          "Pasing-Obermenzing",
+          0.51
+        ],
+        [
+          "Aubing-Lochhausen-Langwied",
+          0.49
+        ]
+      ],
+      "81247": [
+        [
+          "Pasing-Obermenzing",
+          0.86
+        ],
+        [
+          "Allach-Untermenzing",
+          0.11
+        ]
+      ],
+      "81248": [
+        [
+          "Aubing-Lochhausen-Langwied",
+          1
+        ]
+      ],
+      "81249": [
+        [
+          "Aubing-Lochhausen-Langwied",
+          1
+        ]
+      ],
+      "81369": [
+        [
+          "Sendling-Westpark",
+          0.74
+        ],
+        [
+          "Sendling",
+          0.23
+        ]
+      ],
+      "81371": [
+        [
+          "Sendling",
+          0.97
+        ]
+      ],
+      "81373": [
+        [
+          "Sendling-Westpark",
+          0.8
+        ],
+        [
+          "Sendling",
+          0.2
+        ]
+      ],
+      "81375": [
+        [
+          "Hadern",
+          1
+        ]
+      ],
+      "81377": [
+        [
+          "Hadern",
+          0.65
+        ],
+        [
+          "Sendling-Westpark",
+          0.35
+        ]
+      ],
+      "81379": [
+        [
+          "Thalkirchen-Obersendling-Forstenried-Fürstenried-Solln",
+          0.76
+        ],
+        [
+          "Sendling-Westpark",
+          0.15
+        ],
+        [
+          "Sendling",
+          0.08
+        ]
+      ],
+      "81475": [
+        [
+          "Thalkirchen-Obersendling-Forstenried-Fürstenried-Solln",
+          1
+        ]
+      ],
+      "81476": [
+        [
+          "Thalkirchen-Obersendling-Forstenried-Fürstenried-Solln",
+          0.98
+        ]
+      ],
+      "81477": [
+        [
+          "Thalkirchen-Obersendling-Forstenried-Fürstenried-Solln",
+          1
+        ]
+      ],
+      "81479": [
+        [
+          "Thalkirchen-Obersendling-Forstenried-Fürstenried-Solln",
+          1
+        ]
+      ],
+      "81539": [
+        [
+          "Obergiesing-Fasangarten",
+          0.77
+        ],
+        [
+          "Ramersdorf-Perlach",
+          0.21
+        ]
+      ],
+      "81541": [
+        [
+          "Au-Haidhausen",
+          0.42
+        ],
+        [
+          "Obergiesing-Fasangarten",
+          0.38
+        ],
+        [
+          "Ramersdorf-Perlach",
+          0.17
+        ]
+      ],
+      "81543": [
+        [
+          "Untergiesing-Harlaching",
+          0.85
+        ],
+        [
+          "Au-Haidhausen",
+          0.06
+        ],
+        [
+          "Sendling",
+          0.05
+        ]
+      ],
+      "81545": [
+        [
+          "Untergiesing-Harlaching",
+          0.97
+        ]
+      ],
+      "81547": [
+        [
+          "Untergiesing-Harlaching",
+          0.96
+        ]
+      ],
+      "81549": [
+        [
+          "Obergiesing-Fasangarten",
+          0.67
+        ],
+        [
+          "Ramersdorf-Perlach",
+          0.33
+        ]
+      ],
+      "81667": [
+        [
+          "Au-Haidhausen",
+          1
+        ]
+      ],
+      "81669": [
+        [
+          "Ramersdorf-Perlach",
+          0.61
+        ],
+        [
+          "Au-Haidhausen",
+          0.38
+        ]
+      ],
+      "81671": [
+        [
+          "Berg am Laim",
+          0.68
+        ],
+        [
+          "Ramersdorf-Perlach",
+          0.31
+        ]
+      ],
+      "81673": [
+        [
+          "Berg am Laim",
+          1
+        ]
+      ],
+      "81675": [
+        [
+          "Au-Haidhausen",
+          0.63
+        ],
+        [
+          "Bogenhausen",
+          0.37
+        ]
+      ],
+      "81677": [
+        [
+          "Bogenhausen",
+          0.74
+        ],
+        [
+          "Berg am Laim",
+          0.2
+        ],
+        [
+          "Au-Haidhausen",
+          0.06
+        ]
+      ],
+      "81679": [
+        [
+          "Bogenhausen",
+          1
+        ]
+      ],
+      "81735": [
+        [
+          "Ramersdorf-Perlach",
+          0.96
+        ]
+      ],
+      "81737": [
+        [
+          "Ramersdorf-Perlach",
+          1
+        ]
+      ],
+      "81739": [
+        [
+          "Ramersdorf-Perlach",
+          1
+        ]
+      ],
+      "81825": [
+        [
+          "Trudering-Riem",
+          0.78
+        ],
+        [
+          "Berg am Laim",
+          0.22
+        ]
+      ],
+      "81827": [
+        [
+          "Trudering-Riem",
+          1
+        ]
+      ],
+      "81829": [
+        [
+          "Trudering-Riem",
+          0.99
+        ]
+      ],
+      "81925": [
+        [
+          "Bogenhausen",
+          1
+        ]
+      ],
+      "81927": [
+        [
+          "Bogenhausen",
+          1
+        ]
+      ],
+      "81929": [
+        [
+          "Bogenhausen",
+          0.87
+        ],
+        [
+          "Trudering-Riem",
+          0.12
+        ]
+      ],
+      "82049": [],
+      "85540": [],
+      "85579": []
+    },
+    "plzOutside": [
+      "82049",
+      "85540",
+      "85579"
+    ]
+  },
+  "gaps": [
+    "München: no official district-level condo table exists (free or paid); only citywide by Wohnlage class and build-year group.",
+    "München: Wohnlage (average/good/central) per address not open data; Mietspiegel Wohnlagenkarte is a different classification.",
+    "München: resale values are chart reads (±50 €/m²); exact numbers only in the paid Jahresbericht 2025 (€85, 11.06.2026).",
+    "München: licence not open; written permission requested (draft).",
+    "München: BORIS Bayern / Bodenrichtwerte are land values (paid, €30 per query) — not usable for condo €/m².",
+    "Both: PLZ shares are land area, not number of flats; OSM data ODbL (attribution on method page)."
+  ]
+}
