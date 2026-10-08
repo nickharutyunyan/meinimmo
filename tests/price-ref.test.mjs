@@ -7,7 +7,7 @@ import { parseListing, preferStatedLivingArea } from '../lib/listing-parser.ts';
 import { localPriceAvailability, localPriceCheck, berlinPriceCheck } from '../lib/price-check.ts';
 import { priceCheckLead, priceCheckPresentation } from '../lib/price-check-copy.ts';
 import { foldAreaName, munichIsCentral, resolveCologneArea } from '../lib/price-ref.ts';
-import { calculatePropertyScore, cityTierPriceScore, lacksLocalPriceReference, priceNotCheckedLine, priceUnscoredLabel, scoreConfidence } from '../lib/property-score.ts';
+import { calculatePropertyScore, cityTierPriceScore, lacksLocalPriceReference, priceNotCheckedLine, priceUnscoredLabel, scoreConfidence, scorePriceFromDelta } from '../lib/property-score.ts';
 import { localizedWarnings } from '../lib/report-copy.ts';
 import { methodCopy, methodPlainText } from '../lib/method-copy.ts';
 
@@ -320,7 +320,7 @@ test('Braunsfeld 496176 uses 63.01 m² and shows about +74%, with an EN and DE n
   assert.equal(cardDe.glanceValue, '+74 %');
   assert.doesNotMatch(`${cardEn.lead} ${cardDe.lead}`, /\+9/);
 
-  assert.equal(calculatePropertyScore(report).breakdown.price, 4.5);
+  assert.equal(calculatePropertyScore(report).breakdown.price, scorePriceFromDelta(74, 'low'));
 });
 
 test('Munich stays off unless PRICE_REF_MUENCHEN_ENABLED is exactly 1', () => {
@@ -403,14 +403,15 @@ test('Munich stays off unless PRICE_REF_MUENCHEN_ENABLED is exactly 1', () => {
     assert.equal(ceiling.deltaPct, 51);
     assert.match(priceCheckLead(ceiling, 'en'), /51% above the highest Munich-wide average/);
     assert.equal(cityTierPriceScore(ceiling), 4.5);
-    assert.equal(calculatePropertyScore(ceilingReport).breakdown.price, 4.5);
+    assert.equal(calculatePropertyScore(ceilingReport).breakdown.price, scorePriceFromDelta(ceiling.deltaPct, 'low'));
 
     const outlier = munich({ year: '1965', price: 416_000, area: 50, district: 'Bezirk 19' });
     const outlierCheck = localPriceCheck(outlier);
     assert.equal(outlierCheck.central, false);
     assert.equal(outlierCheck.deltaPct, 30);
     assert.equal(cityTierPriceScore(outlierCheck), 4.5);
-    assert.equal(calculatePropertyScore(outlier).breakdown.price, 4.5);
+    assert.equal(scorePriceFromDelta(outlierCheck.deltaPct, 'low'), 4.07);
+    assert.equal(calculatePropertyScore(outlier).breakdown.price, 4.1);
 
     const mild = munich({ year: '1965', price: 352_000, area: 50, district: 'Bezirk 19' });
     assert.equal(localPriceCheck(mild).deltaPct, 10);

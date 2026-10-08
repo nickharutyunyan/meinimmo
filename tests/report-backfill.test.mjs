@@ -99,7 +99,7 @@ function backfillRows(records) {
 }
 
 test('backfill selects recent reports that only have an attempt timestamp', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100804);
+  assert.equal(EXTRACTION_VERSION, 2026100805);
   const attempted = '2026-10-08T12:00:00.000Z';
   const recent = {
     extractionVersion: 2026100802,

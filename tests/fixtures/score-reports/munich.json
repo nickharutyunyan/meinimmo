@@ -1,0 +1,69 @@
+{
+  "id": "9aedc83ac364b455",
+  "title": "3-room flat · Sterrhubenweg",
+  "address": "Sterrhubenweg, 81247 München",
+  "location": "Obermenzing",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/502977/",
+  "createdAt": "2026-10-08T17:33:23.566Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 1300000,
+    "area": 81.81,
+    "usableArea": 89,
+    "rooms": "3",
+    "year": "2022",
+    "floor": "1. OG",
+    "energy": "A+",
+    "heating": "not stated",
+    "energySource": "Luft-/Wasserwärme",
+    "energyDemand": 21.5,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 1361110,
+    "buyerCosts": 61111,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 357,
+    "parkingPrice": 45000,
+    "tenancy": "Not rented",
+    "condition": "Like new",
+    "features": [
+      "Balkon",
+      "Einbauküche",
+      "Keller",
+      "Aufzug",
+      "Fußbodenheizung",
+      "Garten"
+    ],
+    "postalCode": "81247",
+    "city": "München",
+    "district": "Obermenzing",
+    "street": "Sterrhubenweg",
+    "locationPrecision": "street",
+    "neighborhood": {
+      "transitMinutes": 8,
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "daylight": "viel Tageslicht",
+  "qualityWarnings": [
+    "The listing separately quotes €45,000 for parking. Confirm whether this is additional and required; it is not included in the stated total.",
+    "The year built is 2022, but the listing also says completion in 2024. Check which date applies."
+  ],
+  "redFlags": [],
+  "score": 8.4,
+  "scoreBreakdown": {
+    "price": null,
+    "neighborhood": 6.7,
+    "space": 9.3,
+    "building": 9.2,
+    "energy": 10,
+    "light": 7.6,
+    "costs": 7.9,
+    "source": 9.2
+  }
+}

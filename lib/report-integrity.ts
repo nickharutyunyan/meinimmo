@@ -3,7 +3,7 @@ import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
 import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100804;
+export const EXTRACTION_VERSION = 2026100805;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
@@ -62,7 +62,8 @@ export function scoreAvailable(report: Report) {
   if (!report.facts.city) return false;
   if (report.typeSource === 'fallback') return false;
   // Missing walking times and sun orientation never withhold. Only a real conflict, or 4 or fewer key facts, does.
-  // A confidence cap (leasehold, tenancy, no local prices, one energy step) does not withhold by itself.
+  // A confidence cap (leasehold, tenancy, no local prices) does not withhold by itself.
+  // Low confidence means four or fewer key facts, and that withholds the score. An energy class one step off demand never does.
   if (reportConflicts(report).length > 0) return false;
   return scoreConfidence(report).present >= 5;
 }

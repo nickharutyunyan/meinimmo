@@ -2,6 +2,7 @@ import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
 import { canonicalCondition } from './property-condition.ts';
+import { alignHeatingFacts } from './property-score.ts';
 import { acquisitionCosts } from './finance.ts';
 import { checkedCharacteristic, refreshDerivedReport } from './listing-parser.ts';
 
@@ -35,8 +36,9 @@ function normalizedReport(item: Report) {
     ? (item.facts.buyerCosts ? costs.total : 0)
     : item.facts.totalCost;
   const energy = item.facts.energy;
-  const heating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
   const energySource = checkedCharacteristic(item.facts.energySource, 'energySource') || undefined;
+  const checkedHeating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
+  const heating = alignHeatingFacts({ heating: checkedHeating, energySource }).heating || 'not stated';
   const energyCertificate = checkedCharacteristic(item.facts.energyCertificate, 'energyCertificate') || undefined;
   const summary = (condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')

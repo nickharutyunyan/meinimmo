@@ -26,6 +26,14 @@ export type Facts = {
   /** Verbatim fragment such as "Ende November 2026". */
   rentedUntilText?: string;
   availabilityDate?: string;
+  /** Year the current tenancy started, when the listing states it. */
+  tenancySinceYear?: number;
+  /** The listing states an active Sperrfrist or eviction ban. */
+  evictionBan?: boolean;
+  /** Whole building, or marketed as a Kapitalanlage. No move-in deduction. */
+  investmentUse?: boolean;
+  /** Gross yield from the stated net cold rent, in percent. */
+  grossYield?: number;
   plotArea?: number;
   soldAsIs?: boolean;
   /** Timber-frame construction, when the listing states it for this building. */
@@ -58,7 +66,7 @@ export type Facts = {
   };
   /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
   photoUrls?: string[];
-  /** Earliest `exp` unix time among `photoUrls`, as an ISO timestamp. */
+  /** Earliest `exp` unix time among stored `photoUrls`, as an ISO timestamp. Display does not use this as a strip-wide cutoff. */
   photosExpireAt?: string;
 };
 
