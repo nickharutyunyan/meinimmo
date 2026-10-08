@@ -27,11 +27,12 @@ export async function GET(request: NextRequest) {
         client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: oauth.redirectUri,
         grant_type: 'authorization_code', code_verifier: oauth.verifier,
       }),
+      signal: AbortSignal.timeout(8_000),
     });
     if (!tokenResponse.ok) throw new Error('token_exchange_failed');
     const tokens = await tokenResponse.json() as { access_token?: string };
     if (!tokens.access_token) throw new Error('missing_access_token');
-    const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { authorization: `Bearer ${tokens.access_token}` }, signal: AbortSignal.timeout(8_000) });
     if (!profileResponse.ok) throw new Error('profile_failed');
     const profile = await profileResponse.json() as { sub?: string; email?: string; email_verified?: boolean };
     if (!profile.sub || !profile.email || profile.email_verified === false) throw new Error('unverified_profile');

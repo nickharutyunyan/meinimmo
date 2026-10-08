@@ -11,12 +11,20 @@ function sources(csp, name) {
 
 test('one CSP covers every locale and allows only the GA4 hosts the tag uses', async () => {
   const config = await readFile(new URL('../next.config.ts', import.meta.url), 'utf8');
-  assert.equal([...config.matchAll(/Content-Security-Policy/g)].length, 1);
+  const headerSource = await readFile(new URL('../lib/security-headers.ts', import.meta.url), 'utf8');
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');
+  assert.equal([...config.matchAll(/security-headers\.ts/g)].length, 1);
   assert.match(config, /source:\s*'\/\(\.\*\)'/);
-  assert.match(config, /CONTENT_SECURITY_POLICY/);
+  assert.match(headerSource, /CONTENT_SECURITY_POLICY/);
+  assert.match(worker, /applySecurityHeaders/);
   assert.equal([...config.matchAll(/script-src/g)].length, 0);
   const csp = CONTENT_SECURITY_POLICY;
   assert.ok(csp);
+  assert.doesNotMatch(csp, /nonce-/);
+  assert.match(csp, /script-src[^;]*'unsafe-inline'/);
+  assert.match(layout, /https:\/\/www\.googletagmanager\.com\/gtag\/js/);
+  assert.doesNotMatch(layout, /nonce=/);
 
   const script = sources(csp, 'script-src');
   const connect = sources(csp, 'connect-src');

@@ -1,5 +1,6 @@
 import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { withTimeout } from './io-timeout.ts';
 
 export type AppEnv = CloudflareEnv & {
   AUTH_DB: D1Database;
@@ -17,10 +18,11 @@ export type AppEnv = CloudflareEnv & {
   PASSWORD_RESET_FROM?: string;
   TYPESAFE_API_KEY?: string;
   JEV_MODEL?: string;
+  BACKFILL_TOKEN?: string;
 };
 
 export async function appEnvironment() {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await withTimeout(getCloudflareContext({ async: true }));
   return env as AppEnv;
 }
 

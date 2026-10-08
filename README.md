@@ -22,13 +22,37 @@ Never put the OpenRouter key in `.env.example`, `.dev.vars.example`, `wrangler.j
 
 ## Continuous deployment
 
-Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
+Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. That command builds the Worker, copies prerendered HTML into the asset directory, and then deploys. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
 
 There is no GitHub Actions workflow in this repository. `wrangler.jsonc` attaches the Worker to `reviewahouse.com` and `www.reviewahouse.com`, so a successful deploy publishes production. Whether a push to `main` triggers that deploy is set in the Cloudflare dashboard, not in git.
 
 The Armenia helper page downloads `/downloads/reviewahouse-helper.zip`. That file is built by `npm run helper:package`, which `npm run build` runs before `next build`. OpenNext's Cloudflare build invokes `npm run build`, so `npm run deploy` produces the zip without committing it. Packaging is a Node script because the Workers build image includes `unzip` but not `zip`.
 
 D1 is the authoritative store for reports and comparisons. The old `data/*.json` files are no longer used at runtime.
+
+## Re-extract saved reports
+
+Report pages, print pages, Open Graph metadata and the sitemap serve the facts already stored on the report. They do not read archived HTML. The sitemap lists the home, guide and terms URLs only, so a crawler following it never opens `/r/` pages. `robots.txt` disallows `/api/`. An old or missing extraction version is still served, with the score withheld and a notice to re-import.
+
+A visitor re-imports one listing through the normal import form. That is the only request path that parses a listing the visitor just submitted.
+
+To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call loads at most 5 archived listings, stops once 8 seconds have passed, and saves either the new extraction or a failure marker. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
+
+```bash
+npx wrangler secret put BACKFILL_TOKEN
+curl -sS -X POST https://reviewahouse.com/api/reports/backfill \
+  -H "Authorization: Bearer $BACKFILL_TOKEN"
+```
+
+Repeat until `processed` is an empty array. For local preview, put `BACKFILL_TOKEN` in `.dev.vars` (never commit the value) and POST to that origin. A 401 means the secret is missing, shorter than 24 characters, or the header does not match.
+
+## Static pages and cached reports
+
+Ordinary document requests for the home page, guide, terms, account shell, country landings, sitemap, and robots.txt are the prerendered files copied into Worker assets. Router data, `/api`, comparisons, and print still run in Next.js. The header loads sign-in state in the browser from `/api/auth/me`.
+
+`/r/[id]` and `/de/r/[id]` store their HTML in the Workers cache for the colo that rendered them. The key is the origin, the locale path, the report id, and the Next build id, so a deploy does not keep HTML that points at the previous static chunks. Saving or replacing the report deletes the current build's entries in that colo. The browser is sent `private, no-store`, and a stored entry expires after one day, which covers a colo the delete did not reach. Signed listing photos stay in that HTML; the browser drops a photo after its own `exp`. Print stays uncached because each print reads the current mortgage rate.
+
+With `npm run preview` or `npx wrangler dev --port 8787` already running, `node scripts/measure-routes.mjs` prints time to first byte per route. `wrangler dev` reports wall time. Workers CPU time appears in production tail logs.
 
 ## Accounts and billing
 

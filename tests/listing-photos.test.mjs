@@ -148,7 +148,8 @@ test('listing photo hosts in CSP img-src are exactly the shared allowlist', asyn
   assert.match(policy, /LISTING_IMAGE_HOSTS/);
   assert.doesNotMatch(policy, /media\.ohne-makler\.net/);
   assert.match(hosts, /https:\/\/media\.ohne-makler\.net/);
-  assert.match(config, /CONTENT_SECURITY_POLICY/);
+  assert.match(config, /security-headers\.ts/);
+  assert.match(await readFile(new URL('../lib/security-headers.ts', import.meta.url), 'utf8'), /CONTENT_SECURITY_POLICY/);
   assert.doesNotMatch(config, /img-src|script-src/);
   for (const host of LISTING_IMAGE_HOSTS) assert.ok(img.includes(host), host);
 });
@@ -199,17 +200,24 @@ test('report overview renders EN and DE captions and print and compare omit phot
     listingUrl,
     locale: 'en',
   }));
-  assert.equal(mixed.includes('old.jpg'), false);
+  assert.ok(mixed.includes('old.jpg'), 'the cached document keeps the signed URL');
   assert.ok(mixed.includes(future) || mixed.includes(future.replaceAll('&', '&amp;')));
   assert.equal(mixed.includes(plain), true);
-  assert.equal(mixed.includes('Photo 1 of 2'), true);
-  assert.equal(mixed.includes('Photo 2 of 2'), true);
-  assert.equal(mixed.includes('Photo 3 of'), false);
-  assert.equal(renderToStaticMarkup(createElement(ListingPhotos, {
+  assert.equal(mixed.includes('Photo 1 of 3'), true);
+  assert.equal(mixed.includes('Photo 3 of 3'), true);
+  const cachedExpired = renderToStaticMarkup(createElement(ListingPhotos, {
     urls: [expired, `${CDN}/also-old.jpg?exp=2`],
     listingUrl,
     locale: 'de',
-  })), '');
+  }));
+  assert.equal(cachedExpired.includes('old.jpg'), true);
+  assert.equal(cachedExpired.includes('also-old.jpg'), true);
+  const source = await readFile(new URL('../components/ListingPhotos.tsx', import.meta.url), 'utf8');
+  assert.match(source, /useState<number \| null>\(null\)/);
+  assert.match(source, /useEffect\(\(\) => \{\s*setNow\(Date\.now\(\)\);/);
+  assert.match(source, /listingPhotosToShow\(urls, failed, now\)/);
+  assert.deepEqual(listingPhotosToShow([expired, future, plain], new Set(), Date.now()), [future, plain]);
+  assert.deepEqual(listingPhotosToShow([expired, `${CDN}/also-old.jpg?exp=2`], new Set(), Date.now()), []);
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');
 

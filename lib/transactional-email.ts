@@ -36,6 +36,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string, local
       'idempotency-key': `password-reset-${idempotencyKey.slice(0, 48)}`,
     },
     body: JSON.stringify({ from: env.PASSWORD_RESET_FROM, to: [to], ...content }),
+    signal: AbortSignal.timeout(8_000),
   });
   if (!response.ok) throw new Error(`email_delivery_failed_${response.status}`);
 }

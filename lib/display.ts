@@ -46,6 +46,15 @@ function streetOnly(address: string, city: string) {
     .trim();
 }
 
+function foldPlace(value: string) {
+  return value.toLocaleLowerCase('de-DE').replace(/\s+/g, ' ').trim();
+}
+
+/** A town-only address is not a street. "Erfde" plus the city "Erfde" must not become "Erfde Erfde". */
+function samePlace(left: string, right: string) {
+  return Boolean(left && right && foldPlace(left) === foldPlace(right));
+}
+
 function appendCity(place: string, city: string) {
   if (!city) return place;
   if (!place) return city;
@@ -88,7 +97,7 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
   const addressStreet = addressKnown ? streetOnly(cleanAddress, city) : '';
   const statedStreet = safePlace(cleanAddressPlaceholders(report.facts.street || ''));
   const candidateStreet = safePlace(addressStreet || statedStreet);
-  const street = validStreet(candidateStreet) ? candidateStreet : '';
+  const street = validStreet(candidateStreet) && !samePlace(candidateStreet, city) ? candidateStreet : '';
   const exact = Boolean(street && hasHouseNumber(street));
   const district = reportNeighborhood(report);
   const stop = safePlace(known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '');

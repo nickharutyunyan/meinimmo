@@ -1,12 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { copy, type Locale } from '../lib/i18n.ts';
-import { isRemoteListingSource, listingPhotosToShow } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow } from '../lib/listing-photos.ts';
 
 export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; listingUrl: string; locale: Locale }) {
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
-  const photos = listingPhotosToShow(urls, failed);
+  // The cached document is rendered once. Expiry is applied after mount so a
+  // stored page does not keep an image whose `exp` has since passed.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+  }, []);
+  const photos = now === null
+    ? displayableListingPhotos(urls).filter((url) => !failed.has(url))
+    : listingPhotosToShow(urls, failed, now);
   if (!isRemoteListingSource(listingUrl) || photos.length === 0) return null;
   const caption = copy[locale].report.photosCaption;
   const total = photos.length;
