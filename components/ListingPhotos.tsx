@@ -9,11 +9,12 @@ export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; l
   const photos = listingPhotosToShow(urls, failed);
   if (!isRemoteListingSource(listingUrl) || photos.length === 0) return null;
   const caption = copy[locale].report.photosCaption;
+  const total = photos.length;
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
     <p id="listing-photos-caption" className="listing-photos-caption">{caption}</p>
     <div className="listing-photos-strip">
-      {photos.map((url) => <a key={url} href={listingUrl} target="_blank" rel="noreferrer">
+      {photos.map((url, index) => <a key={url} href={listingUrl} target="_blank" rel="noreferrer" aria-label={copy[locale].report.photoLink.replaceAll('{n}', String(index + 1)).replaceAll('{total}', String(total))}>
         <img
           src={url}
           alt=""

@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import esbuild from 'esbuild';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
 import { LISTING_IMAGE_HOSTS } from '../lib/listing-image-hosts.ts';
-import { displayableListingPhotos, extractListingPhotoUrls, listingPhotosToShow } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, extractListingPhotoUrls, listingPhotosToShow, stableListingPhotoUrl } from '../lib/listing-photos.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { copy } from '../lib/i18n.ts';
 
@@ -55,6 +55,8 @@ test('Berlin 502729 yields a stable set of absolute https gallery URLs', () => {
       assert.match(url, /^https:\/\/media\.ohne-makler\.net\//);
       assert.equal(url.includes('data:'), false);
       assert.equal(url.includes('&amp;'), false);
+      assert.equal(/[?&](?:sig|signature|exp)=/i.test(url), false);
+      assert.equal(url.includes('?'), false);
     }
     assert.equal(new Set(urls).size, urls.length);
     if (!first) first = urls;
@@ -84,7 +86,7 @@ test('photo extraction ignores tracking pixels, data URIs and off-allowlist host
     `${CDN}/og.jpg`,
     `${CDN}/ld.jpg`,
     `${CDN}/set.jpg`,
-    `${CDN}/light.jpg?sig=1&exp=9`,
+    `${CDN}/light.jpg`,
   ]);
   assert.deepEqual(displayableListingPhotos([
     'data:image/png;base64,xx',
@@ -94,6 +96,20 @@ test('photo extraction ignores tracking pixels, data URIs and off-allowlist host
     `${CDN}/kept.jpg`,
   ]), [`${CDN}/kept.jpg`]);
   assert.deepEqual(listingPhotosToShow([`${CDN}/a.jpg`, `${CDN}/b.jpg`], new Set([`${CDN}/a.jpg`, `${CDN}/b.jpg`])), []);
+});
+
+test('signed exp and sig query parameters are stored as a stable URL', () => {
+  const signed = `${CDN}/rs:fit:1920:1080/q:90/path?sig=abc&exp=1`;
+  const stable = `${CDN}/rs:fit:1920:1080/q:90/path`;
+  assert.equal(stableListingPhotoUrl(signed), stable);
+  assert.equal(stableListingPhotoUrl(`${CDN}/room.jpg?w=400&signature=zzz&exp=9`), `${CDN}/room.jpg?w=400`);
+  assert.equal(stableListingPhotoUrl(`${CDN}/room.jpg?Exp=9&SIG=abc&fmt=jpg`), `${CDN}/room.jpg?fmt=jpg`);
+  assert.deepEqual(displayableListingPhotos([
+    signed,
+    stable,
+    `${CDN}/room.jpg?w=400&sig=1&exp=2`,
+  ]), [stable, `${CDN}/room.jpg?w=400`]);
+  assert.equal(stableListingPhotoUrl('https://evil.example/a.jpg?sig=1'), '');
 });
 
 test('listing photo hosts in CSP img-src are exactly the shared allowlist', async () => {
@@ -137,9 +153,29 @@ test('report overview renders EN and DE captions and print and compare omit phot
     assert.equal(html.includes('https://evil.example/nope.jpg'), false);
     assert.equal(html.includes('data:image'), false);
     assert.match(html, /class="listing-photos"/);
-    assert.match(html, new RegExp(`<a href="${listingUrl}" target="_blank" rel="noreferrer">`));
+    const label = copy[locale].report.photoLink.replaceAll('{n}', '1').replaceAll('{total}', '1');
+    assert.equal(label, locale === 'de'
+      ? 'Foto 1 von 1, öffnet das Originalangebot in einem neuen Tab'
+      : 'Photo 1 of 1, opens the original listing in a new tab');
+    assert.doesNotMatch(label, /ohne-makler|immoscout|immowelt|kleinanzeigen/i);
+    assert.equal(html.includes(`aria-label="${label}"`), true);
+    assert.match(html, new RegExp(`<a href="${listingUrl}" target="_blank" rel="noreferrer" aria-label="`));
     assert.match(html, /<img src="https:\/\/media\.ohne-makler\.net\/a\.jpg" alt="" width="160" height="120" loading="lazy" referrerpolicy="no-referrer" decoding="async"/i);
     assert.equal([...html.matchAll(/<img /g)].length, 1);
+
+    const pair = renderToStaticMarkup(createElement(ListingPhotos, {
+      urls: [`${CDN}/a.jpg`, `${CDN}/b.jpg?sig=1&exp=2`],
+      listingUrl,
+      locale,
+    }));
+    const second = copy[locale].report.photoLink.replaceAll('{n}', '2').replaceAll('{total}', '2');
+    assert.equal(second, locale === 'de'
+      ? 'Foto 2 von 2, öffnet das Originalangebot in einem neuen Tab'
+      : 'Photo 2 of 2, opens the original listing in a new tab');
+    assert.equal(pair.includes(`aria-label="${second}"`), true);
+    assert.match(pair, /src="https:\/\/media\.ohne-makler\.net\/b\.jpg"/);
+    assert.equal(pair.includes('sig='), false);
+    assert.equal(pair.includes('exp='), false);
   }
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');

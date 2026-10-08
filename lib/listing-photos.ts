@@ -30,15 +30,40 @@ export function isDisplayableListingPhoto(value: string) {
   return true;
 }
 
+/**
+ * Drop signed `sig` / `exp` query pairs. The listing image CDN serves the same
+ * JPEG without them, so the stored URL does not expire with the page's signature.
+ */
+export function stableListingPhotoUrl(value: string) {
+  const trimmed = value.trim();
+  if (!isDisplayableListingPhoto(trimmed)) return '';
+  const url = new URL(trimmed);
+  const query = url.search.startsWith('?') ? url.search.slice(1) : '';
+  const kept: string[] = [];
+  for (const part of query ? query.split('&') : []) {
+    if (!part) continue;
+    const eq = part.indexOf('=');
+    const rawKey = eq < 0 ? part : part.slice(0, eq);
+    let key = rawKey;
+    try { key = decodeURIComponent(rawKey.replaceAll('+', ' ')); } catch { /* keep the raw key */ }
+    const name = key.toLowerCase();
+    if (name === 'sig' || name === 'signature' || name === 'exp') continue;
+    kept.push(part);
+  }
+  return `${url.origin}${url.pathname}${kept.length ? `?${kept.join('&')}` : ''}`;
+}
+
 /** Render-time allowlist. Stored strings that are not absolute https on a listing CDN are dropped. */
 export function displayableListingPhotos(urls: readonly string[] | undefined) {
   if (!urls?.length) return [];
   const seen = new Set<string>();
   const kept: string[] = [];
   for (const value of urls) {
-    if (typeof value !== 'string' || !isDisplayableListingPhoto(value) || seen.has(value)) continue;
-    seen.add(value);
-    kept.push(value.trim());
+    if (typeof value !== 'string') continue;
+    const stable = stableListingPhotoUrl(value);
+    if (!stable || seen.has(stable)) continue;
+    seen.add(stable);
+    kept.push(stable);
     if (kept.length === MAX_PHOTOS) break;
   }
   return kept;
