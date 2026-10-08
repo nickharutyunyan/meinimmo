@@ -1,23 +1,27 @@
-import type { Facts } from './types';
+import type { CostSource } from './buyer-costs.ts';
+import { buyerCostBreakdown } from './buyer-costs.ts';
 
 const finiteNonNegative = (value: number | undefined) => Number.isFinite(value) && Number(value) >= 0 ? Number(value) : 0;
 
-export function acquisitionCosts(facts: Pick<Facts, 'price' | 'buyerCosts' | 'totalCost'>) {
-  const price = finiteNonNegative(facts.price);
-  const statedBuyerCosts = finiteNonNegative(facts.buyerCosts);
-  const statedTotal = finiteNonNegative(facts.totalCost);
-  const plausibleTotal = statedTotal >= price ? statedTotal : 0;
-  const costsProvided = typeof facts.buyerCosts === 'number' && Number.isFinite(facts.buyerCosts) && facts.buyerCosts >= 0;
-  const consistent = !plausibleTotal || !costsProvided || Math.abs(price + statedBuyerCosts - plausibleTotal) <= 2;
-  const buyerCostsAreEstimated = !costsProvided && !plausibleTotal;
-  // When independently extracted figures disagree, use the stated total's
-  // difference, and surface the conflict in report integrity notes.
-  const buyerCosts = plausibleTotal && !consistent ? plausibleTotal - price
-    : costsProvided ? statedBuyerCosts
-    : plausibleTotal ? plausibleTotal - price : Math.round(price * 0.08);
-  const total = plausibleTotal || price + buyerCosts;
-
-  return { price, buyerCosts, total, buyerCostsAreEstimated };
+/**
+ * Buyer costs come from the listing when it states them. Otherwise they are
+ * the itemised estimate in `buyer-costs.ts` (state transfer tax, notary, and
+ * any commission the listing states). There is no flat percentage fallback.
+ */
+export function acquisitionCosts(input: CostSource) {
+  const breakdown = buyerCostBreakdown(input);
+  const ranged = breakdown.financingIsRange;
+  return {
+    price: breakdown.price,
+    buyerCosts: breakdown.financingLow,
+    total: breakdown.totalLow,
+    buyerCostsAreEstimated: breakdown.financingIsEstimated,
+    ...(ranged ? {
+      buyerCostsHigh: breakdown.financingHigh,
+      totalHigh: breakdown.totalHigh,
+      buyerCostsAreRange: true as const,
+    } : {}),
+  };
 }
 
 export function defaultEquity(total: number) {
