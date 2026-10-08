@@ -58,7 +58,7 @@ export type Facts = {
   };
   /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
   photoUrls?: string[];
-  /** Earliest `exp` unix time among `photoUrls`, as an ISO timestamp. */
+  /** Earliest `exp` unix time among stored `photoUrls`, as an ISO timestamp. Display does not use this as a strip-wide cutoff. */
   photosExpireAt?: string;
 };
 
