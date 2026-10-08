@@ -140,12 +140,12 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
       <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{report.facts.price ? money(report.facts.price, locale) : '—'}</b></span>
       <details className="buyer-costs" open>
         <summary>
-          <span className="buyer-cost-label"><GlossaryText locale={locale}>{costView.title}</GlossaryText>{costView.estimated ? <small> {costView.estimatedMark}</small> : null}<FactSource reportId={report.id} locale={locale} label={costView.title} provenance={buyerCostsProvenance} reportingEnabled={reportingEnabled} /></span>
+          <span className="buyer-cost-label"><GlossaryText locale={locale}>{costView.title}</GlossaryText><span className="buyer-cost-tail">{costView.estimated ? <small> {costView.estimatedMark}</small> : null}<FactSource reportId={report.id} locale={locale} label={costView.title} provenance={buyerCostsProvenance} reportingEnabled={reportingEnabled} /></span></span>
           <b>{costView.summaryAmount}</b>
         </summary>
         <div className="buyer-cost-lines">
           {costView.rows.map(row => <div className="buyer-cost-line" key={row.key}>
-            <span className="buyer-cost-name">{row.label}<FactSource reportId={report.id} locale={locale} label={row.label} provenance={lineProvenance(report, row, locale)} reportingEnabled={reportingEnabled} /></span>
+            <span className="buyer-cost-name">{row.label}{'\u2060'}<FactSource reportId={report.id} locale={locale} label={row.label} provenance={lineProvenance(report, row, locale)} reportingEnabled={reportingEnabled} /></span>
             <b>{row.amount ? <>{row.amount}{row.share ? <small> · {row.share}</small> : null}</> : null}</b>
             <small>{row.basis}</small>
           </div>)}
@@ -153,14 +153,14 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
         {costView.statedNote ? <p className="buyer-cost-note">{costView.statedNote}</p> : null}
         <p className="buyer-cost-note">{costView.footnote}</p>
       </details>
-      <span><span className="finance-inline-label"><GlossaryText locale={locale}>{text.total}</GlossaryText><FactSource reportId={report.id} locale={locale} label={text.total} provenance={totalProvenance} reportingEnabled={reportingEnabled} /></span> <b>{costView.totalAmount}</b></span>
+      <span><span className="finance-inline-label"><GlossaryText locale={locale}>{text.total}</GlossaryText>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={text.total} provenance={totalProvenance} reportingEnabled={reportingEnabled} /></span> <b>{costView.totalAmount}</b></span>
     </div>
     <label>
       <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.equity}</GlossaryText></span><b>{money(equity, locale) || '—'} · {sliderMax ? percent(Math.round(equity / sliderMax * 100), locale, 0) : '—'}{costs.buyerCostsAreRange ? ` ${text.higherTotal}` : ''}</b></span>
       <input type="range" min="0" max={Math.max(sliderMax, 1)} step="1" aria-label={text.equity} value={equity} onChange={(event) => setEquity(Number(event.target.value))} />
     </label>
     <label>
-      <span><span className="finance-rate-heading"><span className="finance-inline-label"><GlossaryText locale={locale}>{text.rate}</GlossaryText><FactSource reportId={report.id} locale={locale} label={text.rate} provenance={provenanceForField(report, 'mortgageRate', percent(interest, locale), locale)} reportingEnabled={reportingEnabled} /></span><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
+      <span><span className="finance-rate-heading"><span className="finance-inline-label"><GlossaryText locale={locale}>{text.rate}</GlossaryText>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={text.rate} provenance={provenanceForField(report, 'mortgageRate', percent(interest, locale), locale)} reportingEnabled={reportingEnabled} /></span><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
       <input type="range" min="2" max="7" step="0.01" aria-label={text.rate} value={interest} onChange={(event) => { interestWasEdited.current = true; setInterest(Number(event.target.value)); }} />
     </label>
     <label>

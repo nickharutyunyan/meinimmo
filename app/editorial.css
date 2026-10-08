@@ -1682,6 +1682,11 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   color: #f5f1e5;
 }
 
+.finance-calculator .buyer-cost-tail {
+  display: inline;
+  white-space: nowrap;
+}
+
 .finance-calculator .buyer-cost-name {
   color: #f5f1e5;
 }
