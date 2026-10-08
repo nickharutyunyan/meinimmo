@@ -19,8 +19,8 @@ export function energyClassFromDemand(value: number) {
   return 'H';
 }
 
-function energyClassIndex(value: string) {
-  const key = value.trim().toUpperCase().replace(/\s+/g, '');
+function energyClassIndex(value: unknown) {
+  const key = textFact(value).trim().toUpperCase().replace(/\s+/g, '');
   return ENERGY_CLASS_ORDER.indexOf(key as typeof ENERGY_CLASS_ORDER[number]);
 }
 
@@ -108,9 +108,13 @@ function neighborhoodScore(report: Report) {
   return clamp(evidenceScore * 0.8 + base * 0.2);
 }
 
+function textFact(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
 function roomCount(value: string) {
   if (!known(value)) return 0;
-  return Number(value.replace(',', '.').match(/\d+(?:\.\d+)?/)?.[0] || 0);
+  return Number(textFact(value).replace(',', '.').match(/\d+(?:\.\d+)?/)?.[0] || 0);
 }
 
 function spaceScore(report: Report) {
@@ -126,8 +130,8 @@ function spaceScore(report: Report) {
   return clamp(layoutScore * 0.7 + areaScore * 0.3);
 }
 
-function yearScore(value: string) {
-  const year = Number(value.match(/\b(18|19|20)\d{2}\b/)?.[0]);
+function yearScore(value: unknown) {
+  const year = Number(textFact(value).match(/\b(18|19|20)\d{2}\b/)?.[0]);
   if (!year) return 5;
   if (year >= 2015) return 9;
   if (year >= 2000) return 8;
@@ -156,9 +160,11 @@ const CONDITION_POINTS: Array<[RegExp, number]> = [
   [/\b(?:durchschnittlich|normalzustand|normal|gebraucht|average)\b/i, 5.5],
 ];
 
-export function conditionPoints(condition: string) {
+export function conditionPoints(condition: unknown) {
+  const text = textFact(condition);
+  if (!text) return undefined;
   for (const [pattern, points] of CONDITION_POINTS) {
-    if (pattern.test(condition)) return points;
+    if (pattern.test(text)) return points;
   }
   return undefined;
 }
@@ -178,12 +184,12 @@ function energyScore(report: Report) {
   const gap = energyClassGap(report);
   const scoredClass = known(energy) && energyDemand && gap !== null && gap >= 1
     ? lowerEnergyClass(energy, energyDemand)
-    : known(energy) ? energy.toUpperCase() : '';
+    : known(energy) ? textFact(energy).toUpperCase() : '';
   let score = scoredClass ? classes[scoredClass] ?? 5 : 0;
   if (!score && energyDemand) score = band(energyDemand, [[30, 9.8], [50, 9], [75, 8], [100, 6.8], [130, 5.5], [160, 4], [200, 2.5]], 1.5);
   const system = `${energySource || ''} ${heating || ''}`;
   const efficientSystem = /w[aä]rmepumpe|umweltw[aä]rme|erdw[aä]rme|geotherm|solartherm|solar/i.test(system);
-  const recentYear = Number(report.facts.year.match(/\b20\d{2}\b/)?.[0] || 0);
+  const recentYear = Number(textFact(report.facts.year).match(/\b20\d{2}\b/)?.[0] || 0);
   const newConstruction = recentYear >= 2020
     && /erstbezug|neubau|new build|new construction|under construction/i.test(report.facts.condition || '');
   const hasMeasuredPerformance = score > 0;

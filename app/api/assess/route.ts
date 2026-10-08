@@ -11,7 +11,7 @@ import { refreshDerivedReport, unsupportedListingReason } from '@/lib/listing-pa
 import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-source';
 import { deleteSourcePdf, saveSourcePdf } from '@/lib/source-storage';
 import { categorizeProperty } from '@/lib/jev';
-import { EXTRACTION_VERSION } from '@/lib/report-integrity';
+import { EXTRACTION_VERSION, storedVersionIsNewer } from '@/lib/report-integrity';
 import { fetchListing, listingImportStatus, ListingFetchError } from '@/lib/listing-fetch';
 import { verifyReportFacts } from '@/lib/fact-verification';
 
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
 
   if (!reportId) reportId = await timed('fingerprint', () => stableReportId(source, text));
   if (!existing) existing = await timed('cache', () => findReport(reportId!));
-  if (!input.url && !uploadedPdf && existing?.extractionVersion === EXTRACTION_VERSION && !existing.sourceUnavailable && resolveLocation(existing).basis !== 'none') {
+  if (!input.url && !uploadedPdf && existing && (storedVersionIsNewer(existing.extractionVersion) || (existing.extractionVersion === EXTRACTION_VERSION && !existing.sourceUnavailable && resolveLocation(existing).basis !== 'none'))) {
     const allowance = await timed('quota', () => reserveReportAllowance(request, anonymous.token));
     if (!allowance.allowed) return quotaExceeded(allowance.state);
     remember(allowance.userId, existing.id);

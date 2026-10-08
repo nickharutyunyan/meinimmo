@@ -3,6 +3,7 @@ import { accessState, userReportIds } from '@/lib/access';
 import { sessionUser } from '@/lib/auth';
 import { appEnvironment, authDatabase } from '@/lib/auth-db';
 import { billingAvailability } from '@/lib/billing-config';
+import { userReportWindow } from '@/lib/user-reports';
 
 export async function GET(request: NextRequest) {
   const user = await sessionUser(request);
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     cancel_at_period_end: number;
   }>() : null;
   const response = NextResponse.json({
-    user: user ? { username: user.username, email: user.email, name: user.name } : null,
+    user: user ? { username: user.username, email: user.email, name: user.name, emailVerified: user.emailVerified } : null,
     access,
     subscription: subscription ? {
       plan: subscription.plan,
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       currentPeriodEnd: subscription.current_period_end,
       cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     } : null,
-    reportIds: user ? await userReportIds(user.id) : [],
+    reportIds: user ? await userReportIds(user.id, userReportWindow(request.nextUrl.searchParams.get('page'))) : [],
     googleAvailable: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     paidPlansEnabled: billing.plansEnabled,
     billingAvailable: billing.subscriptions,

@@ -24,6 +24,8 @@ test('a failed refresh is saved as a marker and is not parsed again', () => {
   assert.equal(needsArchivedRefresh(marked), false);
   assert.equal(needsArchivedRefresh({ country: 'AM', extractionVersion: 0 }), false);
   assert.equal(needsArchivedRefresh({ extractionVersion: EXTRACTION_VERSION }), false);
+  assert.equal(needsArchivedRefresh({ extractionVersion: EXTRACTION_VERSION - 1 }), true);
+  assert.equal(needsArchivedRefresh({ extractionVersion: EXTRACTION_VERSION + 1, sourceUnavailable: true }), false);
   assert.equal(needsArchivedRefresh({}), true);
   assert.equal(needsArchivedRefresh({ extractionVersion: undefined }), true);
 });
