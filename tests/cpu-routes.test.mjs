@@ -117,6 +117,23 @@ test('a stalled promise rejects instead of hanging', async () => {
   assert.equal(await withTimeout(Promise.resolve('ok'), 30), 'ok');
 });
 
+test('a German report-cache hit is labelled once and the stored HTML is not rewritten', async () => {
+  const cached = '<html lang="en"><head></head><body>172.000 €</body></html>';
+  const served = applyDocumentLanguage(cached, '/de/r/59531030123f2eba');
+  assert.equal(served, '<html lang="de"><head></head><body>172.000 €</body></html>');
+  assert.equal(applyDocumentLanguage(served, '/de/r/59531030123f2eba'), served);
+  assert.equal(applyDocumentLanguage(cached, '/r/59531030123f2eba'), cached);
+
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  const serve = worker.slice(worker.indexOf('async function serveReport'), worker.indexOf('async function fetchNext'));
+  const fetchFn = worker.slice(worker.indexOf('export default'));
+  assert.doesNotMatch(serve, /applyDocumentLanguage|withDocumentLanguage/);
+  assert.match(serve, /await response\.clone\(\)\.text\(\)/);
+  assert.ok(fetchFn.indexOf('backfillRejection(request, env.BACKFILL_TOKEN)') < fetchFn.indexOf('serveReport'));
+  assert.ok(fetchFn.indexOf('serveReport') < fetchFn.indexOf('return withDocumentLanguage'));
+  assert.equal(fetchFn.match(/withDocumentLanguage\(/g).length, 1);
+});
+
 test('German document HTML carries lang=de and English stays lang=en', () => {
   assert.equal(documentLanguage('/de'), 'de');
   assert.equal(documentLanguage('/de/r/abc'), 'de');

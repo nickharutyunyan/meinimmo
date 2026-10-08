@@ -3,8 +3,7 @@ import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
 import { missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-/** Bumped when stored summary or consideration text changes. Display also renders at read time. */
-export const EXTRACTION_VERSION = 2026100804;
+export const EXTRACTION_VERSION = 2026100803;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 

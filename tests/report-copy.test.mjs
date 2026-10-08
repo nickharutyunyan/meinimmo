@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { copy, localizedFeatures, localizedValue } from '../lib/i18n.ts';
-import { isObviousAddressQuestion, localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
+import { isObviousAddressQuestion, localizedConsiderations, localizedSummary, offerQuestionsFor, questionsAreConcise } from '../lib/report-copy.ts';
 
 const report = {
   id: 'test', title: '', address: 'Address not stated', location: 'Mitte', propertyType: 'flat', source: 'test', createdAt: new Date(0).toISOString(),
@@ -43,6 +43,25 @@ test('exact-address questions are rejected as too obvious for due diligence', ()
     'Which Hausgeld costs are not recoverable?',
   ];
   assert.equal(questionsAreConcise(otherwiseValid), false);
+});
+
+test('a stored German-format summary does not override the read-time summary', () => {
+  const stored = {
+    ...report,
+    extractionVersion: 2026100803,
+    summary: 'This 3-room flat in Mitte, Berlin, has 70 m² of living area. The asking price is 450.000 € (6.429 €/m²).',
+    considerations: ['Check how the 320 € Hausgeld is split between shared running costs and owner-only costs.'],
+  };
+  const english = localizedSummary(stored, 'en');
+  const german = localizedSummary(stored, 'de');
+  assert.match(english, /€450,000/);
+  assert.doesNotMatch(english, /450\.000|6\.429 €/);
+  assert.equal(english.includes('450.000 €'), false);
+  assert.match(german, /450\.000/);
+  assert.equal(german.includes(stored.summary), false);
+  const considerations = localizedConsiderations(stored, 'en').join('\n');
+  assert.match(considerations, /€320/);
+  assert.doesNotMatch(considerations, /320 €/);
 });
 
 test('unknown occupancy is omitted from summary instead of being guessed', () => {
