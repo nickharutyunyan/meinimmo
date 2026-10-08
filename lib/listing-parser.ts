@@ -667,8 +667,10 @@ const WALK_WORDS: Record<string, number> = {
 };
 
 function walkingFragments(line: string) {
-  const protectedLine = line.replace(/\b(ca|bzw|ggf|usw|z|nr|str)\.\s+/gi, '$1 ');
-  return protectedLine.split(/[,;|•]|\.\s+/);
+  const protectedLine = line
+    .replace(/\b(ca|bzw|ggf|usw|z|nr|str)\.\s+/gi, '$1 ')
+    .replace(/(\d),(\d)/g, '$1\u0001$2');
+  return protectedLine.split(/[,;|•]|\.\s+/).map((part) => part.replaceAll('\u0001', ','));
 }
 
 function walkingMinutesIn(fragment: string) {
@@ -1030,7 +1032,7 @@ export function parseListing(raw: string, source: string): Report {
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'
     : firstMatch(lines, /((?:viel|reichlich)\s+Tageslicht[^.]{0,80})/i) || undefined;
-  const transit = proximityEvidence(lines, /\b(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|Bushaltestelle|Haltestelle|Bus|public transport)\b/i);
+  const transit = proximityEvidence(lines, /(?<![\p{L}\p{N}])(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|Bushaltestelle|Haltestelle|Bus|public transport)(?![\p{L}\p{N}])/iu);
   const transitStop = namedTransitStop(lines);
   const park = proximityEvidence(lines, /\b(?:Park(?!ett|platz|möglichkeiten|en)|Grünanlage|Grünfläche|Spielfläche|Spielplatz|Volkspark|Stadtpark|green space)\w*/i);
   const dailyNeeds = proximityEvidence(lines, /\b(?:Supermarkt|Einkauf|Nahversorgung|Bäcker|Apotheke|Schule|Grundschule|Kita|Kindertagesstätte|daily needs|grocer)\w*/i);

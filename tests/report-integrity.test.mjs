@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseListing } from '../lib/listing-parser.ts';
-import { presentStoredReport, reportConflicts, reportIsStale, scoreAvailable, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { displayedPropertyScore, presentStoredReport, renderStoredReport, reportConflicts, reportIsStale, scoreAvailable, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { needsArchivedRefresh } from '../lib/report-refresh.ts';
 import { guardEnrichment, openRouterFactCheckAccepted } from '../lib/verification-guard.ts';
 import { fetchListing } from '../lib/listing-fetch.ts';
 
@@ -31,6 +32,58 @@ test('source conflicts suppress the verdict even when AI flags claim verificatio
  assert.equal(reportIsStale({ ...r, country: 'AM', sourceUnavailable: false }), false);
  assert.equal(served.facts.city, 'Berlin');
  assert.equal(served.facts.price, 400000);
+});
+
+test('older, current and newer stored versions: only an older version is stale, and a newer one keeps its score', () => {
+ const parsed = parseListing(source, 'test');
+ const extraFacts = { ...parsed.facts, futureDetail: { ignored: true } };
+ const base = {
+  ...parsed,
+  futureNote: { keep: true },
+  facts: extraFacts,
+  scoreBreakdown: { ...parsed.scoreBreakdown, futurePart: 4, energy: 1.1 },
+ };
+
+ const older = { ...base, extractionVersion: EXTRACTION_VERSION - 1, score: 9.1 };
+ assert.equal(reportIsStale(older), true);
+ assert.equal(needsArchivedRefresh(older), true);
+ const olderShown = renderStoredReport(older);
+ assert.equal(olderShown.score, null);
+ assert.equal(scoreAvailable(olderShown), false);
+ assert.match(olderShown.qualityWarnings.join(' '), /fresh source review/);
+ assert.equal(olderShown.futureNote.keep, true);
+ assert.equal(olderShown.facts.futureDetail.ignored, true);
+
+ const current = { ...base, extractionVersion: EXTRACTION_VERSION, score: parsed.score };
+ assert.equal(reportIsStale(current), false);
+ assert.equal(needsArchivedRefresh(current), false);
+ const currentShown = renderStoredReport(current);
+ assert.equal(reportIsStale(currentShown), false);
+ assert.equal(typeof currentShown.score, 'number');
+ assert.equal(scoreAvailable(currentShown), true);
+ assert.equal(currentShown.futureNote.keep, true);
+ assert.equal(currentShown.facts.futureDetail.ignored, true);
+ assert.equal(currentShown.id, parsed.id);
+
+ const newer = {
+  ...base,
+  extractionVersion: EXTRACTION_VERSION + 1,
+  score: 8.2,
+  facts: { ...extraFacts, groundLease: true, year: { stated: 2031 } },
+ };
+ assert.equal(reportIsStale(newer), false);
+ assert.equal(needsArchivedRefresh(newer), false);
+ const newerShown = renderStoredReport(newer);
+ assert.equal(newerShown, newer);
+ assert.equal(newerShown.score, 8.2);
+ assert.equal(scoreAvailable(newerShown), true);
+ assert.equal(newerShown.futureNote.keep, true);
+ assert.equal(newerShown.facts.futureDetail.ignored, true);
+ assert.equal(newerShown.scoreBreakdown.futurePart, 4);
+ const shown = displayedPropertyScore(newer);
+ assert.equal(shown.total, 8.2);
+ assert.equal(shown.breakdown.energy, 1.1);
+ assert.deepEqual(shown.adjustments, []);
 });
 test('AI extraction cannot overwrite evidence or call partial output fully verified', () => {
  const original = parseListing(source, 'test');

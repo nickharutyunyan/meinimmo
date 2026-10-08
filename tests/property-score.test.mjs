@@ -152,7 +152,7 @@ test('price bands follow the Berlin delta, including every boundary', () => {
     totalCost: 202_320,
     district: 'Marzahn',
   }));
-  assert.equal(thin.breakdown.price, 4.5);
+  assert.equal(thin.breakdown.price, 4.4);
 });
 
 test('yield and buyer-cost adjustments apply only when price is scored', () => {

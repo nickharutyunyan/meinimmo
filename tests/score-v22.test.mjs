@@ -158,7 +158,7 @@ test('an investment property has no move-in deduction and shows the gross yield'
   const kapital = shell({ tenancy: 'Rented', grossYield: 4.2, investmentUse: true }, { title: 'Kapitalanlage' });
   assert.equal(calculatePropertyScore(kapital).adjustments.length, 0);
   assert.equal(grossYieldLine(kapital, 'en'), 'Gross yield 4.20%.');
-  assert.equal(grossYieldLine(kapital, 'de'), 'Bruttorendite 4,20 %.');
+  assert.equal(grossYieldLine(kapital, 'de').replace(/\u00a0/g, ' '), 'Bruttorendite 4,20 %.');
   assert.doesNotMatch(`${grossYieldLine(kapital, 'en')} ${grossYieldLine(kapital, 'de')}`, /move in|einziehen|buyer who wants/i);
 });
 
@@ -234,8 +234,8 @@ test('a lettered ss street is the address, and orientation, rent, heat pumps and
   const streetOnly = listing('<p>Vogelsanger Strasse, 50825 Köln</p><div>Kaufpreis</div><div>250.000 €</div><div>Wohnfläche</div><div>60 m²</div>', 'Wohnung Köln');
   assert.equal(streetOnly.facts.street, 'Vogelsanger Straße');
   assert.equal(streetOnly.facts.locationPrecision, 'street');
-  assert.match(streetOnly.address, /Vogelsanger Straße/);
-  assert.doesNotMatch(streetOnly.address, /\d/);
+  assert.match(streetOnly.address, /^Vogelsanger Straße,/);
+  assert.doesNotMatch(streetOnly.facts.street, /\d/);
   assert.doesNotMatch(streetOnly.qualityWarnings.join(' '), /not disclosed/i);
 
   for (const [phrase, pattern] of [
@@ -252,7 +252,7 @@ test('a lettered ss street is the address, and orientation, rent, heat pumps and
   assert.equal(monthly.facts.grossYield, 1.19);
   assert.equal(monthly.facts.tenancy, 'Rented');
   assert.equal(grossYieldLine(monthly, 'en'), 'Gross yield 1.19%.');
-  assert.equal(grossYieldLine(monthly, 'de'), 'Bruttorendite 1,19 %.');
+  assert.equal(grossYieldLine(monthly, 'de').replace(/\u00a0/g, ' '), 'Bruttorendite 1,19 %.');
   assert.equal(glanceFacts(monthly, 'en').find(([label]) => label === 'Gross yield')[1], '1.19%');
   assert.doesNotMatch(monthly.qualityWarnings.join(' '), /no verified yield/i);
 

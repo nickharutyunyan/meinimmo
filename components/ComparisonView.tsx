@@ -1,11 +1,10 @@
 import { localizedWarnings } from '@/lib/report-copy';
-import { scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
+import { displayedPropertyScore, scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
-import { calculatePropertyScore } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -23,8 +22,8 @@ function scoreCell(item: Report, locale: Locale) {
 
 export async function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
   const text = copy[locale].compare;
-  const firstScore = calculatePropertyScore(first);
-  const secondScore = calculatePropertyScore(second);
+  const firstScore = displayedPropertyScore(first);
+  const secondScore = displayedPropertyScore(second);
   const [firstNeighborhood, secondNeighborhood] = await Promise.all([
     neighborhoodForReport(first),
     neighborhoodForReport(second),

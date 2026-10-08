@@ -6,19 +6,26 @@ import { localePath, type Locale } from '@/lib/i18n';
 import { requestJson } from '@/lib/client-request';
 import { NavChevron } from './NavChevron';
 
-type Identity = { username: string | null; email: string | null; name: string | null };
+type SessionIdentity = { firstName: string | null; email: string | null; verified: boolean; roles: string[] };
+
+function accountLabel(user: SessionIdentity, locale: Locale) {
+  if (user.firstName) return user.firstName;
+  const localPart = user.email?.split('@')[0];
+  if (localPart) return localPart;
+  return locale === 'de' ? 'Konto' : 'Account';
+}
 
 export function AccountNav({ locale }: { locale: Locale }) {
-  const [user, setUser] = useState<Identity | null | undefined>(undefined);
+  const [user, setUser] = useState<SessionIdentity | null | undefined>(undefined);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const load = () => requestJson<{ user?: Identity | null }>('/api/auth/me', { cache: 'no-store' }).then(({ response, data }) => { if (response.ok) setUser(data.user || null); }).catch(() => undefined);
+    const load = () => requestJson<{ user?: SessionIdentity | null }>('/api/session', { cache: 'no-store' }).then(({ response, data }) => { if (response.ok) setUser(data.user || null); }).catch(() => undefined);
     load();
     window.addEventListener('account-changed', load);
     return () => window.removeEventListener('account-changed', load);
   }, []);
-  const label = user ? (user.name || user.username || user.email) : (locale === 'de' ? 'Anmelden' : 'Sign in');
+  const label = user ? accountLabel(user, locale) : (locale === 'de' ? 'Anmelden' : 'Sign in');
   async function signOut() {
     if (busy) return;
     setBusy(true); setError('');

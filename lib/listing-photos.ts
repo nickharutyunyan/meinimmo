@@ -35,8 +35,31 @@ export function isDisplayableListingPhoto(value: string) {
  * A missing or non-numeric `exp` means the URL has no expiry of its own.
  */
 export function listingPhotoExpirySeconds(value: string) {
+  const raw = signedPhotoQuery(value).exp;
+  return raw === undefined ? undefined : unixSeconds(raw);
+}
+
+/**
+ * True when the URL the visitor actually loads should be hidden by the clock.
+ * A URL with no `exp`, `expires`, `sig`, or `signature` query never expires
+ * by time. A signed URL still used as the src or href is hidden once its
+ * own `exp` or `expires` time has passed. No report-wide timestamp is read.
+ */
+export function displayedListingPhotoExpired(value: string, now: number) {
+  const query = signedPhotoQuery(value);
+  if (!query.signed) return false;
+  const raw = query.exp ?? query.expires;
+  if (!raw) return false;
+  const millis = expiryMillis(raw);
+  return millis !== undefined && now >= millis;
+}
+
+function signedPhotoQuery(value: string) {
+  let exp: string | undefined;
+  let expires: string | undefined;
+  let signed = false;
   const queryStart = value.indexOf('?');
-  if (queryStart < 0) return undefined;
+  if (queryStart < 0) return { exp, expires, signed };
   let cursor = queryStart + 1;
   const hash = value.indexOf('#', cursor);
   const stop = hash < 0 ? value.length : hash;
@@ -44,10 +67,24 @@ export function listingPhotoExpirySeconds(value: string) {
     const amp = value.indexOf('&', cursor);
     const partEnd = amp < 0 || amp > stop ? stop : amp;
     const eq = value.indexOf('=', cursor);
-    if (eq > cursor && eq < partEnd && value.slice(cursor, eq) === 'exp') return unixSeconds(value.slice(eq + 1, partEnd));
+    const hasValue = eq > cursor && eq < partEnd;
+    const key = hasValue ? value.slice(cursor, eq) : value.slice(cursor, partEnd);
+    const raw = hasValue ? value.slice(eq + 1, partEnd) : '';
+    if (key === 'exp' && exp === undefined) exp = raw;
+    else if (key === 'expires' && expires === undefined) expires = raw;
+    else if (key === 'sig' || key === 'signature') signed = true;
     cursor = partEnd + 1;
   }
-  return undefined;
+  if (exp !== undefined || expires !== undefined) signed = true;
+  return { exp, expires, signed };
+}
+
+function expiryMillis(raw: string) {
+  const seconds = unixSeconds(raw);
+  if (seconds !== undefined) return seconds * 1000;
+  if (raw.length < 16 || raw.length > 40 || raw.charCodeAt(4) !== 45) return undefined;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function unixSeconds(raw: string) {
@@ -94,24 +131,34 @@ export function displayableListingPhotos(urls: readonly string[] | undefined) {
 }
 
 /**
- * Photos still shown. A URL whose own `exp` unix time has passed is omitted.
- * URLs without `exp` stay. An empty list hides the strip. Links are replaced
- * only when the listing is imported again.
+ * Photos still shown. Expiry follows the URL in the img src, not the stored
+ * signed file and not `photosExpireAt`. A non-signed thumbnail stays. A signed
+ * URL that is still the src is omitted once its own time has passed. Failed
+ * loads are omitted too. An empty list hides the strip.
  */
-export function listingPhotosToShow(urls: readonly string[] | undefined, failed: ReadonlySet<string>, now = Date.now()) {
+export function listingPhotosToShow(urls: readonly string[] | undefined, failed: ReadonlySet<string>, now = Date.now(), listingUrl = '') {
   return displayableListingPhotos(urls).filter((url) => {
     if (failed.has(url)) return false;
-    const exp = listingPhotoExpirySeconds(url);
-    return exp === undefined || now < exp * 1000;
+    const displayed = listingUrl ? listingThumbnailUrl(url, listingUrl, listingPhotoSlot(urls, url)) : url;
+    return !displayedListingPhotoExpired(displayed, now);
   });
+}
+
+/** Index of `url` in the displayable stored list. Hiding another photo does not change it. */
+export function listingPhotoSlot(urls: readonly string[] | undefined, url: string) {
+  const slot = displayableListingPhotos(urls).indexOf(url);
+  return slot < 0 ? 0 : slot;
 }
 
 /**
  * A 160px thumbnail should not download a 1920px frame.
  * An unsigned imgproxy URL can be resized in place. A signed URL cannot:
  * changing the size breaks the signature. When the listing URL names an
- * `/immobilie/{id}/` page, the portal's own `picture/{n}/medium.jpg` is used
- * instead. Anything else stays as stored.
+ * `/immobilie/{id}/` page, `picture/{n}/medium.jpg` is the img src.
+ * `{n}` is the index in the displayable stored photo list.
+ * That src has no expiry query. The browser may redirect it to a short-lived
+ * signed frame; that target is not fetched, stored, or written into the page.
+ * Anything else stays as stored.
  */
 export function listingThumbnailUrl(photoUrl: string, listingUrl: string, index: number) {
   let url: URL;
@@ -128,6 +175,17 @@ export function listingThumbnailUrl(photoUrl: string, listingUrl: string, index:
   const listingId = /\/immobilie\/(\d+)(?:\/|$|\?)/.exec(listingUrl)?.[1];
   if (!listingId || !Number.isInteger(index) || index < 0 || index > 40) return photoUrl;
   return `https://www.ohne-makler.net/immobilie/${listingId}/picture/${index}/medium.jpg`;
+}
+
+/**
+ * Click target for one photo. The listing page is the usual target.
+ * An expired signed file is never the href: use the non-expiring thumbnail,
+ * or no link when that thumbnail is expired too.
+ */
+export function listingPhotoHref(clickUrl: string, displayedUrl: string, now: number) {
+  if (!displayedListingPhotoExpired(clickUrl, now)) return clickUrl;
+  if (displayedUrl && displayedUrl !== clickUrl && !displayedListingPhotoExpired(displayedUrl, now)) return displayedUrl;
+  return undefined;
 }
 
 /**
