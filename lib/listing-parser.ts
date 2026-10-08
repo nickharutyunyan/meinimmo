@@ -215,11 +215,11 @@ function elementText(raw: string, tag: string) {
   return '';
 }
 
-function pageTitle(raw: string) {
+function pageTitle(raw: string, lines?: string[]) {
   const tagged = elementText(raw, 'h1') || elementText(raw, 'title');
   if (tagged) return tidy(tagged);
   if (/<[a-z]/i.test(raw)) return '';
-  return htmlToLines(raw).find(line => line.length >= 12 && /\p{L}/u.test(line)) || '';
+  return (lines || htmlToLines(raw)).find(line => line.length >= 12 && /\p{L}/u.test(line)) || '';
 }
 
 function aroundLabel(lines: string[], label: RegExp, value: RegExp, before = 2, after = 3) {
@@ -967,7 +967,7 @@ function findInvestmentUse(title: string, lines: string[]) {
 export function parseListing(raw: string, source: string): Report {
   const lines = htmlToLines(raw);
   const text = lines.join(' \n ').slice(0, 30_000);
-  const title = pageTitle(raw);
+  const title = pageTitle(raw, lines);
   const currency = /(\d[\d.,]*)\s*(?:€|EUR|e(?=\s|$))/i;
   const areaValue = /(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
 
@@ -1210,7 +1210,7 @@ export function refreshDerivedReport(report: Report) {
 
 export function unsupportedListingReason(raw: string) {
   const lines = htmlToLines(raw);
-  const title = pageTitle(raw);
+  const title = pageTitle(raw, lines);
   if (/\b(?:Autohaus|Gewerbezentrum|Ladenlokal|Bürofläche|Einzelhandel|Gewerbegrundstück)\b/i.test(title) || lines.some(line => /^Objektart\s+(?:Einzelhandel|Büro|Gewerbe|Grundstück)/i.test(line))) return 'Only residential apartments and houses for purchase are supported in Germany.';
   if (!lines.some(line => /Kaufpreis|purchase price|asking price/i.test(line)) && lines.some(line => /Kaltmiete|zur Vermietung|zur Miete|for rent/i.test(line))) return 'This is a rental listing. Use a residential property for purchase.';
   return undefined;
