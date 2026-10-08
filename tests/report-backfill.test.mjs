@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { backfillRejection } from '../cloudflare/backfill-gate.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL, backfillAuthorized, mergedBackfillReport, runBackfillBatch } from '../lib/report-backfill.ts';
+import { BACKFILL_BATCH_SIZE, BACKFILL_REPORT_RESERVE_MS, BACKFILL_WORK_BUDGET_MS, STALE_REPORT_BACKFILL_SQL, STALE_REPORT_COUNT_SQL, backfillAuthorized, configuredBackfillBatchSize, mergedBackfillReport, runBackfillBatch } from '../lib/report-backfill.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { refreshFailureMarker } from '../lib/report-refresh.ts';
@@ -37,39 +37,49 @@ test('the backfill token is required and compared in full', () => {
   assert.equal(backfillAuthorized(`Basic ${token}`, token), false);
 });
 
-test('a backfill call stays within five reports and the time budget', async () => {
+test('a backfill call stays within two reports and does not start work it cannot finish', async () => {
   const candidates = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id }));
-  let clock = 0;
+  assert.equal(BACKFILL_BATCH_SIZE, 2);
+  assert.equal(BACKFILL_WORK_BUDGET_MS, 800);
+  assert.equal(BACKFILL_REPORT_RESERVE_MS, 400);
+  assert.equal(configuredBackfillBatchSize(undefined), 2);
+  assert.equal(configuredBackfillBatchSize(''), 2);
+  assert.equal(configuredBackfillBatchSize('0'), 2);
+  assert.equal(configuredBackfillBatchSize('2.5'), 2);
+  assert.equal(configuredBackfillBatchSize('9'), 2);
+  assert.equal(configuredBackfillBatchSize('1'), 1);
+  assert.equal(configuredBackfillBatchSize('4'), 4);
+
   const seen = [];
   const open = await runBackfillBatch({
     candidates,
-    budgetMs: 10_000,
-    now: () => clock,
-    refresh: async (item) => {
+    refresh: async (item, account) => {
       seen.push(item.id);
+      account(100);
       return 'refreshed';
     },
   });
-  assert.equal(BACKFILL_BATCH_SIZE, 5);
-  assert.deepEqual(seen, ['a', 'b', 'c', 'd', 'e']);
+  assert.deepEqual(seen, ['a', 'b']);
   assert.equal(open.stoppedEarly, false);
-  assert.equal(open.processed.length, 5);
+  assert.equal(open.processed.length, 2);
+  assert.equal(open.usedMs, 200);
 
-  clock = 0;
   const paced = [];
   const limited = await runBackfillBatch({
     candidates,
-    budgetMs: 100,
-    now: () => clock,
-    refresh: async (item) => {
+    batchSize: 4,
+    budgetMs: 800,
+    reserveMs: 400,
+    refresh: async (item, account) => {
       paced.push(item.id);
-      clock += 60;
+      account(500);
       return 'unavailable';
     },
   });
-  assert.deepEqual(paced, ['a', 'b']);
+  assert.deepEqual(paced, ['a']);
   assert.equal(limited.stoppedEarly, true);
-  assert.deepEqual(limited.processed.map(item => item.status), ['unavailable', 'unavailable']);
+  assert.equal(limited.remainingBudgetMs, 300);
+  assert.deepEqual(limited.processed.map(item => item.status), ['unavailable']);
 });
 
 test('a thrown refresh is recorded and does not continue as a queue', async () => {
@@ -87,8 +97,8 @@ test('a thrown refresh is recorded and does not continue as a queue', async () =
 });
 
 /** node:sqlite binds `?`, while D1 binds the numbered `?1` placeholders in the production statement. */
-function sqliteBackfillSql() {
-  return STALE_REPORT_BACKFILL_SQL.replaceAll('?1', '?').replaceAll('?2', '?');
+function sqliteBackfillSql(sql = STALE_REPORT_BACKFILL_SQL) {
+  return sql.replaceAll('?1', '?').replaceAll('?2', '?');
 }
 
 function backfillRows(records) {
@@ -131,6 +141,19 @@ test('backfill selects recent reports that only have an attempt timestamp', () =
   assert.equal(selected.includes('current'), false);
   assert.equal(selected.includes('armenia'), false);
   assert.equal(selected.includes('marked-unavailable'), false);
+});
+
+test('the stale count uses the same filter as the batch select', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE reports (id TEXT PRIMARY KEY, data TEXT NOT NULL, created_at TEXT NOT NULL)');
+  const insert = db.prepare('INSERT INTO reports (id, data, created_at) VALUES (?, ?, ?)');
+  insert.run('old', JSON.stringify({ id: 'old', country: 'DE', extractionVersion: 2026100802 }), '2026-08-01T00:00:00.000Z');
+  insert.run('current', JSON.stringify({ id: 'current', country: 'DE', extractionVersion: EXTRACTION_VERSION }), '2026-10-01T00:00:00.000Z');
+  insert.run('armenia', JSON.stringify({ id: 'armenia', country: 'AM', extractionVersion: 1 }), '2026-08-02T00:00:00.000Z');
+  const selected = db.prepare(sqliteBackfillSql()).all(EXTRACTION_VERSION, 50).map(row => JSON.parse(row.data).id);
+  const count = db.prepare(sqliteBackfillSql(STALE_REPORT_COUNT_SQL)).get(EXTRACTION_VERSION);
+  assert.deepEqual(selected, ['old']);
+  assert.equal(count.remaining, 1);
 });
 
 test('backfill selects an older version and leaves the current and newer versions stored', () => {
@@ -228,6 +251,19 @@ test('backfill keeps enrichment, categories, notes ownership and photo expiry', 
   assert.equal(merged.sourceReviewAttemptedAt, '2026-10-08T16:00:00.000Z');
   assert.equal(merged.extractionVersion, EXTRACTION_VERSION);
 
+  const pinned = {
+    ...previous,
+    country: 'DE',
+    geocode: { lat: 52.593, lon: 13.283, precision: 'street' },
+    evidence: { price: ['Kaufpreis 1 €'] },
+  };
+  const keptPin = mergedBackfillReport(pinned, { ...parsed, geocode: undefined, country: undefined, evidence: undefined }, '2026-10-08T16:00:00.000Z');
+  assert.deepEqual(keptPin.geocode, pinned.geocode);
+  assert.equal(keptPin.country, 'DE');
+  assert.deepEqual(keptPin.evidence, pinned.evidence);
+  assert.equal(keptPin.title, parsed.title);
+  assert.equal(keptPin.facts.rooms, '3');
+
   const withoutPhotos = mergedBackfillReport(previous, { ...parsed, aiEnriched: false, facts: { ...parsed.facts, photoUrls: undefined, photosExpireAt: undefined } }, '2026-10-08T16:00:00.000Z');
   assert.deepEqual(withoutPhotos.facts.photoUrls, previous.facts.photoUrls);
   assert.equal(withoutPhotos.facts.photosExpireAt, previous.facts.photosExpireAt);
@@ -266,11 +302,19 @@ test('page, print, sitemap and metadata routes do not read archived HTML', async
   const backfillLib = await read('lib/report-backfill.ts');
   assert.match(backfillLib, /COALESCE\(json_extract\(data, '\$\.extractionVersion'\), -1\)/);
   assert.match(backfillLib, /COALESCE\(json_extract\(data, '\$\.sourceUnavailable'\), 0\) = 1/);
+  assert.match(backfillLib, /geocode: previous\.geocode/);
+  assert.match(backfillLib, /STALE_REPORT_COUNT_SQL/);
   assert.doesNotMatch(backfillLib, /(?:DELETE|INSERT|UPDATE|FROM)\s+report_notes|report-notes/);
   const backfill = await read('app/api/reports/backfill/route.ts');
   assert.match(backfill, /mergedBackfillReport/);
   assert.match(backfill, /backfillAuthorized/);
-  assert.match(backfill, /parseListing/);
+  assert.match(backfill, /parseListing\(source, item\.source \|\| item\.id, lines\)/);
+  assert.match(backfill, /archivedListingAccepted\(source, lines\)/);
+  assert.match(backfill, /htmlToLines\(source\)/);
+  assert.match(backfill, /configuredBackfillBatchSize\(env\.BACKFILL_BATCH_SIZE\)/);
+  assert.match(backfill, /account\(performance\.now\(\) - started\)/);
+  assert.match(backfill, /remaining/);
+  assert.doesNotMatch(backfill, /looksLikePropertyListing/);
   assert.doesNotMatch(backfill, /fetchListing|report_notes|report-notes/);
   const prelude = backfill.slice(0, backfill.indexOf('export async function POST'));
   assert.doesNotMatch(prelude, /listing-parser|assessment|report-refresh|from '@\/lib\/store'/);

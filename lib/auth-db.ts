@@ -19,6 +19,7 @@ export type AppEnv = CloudflareEnv & {
   TYPESAFE_API_KEY?: string;
   JEV_MODEL?: string;
   BACKFILL_TOKEN?: string;
+  BACKFILL_BATCH_SIZE?: string;
 };
 
 export async function appEnvironment() {
