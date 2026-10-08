@@ -3,6 +3,7 @@ import { defaultOfferQuestions, enrichOnlyWhenNeeded } from '@/lib/assessment';
 import { requireSameOrigin } from '@/lib/auth';
 import { replaceReport, report as findReport } from '@/lib/store';
 import { questionsAreConcise } from '@/lib/report-copy';
+import { storedVersionIsNewer } from '@/lib/report-integrity';
 import { validReportId } from '@/lib/report-note-validation';
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   if (!current) return NextResponse.json({ error: 'Report not found.' }, { status: 404 });
   if (current.country === 'AM') return NextResponse.json({ offerQuestions: current.offerQuestions || [], aiEnriched: false });
+  if (storedVersionIsNewer(current.extractionVersion)) {
+    return NextResponse.json({ offerQuestions: current.offerQuestions || [], offerQuestionsDe: current.offerQuestionsDe || [], sunOrientation: current.sunOrientation, aiEnriched: Boolean(current.aiEnriched) });
+  }
   if (current.aiEnriched && questionsAreConcise(current.offerQuestions) && questionsAreConcise(current.offerQuestionsDe)) {
     return NextResponse.json({
       offerQuestions: current.offerQuestions,

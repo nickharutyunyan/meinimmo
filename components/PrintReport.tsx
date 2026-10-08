@@ -1,8 +1,8 @@
-import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
+import { displayedPropertyScore, scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
+import { formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -17,7 +17,7 @@ type FinanceSettings = { equity: number; interest: number; repayment: number; in
 export function PrintReport({ report, locale, finance, autoPrint }: { report: Report; locale: Locale; finance: FinanceSettings; autoPrint: boolean }) {
   const de = locale === 'de';
   const reportText = copy[locale].report;
-  const score = calculatePropertyScore(report);
+  const score = displayedPropertyScore(report);
   const showScore = scoreAvailable(report);
   const verdict = reportVerdict(report, locale);
   const basis = scoreBasisLine(report, locale);

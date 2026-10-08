@@ -3,14 +3,15 @@ import { constantTimeEqual } from './security.ts';
 import type { Report } from './types.ts';
 
 /**
- * Reports still on an older extraction version. A missing sourceUnavailable is
- * 0, so a row that only has sourceReviewAttemptedAt stays eligible. A row
- * already marked unavailable, with an attempt timestamp, stays out.
+ * Reports still on an older extraction version. A newer version is left alone
+ * so a rollback does not re-parse it. A missing sourceUnavailable is 0, so a
+ * row that only has sourceReviewAttemptedAt stays eligible. A row already
+ * marked unavailable, with an attempt timestamp, stays out.
  */
 export const STALE_REPORT_BACKFILL_SQL = `
   SELECT data FROM reports
   WHERE COALESCE(json_extract(data, '$.country'), '') != 'AM'
-    AND COALESCE(json_extract(data, '$.extractionVersion'), -1) != ?1
+    AND COALESCE(json_extract(data, '$.extractionVersion'), -1) < ?1
     AND NOT (
       COALESCE(json_extract(data, '$.sourceUnavailable'), 0) = 1
       AND typeof(json_extract(data, '$.sourceReviewAttemptedAt')) = 'text'
