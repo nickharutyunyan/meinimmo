@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { DocumentLocale } from '@/components/DocumentLocale';
 
-const title = 'ReviewAHouse — Immobilienangebote prüfen und vergleichen';
+const title = 'Review a House — Immobilienangebote prüfen und vergleichen';
 const description = 'Prüfe deutsche Immobilienangebote mit klaren Berichten, Lage- und Energiedaten, direkten Vergleichen und einem anpassbaren Finanzierungsrechner.';
 
 export const metadata: Metadata = {

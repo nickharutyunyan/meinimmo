@@ -11,4 +11,6 @@ test('English glossary terms receive the expected explanations', () => {
 
 test('German pages return completely plain glossary text', () => {
   assert.deepEqual(glossaryPieces('Hausgeld und Energieausweis', 'de'), [{ text: 'Hausgeld und Energieausweis' }]);
+  assert.equal(glossaryPieces('The flat is on Sterrhubenweg.', 'en').some((piece) => piece.explanation), false);
+  assert.match(glossaryPieces('Ask the WEG for the reserve.', 'en').map((piece) => piece.explanation || '').join(' '), /association/i);
 });

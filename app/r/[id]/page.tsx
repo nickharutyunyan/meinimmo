@@ -27,5 +27,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!item) notFound();
   if (item.country === 'AM') return <ArmeniaReport report={item} />;
   const mortgageRate = await cachedMortgageRate();
-  return <ReportView report={item} locale="en" mortgageRate={mortgageRate} />;
+  return <ReportView report={item} locale="en" mortgageRate={mortgageRate} renderedAt={Date.now()} />;
 }
