@@ -517,6 +517,163 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   line-height: 1.58;
 }
 
+.how {
+  padding: 48px 2vw 0;
+  border-top: 1px solid var(--line);
+}
+
+.how-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  gap: 18px 48px;
+  align-items: end;
+  margin-bottom: 26px;
+}
+
+.how-head h2 {
+  max-width: 12em;
+  margin: 10px 0 0;
+  font: 400 clamp(34px, 3.4vw, 46px)/1.05 var(--serif);
+  letter-spacing: -.03em;
+}
+
+.how-head > p {
+  max-width: 38em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+
+.how-steps > li {
+  padding: 20px 26px 24px 0;
+}
+
+.how-steps > li + li {
+  padding-left: 26px;
+  border-left: 1px solid var(--line);
+}
+
+.how-kicker {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.how-kicker span {
+  color: var(--clay);
+  font: 650 12px var(--sans);
+  letter-spacing: .12em;
+}
+
+.how-kicker b {
+  color: #7a8780;
+  font: 650 10px var(--sans);
+  letter-spacing: .12em;
+  text-align: right;
+}
+
+.how-steps h3 {
+  margin: 16px 0 8px;
+  font: 400 23px/1.15 var(--serif);
+  letter-spacing: -.02em;
+}
+
+.how-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.how-report {
+  margin-top: 6px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.how-report > .eyebrow {
+  margin: 0 0 12px;
+}
+
+.how-points {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--ink);
+}
+
+.how-points > div {
+  padding: 14px 16px 4px 0;
+}
+
+.how-points > div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.how-points dt {
+  margin-bottom: 4px;
+  color: var(--ink);
+  font: 650 13.5px/1.3 var(--sans);
+}
+
+.how-points dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.how-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 16px 0 2px;
+  border-top: 1px solid var(--line);
+}
+
+.how-cta p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.how-cta strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.how-cta a {
+  color: var(--ink);
+  font: 650 14px var(--sans);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.how-cta a::after {
+  content: " ↗";
+  font-weight: 400;
+}
+
+#start {
+  scroll-margin-top: 16px;
+}
+
 .faq-section {
   display: grid;
   grid-template-columns: minmax(230px, .72fr) minmax(0, 1.55fr);
@@ -1712,6 +1869,14 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   .approach-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .approach-grid article:nth-child(3) { padding-left: 0; border-left: 0; }
   .approach-grid article:nth-child(n + 3) { border-top-color: var(--line); }
+
+  .how-head { grid-template-columns: 1fr; gap: 12px; }
+  .how-steps { grid-template-columns: 1fr; }
+  .how-steps > li { padding: 20px 0 22px; }
+  .how-steps > li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .how-points { grid-template-columns: 1fr 1fr; }
+  .how-points > div:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
+  .how-points > div:nth-child(n + 3) { padding-top: 14px; border-top: 1px solid var(--line); }
 }
 
 .action-label-short { display: none; }
@@ -1814,6 +1979,21 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   }
 
   .approach-grid h3 { max-width: none; margin-top: 24px; }
+
+  .how { padding: 34px 0 0; }
+  .how-head { display: block; }
+  .how-head h2 { margin-top: 10px; font-size: 32px; }
+  .how-head > p { margin-top: 14px; }
+  .how-steps h3 { margin-top: 14px; }
+  .how-points { grid-template-columns: 1fr; }
+  .how-points > div,
+  .how-points > div + div,
+  .how-points > div:nth-child(2n + 1) {
+    padding: 14px 0 2px;
+    border-left: 0;
+  }
+  .how-points > div + div { border-top: 1px solid var(--line); }
+  .how-cta { align-items: flex-start; flex-direction: column; gap: 12px; }
 
   .faq-section {
     grid-template-columns: 1fr;

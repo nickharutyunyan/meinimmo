@@ -143,7 +143,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
     <SiteNav locale={locale} landing />
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">{text.audience}</p><h1>{text.headline}<br/><em>{text.emphasis}</em></h1></div>
-      <div className="intake-panel">
+      <div className="intake-panel" id="start">
         <p className="eyebrow">{text.start}</p>
         <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} aria-label={text.input} type="url" required={!pasteOpen} disabled={busy}/></label><button disabled={busy}>{busy ? text.readingListing : text.assess}</button></form>
         <div className="upload-row"><span>{text.or}</span><label onPointerEnter={() => void loadPdfJs().catch(() => undefined)} onFocus={() => void loadPdfJs().catch(() => undefined)}>{text.upload} <input onChange={upload} accept="application/pdf" type="file" aria-label={text.upload} disabled={busy}/></label></div>
@@ -156,8 +156,18 @@ export function LandingPage({ locale }: { locale: Locale }) {
         </div> : null}
       </div>
     </section>
-    <section id="how" className="approach-head"><p className="eyebrow">{text.approachLabel}</p><div><h2>{text.approachTitle}</h2><p>{text.approachIntro}</p></div></section>
-    <section className="approach-grid">{text.steps.map(([kicker, title, description], index) => <article key={title}><div className="approach-meta"><span>{String(index + 1).padStart(2, '0')}</span><b>{kicker}</b></div><h3>{title}</h3><p><GlossaryText locale={locale}>{description}</GlossaryText></p></article>)}</section>
+    <section id="how" className="how">
+      <div className="how-head">
+        <div><p className="eyebrow">{text.approachLabel}</p><h2>{text.approachTitle}</h2></div>
+        <p><GlossaryText locale={locale}>{text.approachIntro}</GlossaryText></p>
+      </div>
+      <ol className="how-steps">{text.steps.map(([kicker, title, description], index) => <li key={title}><div className="how-kicker"><span>{String(index + 1).padStart(2, '0')}</span><b>{kicker}</b></div><h3>{title}</h3><p><GlossaryText locale={locale}>{description}</GlossaryText></p></li>)}</ol>
+      <div className="how-report">
+        <p className="eyebrow">{text.reportLabel}</p>
+        <dl className="how-points">{text.reportPoints.map(([label, detail]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd><GlossaryText locale={locale}>{detail}</GlossaryText></dd></div>)}</dl>
+      </div>
+      <div className="how-cta"><p><strong>{text.approachFree}</strong> {text.approachFreeNote}</p><a href="#start">{text.approachCta}</a></div>
+    </section>
     <AdSlot locale={locale} kind="finance" />
     <section id="faq" className="faq-section">
       <div className="faq-intro"><p className="eyebrow">{text.faqLabel}</p><h2>{text.faqTitle}</h2><p>{text.faqIntro}</p></div>
