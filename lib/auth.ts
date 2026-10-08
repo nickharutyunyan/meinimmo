@@ -1,6 +1,8 @@
 import 'server-only';
 import type { NextRequest, NextResponse } from 'next/server';
 import { authDatabase, publicUser, type SessionUser, type UserRow } from './auth-db';
+import { linkGoogleUser } from './google-identity';
+import { changeRecoveryEmail } from './recovery-email';
 import { hashPassword, normalizeEmail, randomToken, sha256Hex, validEmail, validPassword, verifyPassword } from './security';
 
 export const SESSION_COOKIE = 'rah_session';
@@ -57,7 +59,7 @@ export async function createCredentialsUser(usernameInput: string, password: str
     if (/unique|constraint/i.test(String(error))) throw new Error('account_exists');
     throw error;
   }
-  return { id, username, email, name, stripeCustomerId: null } satisfies SessionUser;
+  return { id, username, email, name, stripeCustomerId: null, emailVerified: false } satisfies SessionUser;
 }
 
 export async function authenticateCredentials(identifierInput: string, password: string) {
@@ -74,26 +76,9 @@ export async function authenticateCredentials(identifierInput: string, password:
 }
 
 export async function findOrCreateGoogleUser(providerUserId: string, emailInput: string) {
-  const email = emailInput.trim().toLowerCase();
   const db = await authDatabase();
-  const existing = await db.prepare(`
-    SELECT u.* FROM users u JOIN oauth_accounts o ON o.user_id = u.id
-    WHERE o.provider = 'google' AND o.provider_user_id = ?1
-  `).bind(providerUserId).first<UserRow>();
-  if (existing) return publicUser(existing);
-
-  const matchingEmail = await db.prepare('SELECT * FROM users WHERE email = ?1 COLLATE NOCASE').bind(email).first<UserRow>();
-  const id = matchingEmail?.id || crypto.randomUUID();
-  const now = new Date().toISOString();
-  if (matchingEmail) {
-    await db.prepare("INSERT INTO oauth_accounts (provider, provider_user_id, user_id, created_at) VALUES ('google', ?1, ?2, ?3)").bind(providerUserId, id, now).run();
-    return publicUser(matchingEmail);
-  }
-  await db.batch([
-    db.prepare('INSERT INTO users (id, email, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)').bind(id, email, now),
-    db.prepare("INSERT INTO oauth_accounts (provider, provider_user_id, user_id, created_at) VALUES ('google', ?1, ?2, ?3)").bind(providerUserId, id, now),
-  ]);
-  return { id, username: null, email, name: null, stripeCustomerId: null } satisfies SessionUser;
+  const row = await linkGoogleUser(db, providerUserId, emailInput, new Date().toISOString());
+  return publicUser(row);
 }
 
 export async function createSession(userId: string) {
@@ -147,18 +132,8 @@ export async function updateDisplayName(userId: string, nameInput: string) {
 }
 
 export async function updateRecoveryEmail(userId: string, emailInput: string) {
-  const email = normalizeEmail(emailInput);
-  if (!validEmail(email)) throw new Error('invalid_email');
   const db = await authDatabase();
-  const credential = await db.prepare('SELECT 1 AS present FROM password_credentials WHERE user_id = ?1').bind(userId).first<{ present: number }>();
-  if (!credential) throw new Error('not_credentials_user');
-  try {
-    await db.prepare('UPDATE users SET email = ?1, updated_at = ?2 WHERE id = ?3').bind(email, new Date().toISOString(), userId).run();
-  } catch (error) {
-    if (/unique|constraint/i.test(String(error))) throw new Error('email_taken');
-    throw error;
-  }
-  return email;
+  return changeRecoveryEmail(db, userId, emailInput, new Date().toISOString());
 }
 
 export async function authRateLimited(request: NextRequest, identity: string) {

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
+import { displayedPropertyScore, scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
+import { formatScore, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
 import { clarifyBeforeDecision, glanceFacts, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
@@ -89,7 +89,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
     const perSqm = glance.findIndex(([label]) => label === text.perSqm);
     glance.splice(perSqm >= 0 ? perSqm + 1 : glance.length, 0, [priceView.glanceLabel, priceView.glanceValue]);
   }
-  const propertyScore = calculatePropertyScore(report);
+  const propertyScore = displayedPropertyScore(report);
   const verdict = reportVerdict(report, locale);
   const verdictText = /[.!?]$/.test(verdict) ? verdict : `${verdict}.`;
   const breakdown = propertyScore.breakdown;
