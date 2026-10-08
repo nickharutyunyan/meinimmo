@@ -8,6 +8,8 @@ import { localePath, type Locale } from '@/lib/i18n';
 import { SiteFooter } from './SiteFooter';
 import { requestJson } from '@/lib/client-request';
 import { canOfferDayPass } from '@/lib/day-pass';
+import { confirmToPublish, passwordInsteadLabel, resendAcceptedMessage, sendConfirmationLabel, sendLinkLabel, signInAcceptedMessage, termsNote } from '@/lib/identity/copy';
+import { safeReturnTo } from '@/lib/return-to';
 
 type AccountSubscription = { plan: 'pro' | 'ultra'; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean };
 
@@ -51,7 +53,8 @@ function subscriptionDetail(de: boolean, subscription: AccountSubscription) {
 export function AccountPage({ locale }: { locale: Locale }) {
   const de = locale === 'de';
   const [data, setData] = useState<AccountState | null>(null);
-  const [mode, setMode] = useState<'signup' | 'login'>('signup');
+  const [mode, setMode] = useState<'link' | 'login'>('link');
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [dayPassOpen, setDayPassOpen] = useState(false);
@@ -82,8 +85,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
   }
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requestedReturn = params.get('returnTo');
-    setReturnTo(requestedReturn && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') && !/[\r\n]/.test(requestedReturn) ? requestedReturn : '');
+    setReturnTo(safeReturnTo(params.get('returnTo'), ''));
     if (params.get('mode') === 'login') setMode('login');
     setPasswordReset(params.get('passwordReset') === '1');
     load();
@@ -109,10 +111,29 @@ export function AccountPage({ locale }: { locale: Locale }) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     await run(async () => {
-      const { response, data: result } = await requestJson<{ error?: string }>(`/api/auth/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: values.get('username'), identifier: values.get('identifier'), email: values.get('email'), password: values.get('password'), name: values.get('name'), locale }) });
+      const { response, data: result } = await requestJson<{ error?: string }>('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: values.get('identifier'), password: values.get('password'), locale }) });
       if (!response.ok) { setError(result.error || networkError); return; }
       if (returnTo) { window.location.href = returnTo; return; }
       await refresh();
+    });
+  }
+
+  async function sendLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = String(new FormData(event.currentTarget).get('email') || '');
+    await run(async () => {
+      const { response, data: result } = await requestJson<{ error?: string; message?: string }>('/api/auth/email/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, locale, returnTo }) });
+      if (!response.ok) { setError(result.error || networkError); return; }
+      setNotice(result.message || signInAcceptedMessage(email, locale));
+    });
+  }
+
+  async function resendConfirmation() {
+    await run(async () => {
+      const email = data?.user?.email || '';
+      const { response, data: result } = await requestJson<{ error?: string; message?: string }>('/api/auth/email/resend', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, locale }) });
+      if (!response.ok) { setError(result.error || networkError); return; }
+      setNotice(result.message || resendAcceptedMessage(email, locale));
     });
   }
 
@@ -154,7 +175,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
           <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
         </section> : <section className="account-card usage-card"><span>{data.subscription ? data.subscription.plan.toUpperCase() : (de ? 'KOSTENLOS' : 'FREE')}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{data.subscription ? (de ? 'Das ist dein aktuelles Abo. Verwalten oder kündigen kannst du es unten.' : 'This is your current plan. Manage or cancel it below.') : (de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.')}</small></section>}
-        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required={data.user.emailVerified} disabled={!data.user.emailVerified} /><small>{data.user.emailVerified ? recoveryEmailHint : recoveryEmailLocked}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
+        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required={data.user.emailVerified} disabled={!data.user.emailVerified} /><small>{data.user.emailVerified ? recoveryEmailHint : recoveryEmailLocked}</small></label> : null}{!data.user.emailVerified ? <p>{confirmToPublish(locale)} <button type="button" className="text-button" onClick={resendConfirmation} disabled={busy}>{sendConfirmationLabel(locale)}</button></p> : null}{notice ? <p className="account-success" role="status">{notice}</p> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {data.subscription ? <section className="subscription-card">
         <div>
@@ -175,18 +196,22 @@ export function AccountPage({ locale }: { locale: Locale }) {
       <p className="separation-note">{de ? 'Deine persönlichen Kontodaten werden in einer eigenen Datenbank gespeichert – getrennt von Immobilien-Berichten.' : 'Your personal account data is stored in its own database, separate from property reports.'}</p>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
     </section> : <section className="account-shell auth-shell">
-      <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'signup' ? (de ? 'In einer Minute startklar.' : 'Ready in a minute.') : (de ? 'Willkommen zurück.' : 'Welcome back.')}</h1><p>{data.paidPlansEnabled ? (de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.') : (de ? 'Melde dich an, um Berichte deinem Konto zuzuordnen. Einen Bericht erstellen kannst du auch ohne Anmeldung.' : 'Sign in to keep reports with your account. You can create a report with no sign-up.')}</p></div>
+      <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'login' ? (de ? 'Willkommen zurück.' : 'Welcome back.') : (de ? 'In einer Minute startklar.' : 'Ready in a minute.')}</h1><p>{data.paidPlansEnabled ? (de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.') : (de ? 'Melde dich an, um Berichte deinem Konto zuzuordnen. Einen Bericht erstellen kannst du auch ohne Anmeldung.' : 'Sign in to keep reports with your account. You can create a report with no sign-up.')}</p></div>
       <div className="auth-card">
         {data.googleAvailable ? <a className="google-auth" href={`/api/auth/google/start?locale=${locale}&returnTo=${encodeURIComponent(returnTo || localePath(locale, '/account'))}`}><span>G</span>{de ? 'Mit Google weitermachen' : 'Continue with Google'}</a> : null}
         {data.googleAvailable ? <div className="auth-divider"><span>{de ? 'oder' : 'or'}</span></div> : null}
-        <form className="credential-form" onSubmit={submit}>
-          {mode === 'signup' ? <label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" autoComplete="name" /></label> : null}
-          {mode === 'signup' ? <><label>{de ? 'Nutzername' : 'Username'}<input name="username" autoComplete="username" required /></label><label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" required /><small>{data.paidPlansEnabled ? (de ? 'Nur für dein Konto, Zahlungen und die Passwort-Wiederherstellung.' : 'Used only for your account, payments and password recovery.') : (de ? 'Nur für dein Konto und die Passwort-Wiederherstellung.' : 'Used only for your account and password recovery.')}</small></label></> : <label>{de ? 'Nutzername oder E-Mail' : 'Username or email'}<input name="identifier" autoComplete="username" required /></label>}
-          <label>{de ? 'Passwort' : 'Password'}<input name="password" type="password" minLength={10} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />{mode === 'signup' ? <small>{de ? 'Mindestens 10 Zeichen, mit Buchstabe und Zahl.' : 'At least 10 characters, with a letter and a number.'}</small> : null}</label>
-          <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : mode === 'signup' ? (de ? 'Konto erstellen' : 'Create account') : (de ? 'Anmelden' : 'Sign in')}</button>
-        </form>
+        {mode === 'link' ? <form className="credential-form" onSubmit={sendLink}>
+          <label>{de ? 'E-Mail-Adresse' : 'Email address'}<input name="email" type="email" autoComplete="email" required /></label>
+          <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : sendLinkLabel(locale)}</button>
+          <p><small>{termsNote(locale)}</small></p>
+          {notice ? <p className="account-success" role="status">{notice}</p> : null}
+        </form> : <form className="credential-form" onSubmit={submit}>
+          <label>{de ? 'Nutzername oder E-Mail' : 'Username or email'}<input name="identifier" autoComplete="username" required /></label>
+          <label>{de ? 'Passwort' : 'Password'}<input name="password" type="password" minLength={10} autoComplete="current-password" required /></label>
+          <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : (de ? 'Anmelden' : 'Sign in')}</button>
+        </form>}
         {mode === 'login' ? <a className="forgot-password-link" href={localePath(locale, '/account/forgot')}>{de ? 'Passwort vergessen?' : 'Forgot password?'}</a> : null}
-        <button className="auth-mode" disabled={busy} onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}>{mode === 'signup' ? (de ? 'Schon ein Konto? Anmelden' : 'Already have an account? Sign in') : (de ? 'Noch kein Konto? Erstellen' : 'New here? Create an account')}</button>
+        <button className="auth-mode" disabled={busy} onClick={() => { setMode(mode === 'link' ? 'login' : 'link'); setError(''); setNotice(''); }}>{mode === 'link' ? passwordInsteadLabel(locale) : (de ? 'Stattdessen einen Link schicken' : 'Email me a link instead')}</button>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       </div>
     </section>}

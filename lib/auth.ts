@@ -8,6 +8,7 @@ import { hashPassword, normalizeEmail, randomToken, sha256Hex, validEmail, valid
 export const SESSION_COOKIE = 'rah_session';
 export const ANON_COOKIE = 'rah_anon';
 export const OAUTH_COOKIE = 'rah_google_oauth';
+export { LINK_NONCE_COOKIE } from './identity/constants.ts';
 const SESSION_DAYS = 30;
 
 function secureCookie(request: NextRequest) {

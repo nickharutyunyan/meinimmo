@@ -30,7 +30,8 @@ function authDb() {
       display_name TEXT,
       stripe_customer_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      email_verified_at TEXT
     );
     CREATE TABLE password_credentials (
       user_id TEXT PRIMARY KEY NOT NULL,
@@ -134,10 +135,10 @@ function seedPasswordAccount(db, { id, email, sessions = 1, displayName = null }
   }
 }
 
-test('without an email_verified_at column, Google does not link to a password account and the recovery email stays locked', async () => {
+test('Google does not link to an unverified password account, and the recovery email stays locked', async () => {
   const db = authDb();
   const columns = db.sqlite.prepare('PRAGMA table_info(users)').all().map((column) => column.name);
-  assert.equal(columns.includes('email_verified_at'), false);
+  assert.equal(columns.includes('email_verified_at'), true);
   seedPasswordAccount(db, { id: 'attacker-account', email: 'victim@example.com', sessions: 2 });
   db.stats.batches = 0;
   await assert.rejects(() => linkGoogleUser(db, 'google-sub-1', 'Victim@Example.com', '2026-10-08T18:00:00.000Z'), /unverified_account/);
@@ -151,7 +152,6 @@ test('without an email_verified_at column, Google does not link to a password ac
   await assert.rejects(() => changeRecoveryEmail(db, 'attacker-account', 'other@example.com', '2026-10-08T18:00:00.000Z'), /email_unverified/);
   assert.equal(await changeRecoveryEmail(db, 'attacker-account', 'victim@example.com', '2026-10-08T18:00:00.000Z'), 'victim@example.com');
   assert.equal(db.sqlite.prepare('SELECT email FROM users WHERE id = ?').get('attacker-account').email, 'victim@example.com');
-  assert.equal(db.stats.queries.some((sql) => /email_verified_at/.test(sql)), false);
 });
 
 test('an existing Google identity is reused, and a passwordless account with the same email can take another Google id', async () => {
@@ -206,7 +206,8 @@ test('a light session read is one D1 query and treats a password account as unve
   assert.equal(db.stats.prepares, 1);
   assert.equal(db.stats.queries.length, 1);
   assert.match(db.stats.queries[0], /token_hash = \?1/);
-  assert.doesNotMatch(db.stats.queries[0], /user_reports|subscriptions|email_verified_at/);
+  assert.match(db.stats.queries[0], /email_verified_at/);
+  assert.doesNotMatch(db.stats.queries[0], /user_reports|subscriptions|oauth_accounts|CASE/);
   assert.deepEqual(user, { firstName: 'Anna', email: 'member@example.com', verified: false, roles: [] });
 
   db.sqlite.prepare(`
@@ -221,6 +222,7 @@ test('a light session read is one D1 query and treats a password account as unve
     INSERT INTO sessions (token_hash, user_id, expires_at, created_at, last_seen_at)
     VALUES ('google-token', 'google-member', '2026-11-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')
   `).run();
+  db.sqlite.prepare('UPDATE users SET email_verified_at = ? WHERE id = ?').run('2026-10-01T00:00:00.000Z', 'google-member');
   db.stats.prepares = 0;
   db.stats.queries = [];
   const googleUser = await readLightSession(db, 'google-token', '2026-10-08T18:00:00.000Z');
@@ -266,10 +268,9 @@ test('session and account routes stay private, and report history is bounded', a
   assert.equal(userReportWindow('1.5').page, 1);
   assert.equal(userReportWindow('99999').limit, 50);
   assert.equal(userReportWindow('99999').offset, 199 * 50);
-  assert.equal(migrations.some((name) => name.startsWith('0004_')), false);
-  for (const path of ['lib/google-identity.ts', 'lib/recovery-email.ts', 'lib/session-view.ts', 'lib/auth.ts', 'lib/auth-db.ts']) {
-    assert.doesNotMatch(await source(path), /email_verified_at/, path);
-  }
+  assert.equal(migrations.some((name) => name.startsWith('0004_')), true);
+  assert.match(await source('lib/google-identity.ts'), /unverified_account/);
+  assert.doesNotMatch(await source('lib/google-identity.ts'), /DELETE FROM password_credentials/);
   assert.doesNotMatch(wrangler, /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET/);
 });
 
