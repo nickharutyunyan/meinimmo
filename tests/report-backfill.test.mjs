@@ -1,9 +1,28 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { backfillRejection } from '../cloudflare/backfill-gate.mjs';
 import { BACKFILL_BATCH_SIZE, backfillAuthorized, runBackfillBatch } from '../lib/report-backfill.ts';
 
 const token = 'a'.repeat(32);
+
+test('an unauthorized backfill is rejected before Next loads the parser', async () => {
+  const secret = 'b'.repeat(32);
+  const request = (method, pathname, authorization) => ({
+    method,
+    url: `https://reviewahouse.com${pathname}`,
+    headers: { get: (name) => (name.toLowerCase() === 'authorization' ? authorization : null) },
+  });
+  const rejected = backfillRejection(request('POST', '/api/reports/backfill', null), secret);
+  assert.equal(rejected.status, 401);
+  assert.equal(rejected.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await rejected.json(), { error: 'Unauthorized.' });
+  assert.equal(backfillRejection(request('POST', '/api/reports/backfill/', `Bearer ${secret}`), secret), null);
+  assert.equal(backfillRejection(request('GET', '/api/reports/backfill', null), secret), null);
+  assert.equal(backfillRejection(request('POST', '/api/assess', `Bearer ${secret}`), secret), null);
+  const mismatch = backfillRejection(request('POST', '/api/reports/backfill', `Bearer ${'c'.repeat(32)}`), secret);
+  assert.equal(mismatch.status, 401);
+});
 
 test('the backfill token is required and compared in full', () => {
   assert.equal(backfillAuthorized(null, token), false);
@@ -94,6 +113,16 @@ test('page, print, sitemap and metadata routes do not read archived HTML', async
   assert.match(backfill, /backfillAuthorized/);
   assert.match(backfill, /parseListing/);
   assert.doesNotMatch(backfill, /fetchListing/);
+  const prelude = backfill.slice(0, backfill.indexOf('export async function POST'));
+  assert.doesNotMatch(prelude, /listing-parser|assessment|report-refresh|from '@\/lib\/store'/);
+  assert.match(backfill, /await Promise\.all/);
+  const worker = await read('cloudflare/worker.mjs');
+  const fetchBody = worker.slice(worker.indexOf('async fetch'));
+  assert.ok(fetchBody.indexOf('backfillRejection(request') >= 0);
+  assert.ok(fetchBody.indexOf('backfillRejection(request') < fetchBody.indexOf('fetchNext'));
+  const gate = await read('cloudflare/backfill-gate.mjs');
+  assert.match(gate, /backfillAuthorized/);
+  assert.doesNotMatch(gate, /listing-parser|assessment|\/lib\/store/);
   const assess = await read('app/api/assess/route.ts');
   assert.match(assess, /deterministicAssessment/);
 });
