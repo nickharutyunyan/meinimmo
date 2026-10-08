@@ -33,5 +33,8 @@ List.am content commercially. Resolve that permission before broad distribution.
 
 ## Package
 
-From the repository root run npm run helper:package. The resulting zip contains
-only the five runtime files and this README, never environment files or secrets.
+From the repository root, `npm run helper:package` writes
+`public/downloads/reviewahouse-helper.zip`. `npm run build` and `npm run deploy`
+do that first. Packaging uses Node, so the Cloudflare build image does not need
+a `zip` binary. The archive contains only the five runtime files and this README,
+never environment files or secrets. The zip is generated, not committed.

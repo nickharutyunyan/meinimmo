@@ -22,6 +22,10 @@ Never put the OpenRouter key in `.env.example`, `.dev.vars.example`, `wrangler.j
 
 Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
 
+There is no GitHub Actions workflow in this repository. `wrangler.jsonc` attaches the Worker to `reviewahouse.com` and `www.reviewahouse.com`, so a successful deploy publishes production. Whether a push to `main` triggers that deploy is set in the Cloudflare dashboard, not in git.
+
+The Armenia helper page downloads `/downloads/reviewahouse-helper.zip`. That file is built by `npm run helper:package`, which `npm run build` runs before `next build`. OpenNext's Cloudflare build invokes `npm run build`, so `npm run deploy` produces the zip without committing it. Packaging is a Node script because the Workers build image includes `unzip` but not `zip`.
+
 D1 is the authoritative store for reports and comparisons. The old `data/*.json` files are no longer used at runtime.
 
 ## Accounts and billing

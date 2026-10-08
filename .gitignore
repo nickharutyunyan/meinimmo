@@ -8,4 +8,6 @@ data/reports.json
 node_modules/
 .next/
 tmp/jev-eval/
+outputs/
+public/downloads/*.zip
 .DS_Store
