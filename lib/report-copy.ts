@@ -4,6 +4,7 @@ import { factualLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
+import { buyerCostDivergenceNote } from './buyer-costs.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -91,8 +92,10 @@ export function localizedConsiderations(report: Report, locale: Locale) {
 }
 
 export function localizedWarnings(report: Report, locale: Locale) {
-  if (locale === 'en') return report.qualityWarnings || [];
-  return (report.qualityWarnings || []).map((warning) => {
+  const divergence = buyerCostDivergenceNote(report, locale);
+  const withDivergence = (warnings: string[]) => divergence ? [...warnings, divergence] : warnings;
+  if (locale === 'en') return withDivergence(report.qualityWarnings || []);
+  return withDivergence((report.qualityWarnings || []).map((warning) => {
     if (/separately quotes/.test(warning)) return `Das Angebot nennt separat ${report.facts.parkingPrice?.toLocaleString('de-DE')} € für Garage oder Stellplatz. Kläre, ob dieser Kauf verpflichtend und zusätzlich ist; der Betrag ist nicht in der angegebenen Gesamtsumme enthalten.`;
     if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
     if (/purchase price, buyer costs/.test(warning)) return 'Kaufpreis, Kaufnebenkosten und Gesamtsumme widersprechen sich. Die Finanzierung nutzt die angegebene Gesamtsumme; kläre die Aufschlüsselung.';
@@ -112,7 +115,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/The house is rented but no verified yield/i.test(warning)) return 'Das Haus ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
-  });
+  }));
 }
 
 export function offerQuestionsFor(report: Report, locale: Locale = 'en') {

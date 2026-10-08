@@ -35,6 +35,16 @@ test('never allows equity or malformed negative inputs to create a negative loan
   assert.deepEqual(scenario, { loan: 0, loanPayment: 0, knownOutlay: 0 });
 });
 
+test('itemised buyer costs replace the flat percentage when the listing omits them', () => {
+  const berlin = acquisitionCosts({ price: 400_000, city: 'Berlin', buyerCommission: 'Commission-free' });
+  assert.equal(berlin.buyerCosts, 32_000);
+  assert.equal(berlin.total, 432_000);
+  assert.equal(berlin.buyerCostsAreEstimated, true);
+  const bavaria = acquisitionCosts({ price: 400_000, city: 'München' });
+  assert.equal(bavaria.buyerCosts, 22_000);
+  assert.equal(bavaria.total, 422_000);
+});
+
 test('conflicting costs never produce a contradictory acquisition breakdown', () => {
   const costs = acquisitionCosts({ price: 192700, buyerCosts: 192700, totalCost: 207242 });
   assert.equal(costs.buyerCosts, 14542);

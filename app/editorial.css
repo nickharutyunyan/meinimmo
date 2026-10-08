@@ -1463,6 +1463,81 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   gap: 1px;
 }
 
+.finance-calculator .buyer-costs {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px;
+  background: rgb(255 255 255 / 7%);
+  color: #aebcb5;
+}
+
+.finance-calculator .buyer-costs > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.finance-calculator .buyer-costs > summary::-webkit-details-marker { display: none; }
+
+.finance-calculator .buyer-costs > summary::before {
+  content: '▸';
+  flex: 0 0 auto;
+  color: var(--lime);
+}
+
+.finance-calculator .buyer-costs[open] > summary::before { content: '▾'; }
+
+.finance-calculator .buyer-cost-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.finance-calculator .buyer-costs b,
+.finance-calculator .buyer-cost-label {
+  color: #f5f1e5;
+}
+
+.finance-calculator .buyer-cost-lines {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.finance-calculator .buyer-cost-line {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.finance-calculator .buyer-cost-line b small,
+.finance-calculator .buyer-cost-line > small,
+.finance-calculator .buyer-cost-note,
+.finance-calculator .buyer-cost-label small {
+  color: #acbbb3;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.finance-calculator .buyer-cost-note {
+  margin: 8px 0 0;
+}
+
+.finance-calculator .finance-meta > span:last-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 420px) {
+  .finance-calculator { padding: 20px 14px 16px; }
+  .finance-total strong { font-size: 32px; }
+}
+
 .finance-meta > span {
   border-radius: 0;
   background: rgb(255 255 255 / 7%);

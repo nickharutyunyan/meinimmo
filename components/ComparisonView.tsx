@@ -14,6 +14,9 @@ import { visibleComparisonRows } from '@/lib/comparison';
 import { redFlagSummary } from '@/lib/red-flags';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
+import { acquisitionCosts } from '@/lib/finance';
+import { buyerCostComparisonValue } from '@/lib/buyer-costs';
+import { money as formatMoney, moneyRange } from '@/lib/format';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -50,11 +53,17 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       : <GlossaryText locale={locale}>{value}</GlossaryText>;
   };
   const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
+  const acquisition = (item: Report) => {
+    const costs = acquisitionCosts(item);
+    if (!costs.price && !costs.buyerCosts) return '—';
+    return costs.totalHigh !== undefined ? moneyRange(costs.total, costs.totalHigh, locale) : formatMoney(costs.total, locale);
+  };
   const rows = visibleComparisonRows([
     [text.address, address(first), address(second)],
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
     [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
-    [text.acquisition, first.facts.totalCost ? money(first.facts.totalCost) : '—', second.facts.totalCost ? money(second.facts.totalCost) : '—'],
+    [text.acquisition, acquisition(first), acquisition(second)],
+    [text.buyerCosts, buyerCostComparisonValue(first, locale), buyerCostComparisonValue(second, locale)],
     [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', first.facts.parkingPrice ? money(first.facts.parkingPrice) : '—', second.facts.parkingPrice ? money(second.facts.parkingPrice) : '—'],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
     [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
