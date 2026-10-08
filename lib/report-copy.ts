@@ -162,8 +162,8 @@ export function localizedConsiderations(report: Report, locale: Locale) {
   const rights = !house ? terraceGardenConsideration(facts, 'en') : '';
   if (rights) items.push(rights);
   if (!items.length) items.push(house
-    ? 'Request the complete Exposé, Energieausweis and an itemized list of running costs before making an offer.'
-    : 'Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
+    ? 'Request the complete Exposé, Energieausweis and an itemised list of running costs before making an offer.'
+    : 'Request the complete Exposé, Energieausweis, WEG records and itemised running costs before making an offer.');
   return items.slice(0, 4);
 }
 

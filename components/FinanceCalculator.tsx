@@ -8,12 +8,15 @@ import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/financ
 import { GlossaryText } from './GlossaryText';
 import { money, percent } from '@/lib/format';
 
-export function FinanceCalculator({ report, locale }: { report: Report; locale: Locale }) {
+const RATE_FETCH_TIMEOUT_MS = 12_000;
+
+export function FinanceCalculator({ report, locale, initialRate }: { report: Report; locale: Locale; initialRate?: MortgageRateSnapshot }) {
   const { buyerCostsAreEstimated, buyerCosts, total } = acquisitionCosts(report.facts);
   const initialEquity = defaultEquity(total);
   const [equity, setEquity] = useState(initialEquity);
-  const [interest, setInterest] = useState(3.5);
-  const [mortgageRate, setMortgageRate] = useState<MortgageRateSnapshot>();
+  const [interest, setInterest] = useState(initialRate?.rate ?? 3.5);
+  const [mortgageRate, setMortgageRate] = useState<MortgageRateSnapshot | undefined>(initialRate);
+  const [rateState, setRateState] = useState<'loading' | 'ready' | 'unavailable'>(initialRate ? 'ready' : 'loading');
   const interestWasEdited = useRef(false);
   const [repayment, setRepayment] = useState(2);
   const [includeHousegeld, setIncludeHousegeld] = useState(true);
@@ -21,17 +24,34 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
   useEffect(() => setIncludeHousegeld(true), [report.facts.housegeld]);
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, RATE_FETCH_TIMEOUT_MS);
     fetch('/api/mortgage-rate', { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error('Mortgage rate unavailable.');
         return response.json() as Promise<MortgageRateSnapshot>;
       })
       .then((benchmark) => {
+        window.clearTimeout(timer);
+        if (!active) return;
         setMortgageRate(benchmark);
+        setRateState('ready');
         if (!interestWasEdited.current) setInterest(benchmark.rate);
       })
-      .catch(() => undefined);
-    return () => controller.abort();
+      .catch(() => {
+        window.clearTimeout(timer);
+        if (!active || (!timedOut && controller.signal.aborted)) return;
+        setRateState((state) => (state === 'ready' ? state : 'unavailable'));
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, []);
   const result = useMemo(() => financingScenario({
     total,
@@ -55,7 +75,7 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
     : undefined;
   const sourceText = mortgageRate
     ? `${locale === 'de' ? 'FMH-Durchschnitt' : 'FMH average'} · ${rateDate}${mortgageRate.stale ? ` · ${locale === 'de' ? 'zuletzt verfügbar' : 'last available'}` : ''}`
-    : text.rateUnavailable;
+    : rateState === 'unavailable' ? text.rateUnavailable : text.rateLoading;
   return <section className="card finance-calculator">
     <p className="eyebrow">{text.label}</p>
     <div className="finance-total"><small><GlossaryText locale={locale}>{report.facts.housegeld && includeHousegeld ? text.knownOutlay : text.payment}</GlossaryText></small><strong>{money(result.knownOutlay, locale)}</strong>{report.facts.housegeld && includeHousegeld ? <em><GlossaryText locale={locale}>{`${money(result.loanPayment, locale)} ${locale === 'de' ? 'Kredit' : 'loan'} + ${money(report.facts.housegeld, locale)} Hausgeld`}</GlossaryText></em> : null}</div>

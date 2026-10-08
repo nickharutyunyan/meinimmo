@@ -22,7 +22,7 @@ export function ArmeniaReport({ report }: { report: Report }) {
   const rows = [
     ['Asking price', amd(f.price)], [land ? 'Plot size' : 'Advertised area', `${f.area} m²`],
     ...(!land ? [['Rooms', f.rooms], ['Floor', f.floor ? `${f.floor}${am.buildingFloors ? ` / ${am.buildingFloors}` : ''}` : ''], ['Living area', am.livingArea ? `${am.livingArea} m²` : ''], ['New building', am.newConstruction === undefined ? '' : am.newConstruction ? 'Yes' : 'No'], ['Construction', am.construction], ['Renovation', am.renovation === 'None' ? 'Not renovated' : am.renovation], ['Building state', f.condition], ['Occupancy', f.tenancy], ['Elevator', am.elevator], ['Balcony', am.balcony]] : [['Advertised land use', am.landUse], ['Road access', am.roadAccess]]),
-    ['Plot area', !land && am.plotArea ? `${am.plotArea} m²` : ''], ['Utilities', am.utilities], ['Neighborhood', f.district],
+    ['Plot area', !land && am.plotArea ? `${am.plotArea} m²` : ''], ['Utilities', am.utilities], ['Neighbourhood', f.district],
   ].filter(([, value]) => value);
   return <><Sidebar locale="en" homeHref="/am"/><main className="workspace am-report">
     <SiteNav locale="en" country="AM"/>

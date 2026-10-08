@@ -10,7 +10,7 @@ export const taxonomy = {
   orientation: { north: ['North-facing', 'Nordausrichtung'], east: ['East-facing', 'Ostausrichtung'], south: ['South-facing', 'Südausrichtung'], west: ['West-facing', 'Westausrichtung'], multiple: ['Multiple directions', 'Mehrere Ausrichtungen'] },
   occupancy: { rented: ['Rented', 'Vermietet'], not_rented: ['Not rented', 'Nicht vermietet'], owner_occupied: ['Owner-occupied', 'Selbst genutzt'] },
   availability: { immediate: ['Available immediately (listing)', 'Laut Exposé sofort bezugsfrei'], dated: ['Availability date stated', 'Bezugstermin angegeben'], agreement: ['Available by agreement', 'Bezug nach Vereinbarung'] },
-  heating: { heat_pump: ['Heat pump', 'Wärmepumpe'], district: ['District heating', 'Fernwärme'], central: ['Central heating', 'Zentralheizung'], individual: ['Individual apartment heating', 'Etagenheizung'], underfloor: ['Underfloor heating', 'Fußbodenheizung'], mixed: ['Multiple heating components', 'Mehrere Heizkomponenten'] },
+  heating: { heat_pump: ['Heat pump', 'Wärmepumpe'], district: ['District heating', 'Fernwärme'], central: ['Central heating', 'Zentralheizung'], individual: ['Individual flat heating', 'Etagenheizung'], underfloor: ['Underfloor heating', 'Fußbodenheizung'], mixed: ['Multiple heating components', 'Mehrere Heizkomponenten'] },
   energy: { a_plus: ['A+', 'A+'], a: ['A', 'A'], b: ['B', 'B'], c: ['C', 'C'], d: ['D', 'D'], e: ['E', 'E'], f: ['F', 'F'], g: ['G', 'G'], h: ['H', 'H'] },
 } as const;
 

@@ -1,6 +1,7 @@
 import nextWorker, { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from '../.open-next/worker.js';
 import { REPORT_CACHE_BUILD_ID } from './build-id.mjs';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
+import { REPORT_HTML_CACHE_TTL_SECONDS } from '../lib/report-html-cache.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
 import { backfillRejection } from './backfill-gate.mjs';
 import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
@@ -72,7 +73,7 @@ async function serveReport(request, env, ctx) {
   const html = cache && cacheableReport(response) ? await response.clone().text() : '';
   if (cache && html && reportHtmlIsShared(html)) {
     const storedHeaders = new Headers(headers);
-    storedHeaders.set('cache-control', 'public, max-age=86400');
+    storedHeaders.set('cache-control', `public, max-age=${REPORT_HTML_CACHE_TTL_SECONDS}`);
     storedHeaders.delete('set-cookie');
     storedHeaders.delete('vary');
     const stored = new Response(html, { status: response.status, headers: storedHeaders });
