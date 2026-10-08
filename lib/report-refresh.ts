@@ -1,3 +1,5 @@
+// Page views do not call this module. The maps below stay empty unless a test
+// or a future caller starts a refresh, and both refuse new keys once full.
 import { createBoundedMap } from './bounded-cache.ts';
 import { EXTRACTION_VERSION } from './report-integrity.ts';
 import type { Report } from './types.ts';

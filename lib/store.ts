@@ -6,6 +6,8 @@ import { acquisitionCosts } from './finance.ts';
 import { checkedCharacteristic, refreshDerivedReport } from './listing-parser.ts';
 
 import { cleanReportAddress } from './location-validation.ts';
+import { EXTRACTION_VERSION, presentStoredReport } from './report-integrity.ts';
+import { BACKFILL_BATCH_SIZE } from './report-backfill.ts';
 
 type StoredRow = { data: string };
 
@@ -20,7 +22,7 @@ function parse<T>(row: StoredRow | null) {
 }
 
 function normalizedReport(item: Report) {
-  if (item.country === 'AM') return item;
+  if (item.country === 'AM') return presentStoredReport(item);
   const clean = cleanReportAddress(item);
   if (clean !== item) item = refreshDerivedReport(clean);
   const condition = canonicalCondition(item.facts.condition);
@@ -36,11 +38,12 @@ function normalizedReport(item: Report) {
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
     : item.summary).replace(/It is built in /g, 'Listing details: built in ');
   const hasUnsupportedReserveConclusion = item.considerations.some(value => /WEG reserve is adequate/i.test(value));
-  return condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
+  const ready = condition === item.facts.condition && summary === item.summary && totalCost === item.facts.totalCost && energy === item.facts.energy
     && heating === item.facts.heating && energySource === item.facts.energySource && energyCertificate === item.facts.energyCertificate
     && !hasUnsupportedReserveConclusion
     ? item
     : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy, heating, energySource, energyCertificate } });
+  return presentStoredReport(ready);
 }
 
 export async function saveReportSource(id: string, source: string) {
@@ -57,11 +60,32 @@ export async function reports() {
 export async function report(id: string) {
   const db = await database();
   const item = parse<Report>(await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first<StoredRow>());
-  // A page view renders the saved facts only. Re-parsing the archived HTML is
-  // an explicit re-import (POST /api/assess). Doing it here awaited parseListing
-  // on this isolate, and a failed save left the old extraction version so the
-  // next view parsed the same source again.
+  // Pages, print, and metadata render this row only. Archived HTML is read by
+  // the backfill route and by an explicit re-import, never here.
   return item ? normalizedReport(item) : undefined;
+}
+
+/** At most one batch of report JSON. Archived HTML is loaded one id at a time by the caller. */
+export async function staleReportsForBackfill() {
+  const db = await database();
+  const result = await db.prepare(`
+    SELECT data FROM reports
+    WHERE COALESCE(json_extract(data, '$.country'), '') != 'AM'
+      AND COALESCE(json_extract(data, '$.extractionVersion'), -1) != ?1
+      AND NOT (
+        json_extract(data, '$.sourceUnavailable') = 1
+        AND typeof(json_extract(data, '$.sourceReviewAttemptedAt')) = 'text'
+      )
+    ORDER BY created_at ASC
+    LIMIT ?2
+  `).bind(EXTRACTION_VERSION, BACKFILL_BATCH_SIZE).all<StoredRow>();
+  return result.results.map(row => JSON.parse(row.data) as Report);
+}
+
+export async function archivedListingSource(id: string) {
+  const db = await database();
+  const row = await db.prepare('SELECT source_text FROM report_sources WHERE report_id = ?1').bind(id).first<{ source_text: string }>();
+  return row?.source_text || '';
 }
 
 export async function saveReport(item: Report) {

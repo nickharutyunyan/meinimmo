@@ -28,6 +28,22 @@ The Armenia helper page downloads `/downloads/reviewahouse-helper.zip`. That fil
 
 D1 is the authoritative store for reports and comparisons. The old `data/*.json` files are no longer used at runtime.
 
+## Re-extract saved reports
+
+Report pages, print pages, Open Graph metadata and the sitemap serve the facts already stored on the report. They do not read archived HTML. The sitemap lists the home, guide and terms URLs only, so a crawler following it never opens `/r/` pages. `robots.txt` disallows `/api/`. An old or missing extraction version is still served, with the score withheld and a notice to re-import.
+
+A visitor re-imports one listing through the normal import form. That is the only request path that parses a listing the visitor just submitted.
+
+To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call loads at most 5 archived listings, stops once 8 seconds have passed, and saves either the new extraction or a failure marker. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
+
+```bash
+npx wrangler secret put BACKFILL_TOKEN
+curl -sS -X POST https://reviewahouse.com/api/reports/backfill \
+  -H "Authorization: Bearer $BACKFILL_TOKEN"
+```
+
+Repeat until `processed` is an empty array. For local preview, put `BACKFILL_TOKEN` in `.dev.vars` (never commit the value) and POST to that origin. A 401 means the secret is missing, shorter than 24 characters, or the header does not match.
+
 ## Accounts and billing
 
 Personal account, credential, session and billing records live in the dedicated `AUTH_DB` D1 database. Property report content remains in `DB`; the private database only keeps opaque report IDs when a signed-in user opens or creates a report. Passwords are stored as salted PBKDF2 hashes and session cookies contain opaque tokens whose hashes are stored server-side.

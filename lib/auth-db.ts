@@ -17,6 +17,7 @@ export type AppEnv = CloudflareEnv & {
   PASSWORD_RESET_FROM?: string;
   TYPESAFE_API_KEY?: string;
   JEV_MODEL?: string;
+  BACKFILL_TOKEN?: string;
 };
 
 export async function appEnvironment() {

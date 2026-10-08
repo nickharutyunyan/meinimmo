@@ -37,7 +37,7 @@ export async function geocodeGermanLocation(query: string, city = '', country: '
   url.searchParams.set('q', query);
   const response = await fetch(url, {
     headers: { 'User-Agent': 'ReviewAHousePropertyAssessment/1.0' },
-    next: { revalidate: 60 * 60 * 24 * 30 },
+    cache: 'no-store',
     signal: AbortSignal.timeout(5000),
   });
   if (!response.ok) throw new Error('Geocoding service unavailable');
