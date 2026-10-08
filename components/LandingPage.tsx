@@ -68,15 +68,13 @@ export function LandingPage({ locale }: { locale: Locale }) {
   const [dayPassEligible, setDayPassEligible] = useState(false);
   const [dayPassBillingAvailable, setDayPassBillingAvailable] = useState(false);
   const [paidPlansOffered, setPaidPlansOffered] = useState(false);
-  const [limitsEnabled, setLimitsEnabled] = useState(false);
-  const text = homePresentation(locale, { paidPlansOffered, limitsEnabled });
+  const text = homePresentation(locale, paidPlansOffered);
 
   useEffect(() => {
     const requestedDayPass = new URLSearchParams(window.location.search).get('daypass') === '1';
     fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess; paidPlansEnabled?: boolean; dayPassBillingAvailable?: boolean }).then((data) => {
       const purchasesOpen = Boolean(data.dayPassBillingAvailable);
       setPaidPlansOffered(Boolean(data.paidPlansEnabled));
-      setLimitsEnabled(data.access?.limitsEnabled === true);
       setDayPassBillingAvailable(purchasesOpen);
       const eligible = canOfferDayPass(data.access) && purchasesOpen;
       setDayPassEligible(eligible);
