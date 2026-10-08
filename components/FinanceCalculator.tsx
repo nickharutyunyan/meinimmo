@@ -6,8 +6,7 @@ import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { copy, financeFootnote, type Locale } from '@/lib/i18n';
 import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/finance';
 import { GlossaryText } from './GlossaryText';
-
-const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
+import { money, percent } from '@/lib/format';
 
 export function FinanceCalculator({ report, locale }: { report: Report; locale: Locale }) {
   const { buyerCostsAreEstimated, buyerCosts, total } = acquisitionCosts(report.facts);
@@ -56,33 +55,33 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
     : undefined;
   const sourceText = mortgageRate
     ? `${locale === 'de' ? 'FMH-Durchschnitt' : 'FMH average'} · ${rateDate}${mortgageRate.stale ? ` · ${locale === 'de' ? 'zuletzt verfügbar' : 'last available'}` : ''}`
-    : (locale === 'de' ? 'Beispielzins · FMH nicht verfügbar' : 'Example rate · FMH unavailable');
+    : text.rateUnavailable;
   return <section className="card finance-calculator">
     <p className="eyebrow">{text.label}</p>
-    <div className="finance-total"><small><GlossaryText locale={locale}>{report.facts.housegeld && includeHousegeld ? text.knownOutlay : text.payment}</GlossaryText></small><strong>{euros(result.knownOutlay)}</strong>{report.facts.housegeld && includeHousegeld ? <em><GlossaryText locale={locale}>{`${euros(result.loanPayment)} ${locale === 'de' ? 'Kredit' : 'loan'} + ${euros(report.facts.housegeld)} Hausgeld`}</GlossaryText></em> : null}</div>
+    <div className="finance-total"><small><GlossaryText locale={locale}>{report.facts.housegeld && includeHousegeld ? text.knownOutlay : text.payment}</GlossaryText></small><strong>{money(result.knownOutlay, locale)}</strong>{report.facts.housegeld && includeHousegeld ? <em><GlossaryText locale={locale}>{`${money(result.loanPayment, locale)} ${locale === 'de' ? 'Kredit' : 'loan'} + ${money(report.facts.housegeld, locale)} Hausgeld`}</GlossaryText></em> : null}</div>
     {report.facts.housegeld ? <label className="housegeld-toggle">
       <input type="checkbox" checked={includeHousegeld} onChange={(event) => setIncludeHousegeld(event.target.checked)} />
-      <span><GlossaryText locale={locale}>{`${text.includeHousegeld} · ${euros(report.facts.housegeld)}`}</GlossaryText></span>
+      <span><GlossaryText locale={locale}>{`${text.includeHousegeld} · ${money(report.facts.housegeld, locale)}`}</GlossaryText></span>
     </label> : null}
     {report.facts.housegeldYear ? <p className="finance-caveat">{locale === 'de' ? `Hausgeld laut Angabe für ${report.facts.housegeldYear}; aktuellen Betrag bestätigen.` : `Hausgeld stated for ${report.facts.housegeldYear}; confirm the current amount.`}</p> : null}
     {!report.facts.housegeld && report.propertyType === 'flat' ? <p className="finance-caveat">{locale === 'de' ? 'Hausgeld unbekannt und nicht enthalten. Die Kreditrate ist nicht die gesamte monatliche Belastung.' : 'Hausgeld is unknown and excluded. The loan payment is not the full monthly cost.'}</p> : null}
-    {report.facts.parkingPrice ? <p className="finance-caveat">{locale === 'de' ? `Separat genannte Garage/Stellplatz: ${euros(report.facts.parkingPrice)}. Nicht in der Gesamtsumme enthalten; Kaufpflicht und Aufpreis klären.` : `Separately quoted parking: ${euros(report.facts.parkingPrice)}. Excluded from the total; confirm whether the purchase is required and additional.`}</p> : null}
+    {report.facts.parkingPrice ? <p className="finance-caveat">{locale === 'de' ? `Separat genannte Garage/Stellplatz: ${money(report.facts.parkingPrice, locale)}. Nicht in der Gesamtsumme enthalten; Kaufpflicht und Aufpreis klären.` : `Separately quoted parking: ${money(report.facts.parkingPrice, locale)}. Excluded from the total; confirm whether the purchase is required and additional.`}</p> : null}
     <div className="finance-meta">
-      <span><GlossaryText locale={locale}>{text.loan}</GlossaryText> <b>{euros(result.loan)}</b></span>
-      <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{euros(report.facts.price)}</b></span>
-      {buyerCosts ? <span><GlossaryText locale={locale}>{buyerCostsAreEstimated ? text.estimatedBuyerCosts : text.buyerCosts}</GlossaryText> <b>{euros(buyerCosts)}</b></span> : null}
-      <span><GlossaryText locale={locale}>{text.total}</GlossaryText> <b>{euros(total)}</b></span>
+      <span><GlossaryText locale={locale}>{text.loan}</GlossaryText> <b>{money(result.loan, locale)}</b></span>
+      <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{report.facts.price ? money(report.facts.price, locale) : '—'}</b></span>
+      {buyerCosts ? <span><GlossaryText locale={locale}>{buyerCostsAreEstimated ? text.estimatedBuyerCosts : text.buyerCosts}</GlossaryText> <b>{money(buyerCosts, locale)}</b></span> : null}
+      <span><GlossaryText locale={locale}>{text.total}</GlossaryText> <b>{total ? money(total, locale) : '—'}</b></span>
     </div>
     <label>
-      <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.equity}</GlossaryText></span><b>{euros(equity)} · {total ? Math.round(equity / total * 100) : 0}%</b></span>
+      <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.equity}</GlossaryText></span><b>{money(equity, locale) || '—'} · {total ? percent(Math.round(equity / total * 100), locale, 0) : '—'}</b></span>
       <input type="range" min="0" max={Math.max(total, 1)} step="1" aria-label={text.equity} value={equity} onChange={(event) => setEquity(Number(event.target.value))} />
     </label>
     <label>
-      <span><span className="finance-rate-heading"><GlossaryText locale={locale}>{text.rate}</GlossaryText><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{interest.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</b></span>
+      <span><span className="finance-rate-heading"><GlossaryText locale={locale}>{text.rate}</GlossaryText><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
       <input type="range" min="2" max="7" step="0.01" aria-label={text.rate} value={interest} onChange={(event) => { interestWasEdited.current = true; setInterest(Number(event.target.value)); }} />
     </label>
     <label>
-      <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.repayment}</GlossaryText></span><b>{repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</b></span>
+      <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.repayment}</GlossaryText></span><b>{percent(repayment, locale, 1)}</b></span>
       <input type="range" min="1" max="5" step="0.1" aria-label={text.repayment} value={repayment} onChange={(event) => setRepayment(Number(event.target.value))} />
     </label>
     <small className="finance-note"><GlossaryText locale={locale}>{financeFootnote(report.propertyType, locale)}</GlossaryText></small>

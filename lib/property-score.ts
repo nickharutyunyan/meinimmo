@@ -1,4 +1,5 @@
 import type { Report, ScoreBreakdown } from './types';
+import { score as formatLocaleScore } from './format.ts';
 import { copy, type Locale } from './i18n.ts';
 import { berlinPriceCheck } from './price-check.ts';
 
@@ -240,7 +241,7 @@ export function missingKeyFacts(report: Report): KeyFact[] {
 }
 
 export function formatScore(value: number, locale: Locale) {
-  return value.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return formatLocaleScore(value, locale);
 }
 
 export function scoreConfidenceLabel(confidence: ScoreConfidence, locale: Locale) {

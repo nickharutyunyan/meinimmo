@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   title: `${page.title} | Review a House`,
   description: page.description,
   alternates: { canonical: '/method', languages: { en: '/method', de: '/de/method' } },
-  openGraph: { title: `${page.title} | Review a House`, description: page.description, url: '/method' },
+  openGraph: { type: 'website', title: `${page.title} | Review a House`, description: page.description, url: '/method', locale: 'en_GB', siteName: 'ReviewAHouse' },
+  twitter: { card: 'summary', title: `${page.title} | Review a House`, description: page.description },
 };
 
 export default function Method() {

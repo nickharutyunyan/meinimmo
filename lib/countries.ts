@@ -6,6 +6,21 @@ export const countries = {
   CA: { name: 'Canada', path: '/ca', currency: 'CAD', ready: false },
 } as const;
 
+const germanCountryNames: Record<CountryCode, string> = {
+  DE: 'Deutschland',
+  AM: 'Armenien',
+  US: 'USA',
+  CA: 'Kanada',
+};
+
+export function countryLabel(code: CountryCode, locale: 'en' | 'de' = 'en') {
+  return locale === 'de' ? germanCountryNames[code] : countries[code].name;
+}
+
+export function countrySwitchLabel(locale: 'en' | 'de' = 'en') {
+  return locale === 'de' ? 'Land der Immobilie' : 'Property country';
+}
+
 export const amd = (value: number) => `${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value)} AMD`;
 export const mapsLink = (address: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address}, Armenia`)}`;
 

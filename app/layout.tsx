@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/',
     siteName: 'ReviewAHouse',
+    locale: 'en_GB',
     title: 'ReviewAHouse — German Property Reports & Comparisons',
     description: 'Analyze German real estate listings with clear reports, comparisons, location and energy facts, and an editable mortgage calculator.',
   },

@@ -1,7 +1,7 @@
 import type { Report } from './types';
 import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
-import { missingKeyFacts, scoreConfidence } from './property-score.ts';
+import { missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
 export const EXTRACTION_VERSION = 2026100803;
 
@@ -56,7 +56,7 @@ type ConflictTopic = 'rental' | 'rooms' | 'energy' | 'price' | 'year' | 'address
 
 const CONFLICT_FACT: Record<Locale, Record<Exclude<ConflictTopic, 'address' | 'source'>, string>> = {
   en: { rental: 'rental status', rooms: 'the room count', energy: 'the energy certificate', price: 'the purchase price', year: 'the year built' },
-  de: { rental: 'der Vermietung', rooms: 'der Zimmerzahl', energy: 'dem Energieausweis', price: 'dem Kaufpreis', year: 'dem Baujahr' },
+  de: { rental: 'bei der Vermietung', rooms: 'bei der Zimmerzahl', energy: 'beim Energieausweis', price: 'beim Kaufpreis', year: 'beim Baujahr' },
 };
 
 const MISSING_FACT: Record<Locale, Record<ReturnType<typeof missingKeyFacts>[number], string>> = {
@@ -79,30 +79,50 @@ function conflictTopics(problems: string[]) {
   return found;
 }
 
-/** Why the score is hidden. Conflicts name the fact; low data lists the missing key facts. */
-export function withholdReason(report: Report, locale: Locale) {
+/**
+ * Why the score is hidden, most specific reason first.
+ * A named contradiction comes before a missing-fact list, which comes before
+ * a stale saved report. The same sentence is never listed twice.
+ */
+export function withholdSentences(report: Report, locale: Locale) {
   const text = copy[locale].report;
   const topics = conflictTopics(reportConflicts(report));
   const sentences: string[] = [];
   const facts = topics.filter((topic): topic is Exclude<ConflictTopic, 'address' | 'source'> => topic !== 'address' && topic !== 'source');
   if (facts.length) sentences.push(text.conflictWithheld.replace('{facts}', facts.map(topic => CONFLICT_FACT[locale][topic]).join(locale === 'de' ? ' und ' : ' and ')));
   if (topics.includes('address')) sentences.push(text.addressWithheld);
-  if (topics.includes('source')) sentences.push(text.sourceWithheld);
   const confidence = scoreConfidence(report);
   if (confidence.level === 'low') {
     const missing = missingKeyFacts(report).map(fact => MISSING_FACT[locale][fact]).join(', ');
     const named = text.lowConfidence.replaceAll('{present}', String(confidence.present)).replace('. ', `. ${text.missingFacts.replace('{facts}', missing)} `);
     sentences.push(named);
   }
-  if (sentences.length) return sentences.join(' ');
-  if (!(report.facts.price > 0 && report.facts.area > 0)) return text.figuresWithheld;
-  if (!report.facts.city) return text.placeWithheld;
-  if (report.typeSource === 'fallback') return text.typeWithheld;
-  return text.scoreWithheld;
+  if (topics.includes('source')) sentences.push(text.sourceWithheld);
+  const unique = [...new Set(sentences)];
+  if (unique.length) return unique;
+  if (!(report.facts.price > 0 && report.facts.area > 0)) return [text.figuresWithheld];
+  if (!report.facts.city) return [text.placeWithheld];
+  if (report.typeSource === 'fallback') return [text.typeWithheld];
+  return [text.scoreWithheld];
+}
+
+/** Why the score is hidden. Conflicts name the fact; low data lists the missing key facts. */
+export function withholdReason(report: Report, locale: Locale) {
+  return withholdSentences(report, locale).join(' ');
 }
 
 export function scoreExplanation(report: Report, locale: Locale) {
   if (scoreAvailable(report)) return copy[locale].report.scoreExplainer;
+  return withholdReason(report, locale);
+}
+
+/**
+ * The line under the score. Confidence when a score is shown.
+ * When the score is withheld, the withhold reason — so the panel does not
+ * say "Confidence: High" under "Score withheld".
+ */
+export function scoreBasisLine(report: Report, locale: Locale) {
+  if (scoreAvailable(report)) return scoreConfidenceLabel(scoreConfidence(report), locale);
   return withholdReason(report, locale);
 }
 

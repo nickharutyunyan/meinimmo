@@ -1,10 +1,11 @@
 import type { Report } from './types';
 import { calculatePropertyScore } from './property-score.ts';
-import { factualLocation, reportTitle } from './display.ts';
-import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
-import { canonicalCondition, isNewOrFirstOccupancy } from './property-condition.ts';
-import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, formatRentedUntil, groundLeaseSentence, splitSentences } from './red-flags.ts';
-import { terraceGardenConsideration } from './report-copy.ts';
+import { reportTitle } from './display.ts';
+import { extractAvailabilityDate } from './availability.ts';
+import { canonicalCondition } from './property-condition.ts';
+import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, splitSentences } from './red-flags.ts';
+import { money } from './format.ts';
+import { localizedConsiderations, localizedSummary } from './report-copy.ts';
 import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
@@ -617,59 +618,11 @@ export function energyClassFromDemand(value: number) {
 }
 
 function summaryFor(report: Report) {
-  const { facts } = report;
-  const location = factualLocation(report);
-  const identity = `${facts.rooms !== UNKNOWN ? `${facts.rooms.replace(',', '.')}-room ` : ''}${report.propertyType}${location ? ` in ${location}` : ''}`;
-  const price = facts.price ? `The asking price is €${facts.price.toLocaleString('de-DE')}${facts.area ? ` (€${Math.round(facts.price / facts.area).toLocaleString('de-DE')}/m²)` : ''}.` : '';
-  const building = [
-    facts.year !== UNKNOWN ? `built in ${facts.year}` : '',
-    facts.construction === 'Timber frame' ? 'timber-frame construction' : '',
-    facts.condition && facts.condition !== UNKNOWN ? `described as ${facts.condition.toLowerCase()}` : '',
-    facts.energy !== UNKNOWN ? `energy class ${facts.energy}` : '',
-    facts.energySource ? `heated via ${facts.energySource}` : '',
-  ].filter(Boolean).join(', ');
-  const plot = facts.plotArea && report.propertyType === 'house' ? ` on a ${facts.plotArea.toLocaleString('en-GB')} m² plot` : '';
-  const space = facts.area ? ` has ${facts.area} m² of living area${facts.usableArea ? ` and ${facts.usableArea} m² of usable area` : ''}${plot}` : '';
-  const first = `This ${identity}${space}. ${price}${building ? ` Listing details: ${building}.` : ''}`.trim();
-
-  const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'en');
-  const rentedUntil = formatRentedUntil(facts.rentedUntilText, 'en');
-  const investment = facts.tenancy === 'Rented'
-    ? `It is sold rented${rentedUntil ? ` until ${rentedUntil}` : ''}${availableFrom ? ` and free from ${availableFrom}` : ''}${facts.advertisedYield ? ` and advertised at a ${facts.advertisedYield.toLocaleString('en-GB', { maximumFractionDigits: 2 })}% return` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`
-    : availableFrom
-    ? `The listing states that the property will be available from ${availableFrom}; confirm vacant handover on that date in the purchase contract.`
-    : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
-      ? 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.'
-      : '';
-  const occupancyWarning = facts.tenancy === 'Occupancy unclear' ? 'The portal says not rented, but the description says occupants remain. Current occupancy and vacant handover need clarification.' : '';
-  const costs = facts.housegeld && report.propertyType !== 'house' ? ` Monthly Hausgeld${facts.housegeldYear ? ` for ${facts.housegeldYear}` : ''} is stated at €${facts.housegeld.toLocaleString('de-DE')}; separate recoverable tenant costs from the owner-only share.` : '';
-  const asIs = facts.soldAsIs
-    ? (report.propertyType === 'house' ? 'The house is sold as-is (Ist-Zustand).' : 'The unit is sold as-is (Ist-Zustand).')
-    : '';
-  const honest = [asIs, groundLeaseSentence(facts, 'en')].filter(Boolean).join(' ');
-  const second = `${occupancyWarning || investment}${honest ? ` ${honest}` : ''}${costs}`.trim();
-  return second ? `${first}\n\n${second}` : first;
+  return localizedSummary(report, 'en');
 }
 
-function considerationsFor(report: Pick<Report, 'facts' | 'sunOrientation' | 'daylight' | 'propertyType'>) {
-  const { facts } = report;
-  const house = report.propertyType === 'house';
-  const items: string[] = [];
-  if (facts.tenancy === 'Occupancy unclear') items.push('Confirm the occupants’ legal status and a binding vacant-handover agreement.');
-  if (facts.tenancy === 'Rented') items.push('Check the signed lease, net cold rent and payment history.');
-  if (facts.housegeld && !house) {
-    items.push(isNewOrFirstOccupancy(facts.condition)
-      ? `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split between shared running costs and owner-only costs.`
-      : `Check how the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld is split and ask for the current WEG reserve balance.`);
-  }
-  if (!house && facts.floor === UNKNOWN) items.push('Confirm the floor, lift access and whether the unit faces the street or courtyard.');
-  if (facts.energy !== UNKNOWN) items.push(`Compare the ${facts.energyCertificate || 'Energieausweis'} with actual energy bills.`);
-  const rights = !house ? terraceGardenConsideration(facts, 'en') : '';
-  if (rights) items.push(rights);
-  if (!items.length) items.push(house
-    ? 'Request the complete Exposé, Energieausweis and an itemized list of running costs before making an offer.'
-    : 'Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
-  return items.slice(0, 4);
+function considerationsFor(report: Report) {
+  return localizedConsiderations(report, 'en');
 }
 
 function proximityEvidence(lines: string[], subject: RegExp) {
@@ -966,7 +919,7 @@ export function parseListing(raw: string, source: string): Report {
   };
 
   const qualityWarnings = [
-    parkingPrice ? `The listing separately quotes €${parkingPrice.toLocaleString('en-GB')} for parking. Confirm whether this is additional and required; it is not included in the stated total.` : '',
+    parkingPrice ? `The listing separately quotes ${money(parkingPrice, 'en')} for parking. Confirm whether this is additional and required; it is not included in the stated total.` : '',
     housegeldYear ? `The Hausgeld amount refers to ${housegeldYear}; confirm the current economic plan before budgeting.` : '',
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',
     energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy ? 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.' : '',
