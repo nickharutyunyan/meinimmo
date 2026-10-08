@@ -40,6 +40,8 @@ export type Facts = {
   advertisedYield?: number;
   condition?: string;
   features?: string[];
+  /** Garden is stated as private use (Sondernutzungsrecht), not a shared courtyard. */
+  privateGarden?: boolean;
   postalCode?: string;
   city?: string;
   district?: string;

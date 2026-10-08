@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { requestJson } from '@/lib/client-request';
+import { requestJson, shownRequestError } from '@/lib/client-request';
 import { countries, type CountryCode } from '@/lib/countries';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -46,7 +46,7 @@ export function CountryLanding({ country }: { country: Exclude<CountryCode, 'DE'
         setProgress('Reading listing…');
         await assess({ url: englishUrl, text: pasteOpen ? text : undefined });
       }
-    } catch (e) { setError(e instanceof Error && !/fetch|network|request_timeout|json/i.test(e.message) ? e.message : 'The connection failed or took too long. Please try again; your input has been kept.'); } finally { inFlight.current = false; setBusy(false); setProgress(''); }
+    } catch (e) { setError(shownRequestError(e instanceof Error ? e.message : undefined, 'The connection failed or took too long. Please try again; your input has been kept.')); } finally { inFlight.current = false; setBusy(false); setProgress(''); }
   }
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; if (!file || inFlight.current) return;

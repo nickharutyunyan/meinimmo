@@ -267,6 +267,35 @@ test('tenant notice names the Berlin 10-year lock only when the city is Berlin',
   }
 });
 
+test('an ended conversion lock is quoted instead of the Berlin tenancy rule', () => {
+  const sentence = 'Eine umwandlungsbedingte Sperrfrist nach § 577a BGB besteht nicht mehr.';
+  const lines = ['Die Wohnung ist vermietet.', sentence];
+  const berlin = report({ tenancy: 'Rented', city: 'Berlin' }, { address: 'Wichertstraße 69, 10439 Berlin' });
+  const flag = detectRedFlags(lines, berlin).find(item => item.id === 'rentedOccupied');
+  assert.equal(flag.evidence, sentence);
+  const en = redFlagSentence(berlin, flag, 'en');
+  const de = redFlagSentence(berlin, flag, 'de');
+  assert.match(en, /no longer applies/);
+  assert.match(de, /besteht nicht mehr/);
+  assert.doesNotMatch(`${en} ${de}`, /10 years|10 Jahre|up to 10/);
+  assert.doesNotMatch(`${en} ${de}`, /ImmoScout|Ohne-Makler|ohne-makler/i);
+});
+
+test('long red-flag evidence stops on a sentence or a word, not mid-word', () => {
+  const rented = 'Die Wohnung ist bis Ende November 2026 vermietet und steht ab dem 1. Dezember frei.';
+  const filler = Array.from({ length: 40 }, (_, index) => `wort${index}`).join(' ');
+  const line = `${filler}. ${rented} ${filler}.`;
+  const flag = detectRedFlags([line], report({ tenancy: 'Rented' })).find(item => item.id === 'rentedOccupied');
+  assert.equal(flag.evidence, rented);
+  assert.equal(flag.evidence.length <= 220, true);
+  const huge = `Die Wohnung ist vermietet ${Array.from({ length: 80 }, (_, index) => `wort${index}`).join(' ')}.`;
+  const clipped = detectRedFlags([huge], report({ tenancy: 'Rented' })).find(item => item.id === 'rentedOccupied');
+  assert.ok(clipped.evidence.endsWith('…'));
+  assert.equal(clipped.evidence.length <= 220, true);
+  assert.equal(/\swort\d+…$/.test(clipped.evidence) || /wort\d+…$/.test(clipped.evidence), true);
+  assert.equal(huge.includes(clipped.evidence.slice(0, -1)), true);
+});
+
 test('buyer commission above 3.57 percent is flagged, the usual half share is not', () => {
   assert.equal(buyerCommissionPercent('3,00 % zzgl. MwSt.'), 3.57);
   assert.equal(commissionAboveUsualBuyerShare(report({ buyerCommission: '3,00 % zzgl. MwSt.' })), false);

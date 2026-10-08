@@ -75,11 +75,54 @@ function clearMatch(line: string, pattern: RegExp) {
   return undefined;
 }
 
+const MAX_EVIDENCE = 220;
+/** A date such as "1. Dezember" is not a sentence end. */
+const SENTENCE_BREAK = /(?<=[.!?])\s+(?!(?:Januar|Februar|M[aä]rz|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|May|June|July|October)\b)/i;
+
+export function splitSentences(line: string) {
+  return line.split(SENTENCE_BREAK);
+}
+
+function clipAtWord(text: string, focus: number) {
+  if (text.length <= MAX_EVIDENCE) return text;
+  const mark = '…';
+  let start = 0;
+  let prefix = '';
+  if (focus > 160) {
+    const rough = Math.max(0, focus - 80);
+    const space = text.indexOf(' ', rough);
+    start = space >= 0 && space < focus ? space + 1 : rough;
+    prefix = mark;
+  }
+  const budget = MAX_EVIDENCE - prefix.length - mark.length;
+  let end = Math.min(text.length, start + budget);
+  if (end < text.length) {
+    const space = text.lastIndexOf(' ', end);
+    if (space > start + 24) end = space;
+    return `${prefix}${text.slice(start, end).trim()}${mark}`;
+  }
+  return `${prefix}${text.slice(start).trim()}`;
+}
+
+function sentenceAt(text: string, focus: number) {
+  const expression = new RegExp(SENTENCE_BREAK.source, 'gi');
+  let start = 0;
+  for (const match of text.matchAll(expression)) {
+    const at = match.index ?? 0;
+    if (focus < at) return { text: text.slice(start, at), start };
+    start = at + match[0].length;
+  }
+  return { text: text.slice(start), start };
+}
+
+/** Prefer a whole sentence. A longer quote ends on a word and shows an ellipsis. */
 function evidenceQuote(line: string, index = 0) {
   const clean = line.replace(/\s+/g, ' ').trim();
-  if (clean.length <= 220) return clean;
-  const start = Math.max(0, Math.min(index, clean.length - 220));
-  return clean.slice(start, start + 220).trim();
+  if (clean.length <= MAX_EVIDENCE) return clean;
+  const focus = Math.max(0, Math.min(index, clean.length - 1));
+  const sentence = sentenceAt(clean, focus);
+  if (sentence.text.length <= MAX_EVIDENCE) return sentence.text;
+  return clipAtWord(sentence.text, Math.max(0, focus - sentence.start));
 }
 
 function push(flags: RedFlag[], id: RedFlagId, evidence?: string) {
@@ -172,7 +215,25 @@ function sentenceSaysRented(sentence: string) {
 }
 
 export function lineSaysRented(line: string) {
-  return line.split(/(?<=[.!?])\s+/).some(sentenceSaysRented);
+  return splitSentences(line).some(sentenceSaysRented);
+}
+
+function conversionLockEndedQuote(lines: string[]) {
+  for (const line of lines) {
+    if (!/Sperrfrist/i.test(line)) continue;
+    for (const part of splitSentences(line)) {
+      if (!/Sperrfrist/i.test(part)) continue;
+      if (/nicht mehr|abgelaufen|entf[aä]llt|entfallen/i.test(part) || /keine[^\n]{0,40}Sperrfrist/i.test(part)) {
+        return part.replace(/\s+/g, ' ').trim();
+      }
+    }
+  }
+  return undefined;
+}
+
+export function conversionLockHasEnded(evidence?: string) {
+  if (!evidence || !/Sperrfrist/i.test(evidence)) return false;
+  return /nicht mehr|abgelaufen|entf[aä]llt|entfallen/i.test(evidence) || /keine[^\n]{0,40}Sperrfrist/i.test(evidence);
 }
 
 function isoDate(year: number, month: number, day: number) {
@@ -183,7 +244,7 @@ function isoDate(year: number, month: number, day: number) {
 
 export function findTenancyConflict(lines: string[]) {
   for (const line of listingFactLines(lines)) {
-    const sentence = line.split(/(?<=[.!?])\s+/).find(sentenceSaysRented);
+    const sentence = splitSentences(line).find(sentenceSaysRented);
     if (!sentence) continue;
     const until = sentence.match(/\bbis\s+((?:Ende\s+)?(?:\d{1,2}\.?\s*)?[A-Za-zÄÖÜäöü]+\s+\d{4})/i)?.[1]?.replace(/\s+/g, ' ').trim();
     const written = sentence.match(/\bab\s+(\d{1,2})\.?\s*(Januar|Februar|M[aä]rz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s*(\d{4})/i);
@@ -469,6 +530,11 @@ function cityIsBerlin(report: Pick<Report, 'address' | 'facts'> & { location?: s
 }
 
 export function redFlagSentence(report: Report, flag: RedFlag, locale: 'en' | 'de') {
+  if (flag.id === 'rentedOccupied' && conversionLockHasEnded(flag.evidence)) {
+    return locale === 'de'
+      ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Das Angebot sagt, die umwandlungsbedingte Sperrfrist nach § 577a BGB besteht nicht mehr.'
+      : 'Sold with a tenant: you cannot simply move in. The listing says the conversion lock under § 577a BGB (Sperrfrist) no longer applies.';
+  }
   if (flag.id === 'rentedOccupied' && report.propertyType === 'house') {
     return locale === 'de'
       ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Frag nach dem Mietvertrag, der Kündigungsfrist und ob das Haus frei übergeben werden kann.'
@@ -543,10 +609,12 @@ export function detectRedFlags(lines: string[], report: Pick<Report, 'propertyTy
     if (sale) { push(flags, 'forcedSale', evidenceQuote(line, sale.index)); break; }
   }
   if (report.facts.tenancy === 'Rented') {
+    const lock = conversionLockEndedQuote(scoped);
     const line = scoped.find(lineSaysRented) || scoped.find(item => /\bvermietet\b/i.test(item) && !/(?:nicht|un)\s*vermietet/i.test(item));
-    const sentence = line?.split(/(?<=[.!?])\s+/).find(sentenceSaysRented) || '';
+    const sentence = line ? splitSentences(line).find(sentenceSaysRented) || '' : '';
     const at = line && sentence ? line.indexOf(sentence) : 0;
-    push(flags, 'rentedOccupied', line ? evidenceQuote(line, Math.max(0, at)) : undefined);
+    const quote = lock || (line ? evidenceQuote(line, Math.max(0, at)) : undefined);
+    push(flags, 'rentedOccupied', quote ? evidenceQuote(quote) : undefined);
   }
   const heating = heatingInstallYear(scoped);
   const asOf = Number(report.createdAt.slice(0, 4));

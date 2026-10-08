@@ -1,4 +1,5 @@
 import type { Locale } from './i18n.ts';
+import { reportNeighborhood } from './display.ts';
 import { berlinPriceAvailability, berlinPriceSource, type PriceCheck } from './price-check.ts';
 import type { Report } from './types.ts';
 
@@ -16,7 +17,19 @@ function formatPerSqm(amount: number, locale: Locale) {
 function formatRange(low: number, high: number, locale: Locale) {
   const left = Math.round(low).toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB');
   const right = Math.round(high).toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB');
-  return locale === 'de' ? `${left}${dash}${right} €` : `€${left}${dash}€${right}`;
+  return locale === 'de' ? `${left}${dash}${right} €/m²` : `€${left}${dash}€${right}/m²`;
+}
+
+function foldPlace(value: string) {
+  return value.trim().toLocaleLowerCase('de-DE').replace(/ß/g, 'ss').replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue');
+}
+
+function describedArea(official: string, listed: string | undefined, locale: Locale) {
+  const name = (listed || '').trim();
+  if (!name || foldPlace(name) === foldPlace(official)) return official;
+  return locale === 'de'
+    ? `${official} (amtliches Preisgebiet, umfasst ${name})`
+    : `${official} (official price area, includes ${name})`;
 }
 
 export function formatSignedAreaDelta(deltaPct: number, locale: Locale) {
@@ -25,22 +38,23 @@ export function formatSignedAreaDelta(deltaPct: number, locale: Locale) {
   return locale === 'de' ? `${sign}${abs} %` : `${sign}${abs}%`;
 }
 
-export function priceCheckLead(check: PriceCheck, locale: Locale) {
+export function priceCheckLead(check: PriceCheck, locale: Locale, listedArea?: string) {
   const asking = formatPerSqm(check.askingPerSqm, locale);
   const mean = formatPerSqm(check.mean, locale);
   const range = formatRange(check.low, check.high, locale);
+  const area = describedArea(check.area, listedArea, locale);
   const sales = check.n.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB');
   const close = Math.abs(check.deltaPct) <= 2;
   if (locale === 'de') {
     const relation = close
       ? 'etwa auf dem Niveau des durchschnittlichen Kaufpreises'
       : `${Math.abs(check.deltaPct).toLocaleString('de-DE')} % ${check.deltaPct > 0 ? 'über' : 'unter'} dem durchschnittlichen Kaufpreis`;
-    return `Der Angebotspreis von ${asking} liegt ${relation} 2025 für Eigentumswohnungen in ${check.area} (${mean}, ${sales} Verkäufe; übliche Spanne ${range}).`;
+    return `Der Angebotspreis von ${asking} liegt ${relation} 2025 für Eigentumswohnungen in ${area} (${mean}, ${sales} Verkäufe; übliche Spanne ${range}).`;
   }
   const relation = close
     ? 'about the same as'
     : `${Math.abs(check.deltaPct).toLocaleString('en-GB')}% ${check.deltaPct > 0 ? 'above' : 'below'}`;
-  return `Asking ${asking} is ${relation} the 2025 average sales price for flats in ${check.area} (${mean}, ${sales} sales; typical range ${range}).`;
+  return `Asking ${asking} is ${relation} the 2025 average sales price for flats in ${area} (${mean}, ${sales} sales; typical range ${range}).`;
 }
 
 function positionNote(check: PriceCheck, locale: Locale) {
@@ -115,7 +129,7 @@ export function priceCheckPresentation(report: Report, locale: Locale): PriceChe
     eyebrow,
     glanceLabel: locale === 'de' ? 'ggü. Gebietsmittel' : 'vs. area average',
     glanceValue: formatSignedAreaDelta(check.deltaPct, locale),
-    lead: priceCheckLead(check, locale),
+    lead: priceCheckLead(check, locale, reportNeighborhood(report)),
     positionNote: positionNote(check, locale),
     notes: caveatNotes(check, locale),
     sourceLabel: sourceLabel[locale],
