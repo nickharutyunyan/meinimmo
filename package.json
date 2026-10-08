@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "helper:package": "node scripts/package-helper.mjs",
-    "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
+    "test": "node --no-warnings --expose-gc --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev --turbopack",
     "build": "npm run helper:package && next build",
     "start": "next start",

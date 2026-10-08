@@ -1,9 +1,10 @@
 import { scoreAvailable, reportVerdict } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
-import { copy, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, financeFootnote, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
+import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
 import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
@@ -17,7 +18,6 @@ type FinanceSettings = { equity: number; interest: number; repayment: number; in
 export function PrintReport({ report, locale, finance, autoPrint }: { report: Report; locale: Locale; finance: FinanceSettings; autoPrint: boolean }) {
   const de = locale === 'de';
   const reportText = copy[locale].report;
-  const financeText = copy[locale].finance;
   const score = calculatePropertyScore(report);
   const showScore = scoreAvailable(report);
   const summary = localizedSummary(report, locale);
@@ -35,21 +35,23 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(report.facts.price ? [[reportText.asking, euros(report.facts.price)] as [string, string]] : []),
     ...(report.facts.price && report.facts.area ? [[reportText.perSqm, euros(report.facts.price / report.facts.area)] as [string, string]] : []),
     ...(report.facts.area ? [[reportText.living, `${report.facts.area} m²`] as [string, string]] : []),
+    ...(report.facts.plotArea ? [[reportText.plot, `${report.facts.plotArea.toLocaleString(de ? 'de-DE' : 'en-GB')} m²`] as [string, string]] : []),
     ...(report.facts.usableArea ? [[reportText.usable, `${report.facts.usableArea} m²`] as [string, string]] : []),
     ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms)] as [string, string]] : []),
     ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor)] as [string, string]] : []),
     ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale)] as [string, string]] : []),
     ...(known(report.facts.condition) ? [[reportText.condition, localized(report.facts.condition)] as [string, string]] : []),
+    ...(report.facts.soldAsIs ? [[de ? 'Verkauf' : 'Sale', de ? 'Ist-Zustand' : 'As-is'] as [string, string]] : []),
     ...(report.facts.buyerCommission ? [[reportText.commission, localized(report.facts.buyerCommission)] as [string, string]] : []),
     ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),
     ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy)] as [string, string]] : []),
-    ...(known(report.facts.heating) ? [[reportText.heating, localized(report.facts.heating)] as [string, string]] : []),
+    ...(known(report.facts.heating) || report.facts.energySource ? [[reportText.heating, `${known(report.facts.heating) ? localized(report.facts.heating) : ''}${report.facts.energySource ? `${known(report.facts.heating) ? ' · ' : ''}${localized(report.facts.energySource)}` : ''}`] as [string, string]] : []),
     ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`] as [string, string]] : []),
   ];
   const labels = de ? {
-    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Kalkulationszins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF',
+    document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Kalkulationszins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF', redFlags: 'Warnsignale', redFlagsEmpty: 'Im Angebotstext keine Warnsignale gefunden. Das ist keine Garantie, prüfe die Unterlagen.', serious: 'Ernst', check: 'Prüfen', fromListing: 'Aus dem Angebot:',
   } : {
-    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Listing rubric', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer', pdfSource: 'Exposé PDF',
+    document: 'PROPERTY REPORT', overview: 'At a glance', matters: 'What matters', questions: 'Ask before you offer', finance: 'Financing scenario', location: 'Location', source: 'Source', notes: 'Data notes', generated: 'Created', monthly: 'Known monthly outlay', score: 'Listing rubric', details: 'Score details', loanPayment: 'Loan payment', equity: 'Equity', terms: 'Rate + repayment', total: 'Total acquisition cost', approximate: 'The listing did not disclose an exact address.', disclaimer: 'Not a valuation or financing offer', pdfSource: 'Exposé PDF', redFlags: 'Red flags', redFlagsEmpty: 'No red flags found in the listing text. That is not a guarantee, so check the documents.', serious: 'Serious', check: 'Check', fromListing: 'From the listing:',
   };
   const returnUrl = `${de ? '/de' : ''}/r/${report.id}`;
   const mapsUrl = location.mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery)}` : '';
@@ -76,6 +78,11 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
         {priceView.kind === 'matched' ? <p className="print-price-check">{priceView.lead} <a href={priceView.sourceUrl}>{priceView.sourceLabel}</a></p> : priceView.kind === 'unmatched' ? <p className="print-price-check">{priceView.message}</p> : null}
       </section>
 
+      <section className="print-section print-flags">
+        <h3>{labels.redFlags}</h3>
+        {(report.redFlags || []).length ? <ul>{(report.redFlags || []).map(flag => <li key={flag.id}><strong>{flag.severity === 'high' ? labels.serious : labels.check}.</strong> {redFlagSentence(report, flag, locale)}{flag.evidence ? <blockquote><small>{labels.fromListing}</small> {flag.evidence}</blockquote> : null}</li>)}</ul> : <p>{labels.redFlagsEmpty}</p>}
+      </section>
+
       <section className="print-split print-section">
         <div><h3>{labels.matters}</h3><ol className="print-numbered">{considerations.map((item, index) => <li key={item}><span>{index + 1}</span><p>{item}</p></li>)}</ol></div>
         <div><h3>{labels.questions}</h3><ol className="print-questions">{questions.map(item => <li key={item}>{item}</li>)}</ol></div>
@@ -89,7 +96,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
           <div><small>{labels.terms}</small><strong>{finance.interest.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% + {finance.repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</strong></div>
           <div><small>{labels.total}</small><strong>{euros(costs.total)}</strong></div>
         </div>
-        <p>{financeText.note}</p>
+        <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>
 
       <section className="print-split print-section print-bottom">

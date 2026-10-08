@@ -1,4 +1,5 @@
 import type { FactualTaxonomy, TaxonomyEvidence } from './property-taxonomy';
+import type { RedFlag } from './red-flags';
 
 export type Facts = {
   price: number;
@@ -20,7 +21,20 @@ export type Facts = {
   housegeld?: number;
   housegeldYear?: string;
   tenancy?: string;
+  /** Table says not rented, but the description says the property is rented. */
+  tenancyConflict?: boolean;
+  /** Verbatim fragment such as "Ende November 2026". */
+  rentedUntilText?: string;
   availabilityDate?: string;
+  plotArea?: number;
+  soldAsIs?: boolean;
+  /** Timber-frame construction, when the listing states it for this building. */
+  construction?: string;
+  groundLease?: boolean;
+  groundRentYear?: number;
+  groundRentMonth?: number;
+  groundRentInServiceCharge?: boolean;
+  heatingYear?: number;
   advertisedYield?: number;
   condition?: string;
   features?: string[];
@@ -99,6 +113,8 @@ export type Report = {
   address: string;
   location?: string;
   propertyType: 'flat' | 'house' | 'land';
+  /** Where propertyType came from. Fallback means the listing did not state a type. */
+  typeSource?: 'structured' | 'keyword' | 'fallback';
   source: string;
   sourceFile?: {
     displayName: string;
@@ -106,7 +122,8 @@ export type Report = {
   };
   createdAt: string;
   facts: Facts;
-  score: number;
+  /** Null when the page withholds the score, so the API cannot show a number the page hides. */
+  score: number | null;
   scoreTitle?: string;
   scoreBreakdown?: ScoreBreakdown;
   summary: string;
@@ -116,6 +133,7 @@ export type Report = {
   sunOrientation: string;
   daylight?: string;
   qualityWarnings?: string[];
+  redFlags?: RedFlag[];
   aiEnriched: boolean;
   aiLocationChecked?: boolean;
   aiFactChecked?: boolean;

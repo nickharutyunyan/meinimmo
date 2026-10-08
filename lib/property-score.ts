@@ -173,6 +173,20 @@ export function propertyScoreTitle(total: number, locale: Locale = 'en') {
   return 'The stated fundamentals are weak';
 }
 
+const unknown = (value?: string) => !value || UNKNOWN.test(value);
+
+/** Sub-scores produced with no measured evidence. Two or more withhold the published score. */
+export function defaultScoreComponents(report: Report): Array<keyof ScoreBreakdown> {
+  const defaults: Array<keyof ScoreBreakdown> = [];
+  const neighborhood = report.facts.neighborhood;
+  const hasMinutes = Boolean(neighborhood?.transitMinutes || neighborhood?.parkMinutes || neighborhood?.dailyNeedsMinutes);
+  if (!hasMinutes) defaults.push('neighborhood');
+  if (unknown(report.sunOrientation) && !report.daylight) defaults.push('light');
+  if (unknown(report.facts.energy) && !report.facts.energyDemand) defaults.push('energy');
+  if (unknown(report.facts.year) && unknown(report.facts.condition)) defaults.push('building');
+  return defaults;
+}
+
 export function calculatePropertyScore(report: Report) {
   const breakdown: ScoreBreakdown = {
     price: round(priceScore(report), 1),

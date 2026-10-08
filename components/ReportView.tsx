@@ -7,6 +7,7 @@ import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
 import { copy, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
+import { redFlagSentence } from '@/lib/red-flags';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
 import { FinanceCalculator } from './FinanceCalculator';
@@ -89,18 +90,20 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(facts.price && facts.area ? [[text.perSqm, euros(facts.price / facts.area)] as [string, string]] : []),
     ...(priceView.kind === 'matched' ? [[priceView.glanceLabel, priceView.glanceValue] as [string, string]] : []),
     ...(facts.area ? [[text.living, `${facts.area} m²`] as [string, string]] : []),
+    ...(facts.plotArea ? [[text.plot, `${facts.plotArea.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} m²`] as [string, string]] : []),
     ...(facts.usableArea ? [[text.usable, `${facts.usableArea} m²`] as [string, string]] : []),
     ...(stated(facts.rooms) ? [[text.rooms, known(facts.rooms)] as [string, string]] : []),
     ...(stated(facts.floor) ? [[text.floor, known(facts.floor)] as [string, string]] : []),
     ...(stated(facts.tenancy) ? [[text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)] as [string, string]] : []),
     ...(stated(facts.condition) ? [[text.condition, known(facts.condition)] as [string, string]] : []),
+    ...(facts.soldAsIs ? [[locale === 'de' ? 'Verkauf' : 'Sale', locale === 'de' ? 'Ist-Zustand' : 'As-is'] as [string, string]] : []),
     ...(facts.buyerCommission ? [[text.commission, known(facts.buyerCommission)] as [string, string]] : []),
     ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`] as [string, string]] : []),
     ...(facts.advertisedYield ? [[text.return, `${facts.advertisedYield.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')}%`] as [string, string]] : []),
     ...(stated(report.sunOrientation) ? [[text.sun, known(report.sunOrientation)] as [string, string]] : []),
     ...(report.daylight ? [[text.daylight, known(report.daylight)] as [string, string]] : []),
     ...(stated(facts.energy) || facts.energyDemand ? [[text.energy, `${stated(facts.energy) ? known(facts.energy) : ''}${facts.energyDemand ? `${stated(facts.energy) ? ' · ' : ''}${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : ''}`] as [string, string]] : []),
-    ...(stated(facts.heating) || facts.energySource ? [[text.heating, `${stated(facts.heating) ? known(facts.heating) : ''}${facts.energySource ? `${stated(facts.heating) ? ' · ' : ''}${facts.energySource}` : ''}`] as [string, string]] : []),
+    ...(stated(facts.heating) || facts.energySource ? [[text.heating, `${stated(facts.heating) ? known(facts.heating) : ''}${facts.energySource ? `${stated(facts.heating) ? ' · ' : ''}${known(facts.energySource)}` : ''}`] as [string, string]] : []),
     ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
   ];
   const propertyScore = calculatePropertyScore(report);
@@ -110,6 +113,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
   const features = localizedFeatures(facts.features, locale);
+  const redFlags = report.redFlags || [];
   const propertyCategories = localizedFactualTaxonomy(report, locale);
 
   async function copyLink() {
@@ -147,6 +151,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
           <PriceCheckCard report={report} locale={locale} />
+          <section className="card red-flags"><p className="eyebrow">{text.redFlags}</p>{redFlags.length ? redFlags.map(flag => <div className={`red-flag red-flag-${flag.severity}`} key={flag.id}><p><span className="red-flag-dot" aria-hidden="true" /><span className="red-flag-label">{flag.severity === 'high' ? text.redFlagSerious : text.redFlagCheck}</span> <GlossaryText locale={locale}>{redFlagSentence(report, flag, locale)}</GlossaryText></p>{flag.evidence ? <blockquote><small>{text.redFlagFrom}</small> {flag.evidence}</blockquote> : null}</div>) : <p className="red-flags-empty">{text.redFlagsEmpty}</p>}</section>
           {propertyCategories.length ? <section className="card property-profile"><p className="eyebrow">{text.profile}</p><div className="feature-list">{propertyCategories.map(category => <span key={category}>{category}</span>)}</div></section> : null}
           {features.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>

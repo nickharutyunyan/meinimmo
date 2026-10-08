@@ -8,6 +8,7 @@ import { checkedCharacteristic, parseListing, looksLikePropertyListing, refreshD
 import { EXTRACTION_VERSION } from './report-integrity.ts';
 import { fetchListing } from './listing-fetch.ts';
 import { cleanReportAddress } from './location-validation.ts';
+import { createBoundedMap } from './bounded-cache.ts';
 
 type StoredRow = { data: string };
 
@@ -50,12 +51,13 @@ export async function saveReportSource(id: string, source: string) {
   await db.prepare('INSERT INTO report_sources(report_id, source_text, saved_at) VALUES (?1, ?2, ?3) ON CONFLICT(report_id) DO UPDATE SET source_text = excluded.source_text, saved_at = excluded.saved_at').bind(id, source, new Date().toISOString()).run();
 }
 
-const refreshing = new Map<string, Promise<Report>>();
+const refreshing = createBoundedMap<string, Promise<Report>>(8);
 async function refreshSavedReport(item: Report): Promise<Report> {
   if (item.country === 'AM' || item.extractionVersion === EXTRACTION_VERSION) return normalizedReport(item);
   if (item.sourceUnavailable && item.sourceReviewAttemptedAt && Date.now() - Date.parse(item.sourceReviewAttemptedAt) < 3600000) return normalizedReport(item);
   const pending = refreshing.get(item.id);
   if (pending) return pending;
+  if (refreshing.size >= refreshing.max) return normalizedReport(item);
   const task = (async () => {
     const db = await database();
     const attempted = new Date().toISOString();

@@ -1,6 +1,6 @@
 import 'server-only';
 import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './location-validation';
-import { guardEnrichment } from './verification-guard';
+import { guardEnrichment, openRouterFactCheckAccepted } from './verification-guard';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
 import { htmlToLines, parseListingNumber, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
@@ -238,7 +238,12 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     enriched.offerQuestions = english || fallback.offerQuestions;
     enriched.offerQuestionsDe = german || fallback.offerQuestionsDe;
     enriched.aiEnriched = verifySourceFacts ? false : Boolean(english && german);
-    if (verifySourceFacts) enriched = guardEnrichment(report, enriched);
+    if (verifySourceFacts) {
+      const verdict = openRouterFactCheckAccepted(report, parsed, searchableSource);
+      enriched.aiFactChecked = verdict.facts;
+      enriched.aiLocationChecked = verdict.location;
+      enriched = guardEnrichment(report, enriched);
+    }
     console.info('OpenRouter enrichment complete', { purpose: verifySourceFacts ? 'facts' : 'questions', model: data.model || 'unknown' });
     return refreshDerivedReport(enriched);
   } catch (error) {

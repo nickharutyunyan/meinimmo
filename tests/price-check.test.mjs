@@ -234,24 +234,30 @@ test('a merged borough is too broad, and houses or other cities get no card', ()
 });
 
 test('the Berlin-Tegel listing fixture compares with Reinickendorf', () => {
-  const source = readFileSync(new URL('./fixtures/listings/berlin-tegel.txt', import.meta.url), 'utf8');
-  const parsed = parseListing(source, 'berlin-tegel.txt');
+  const source = readFileSync(new URL('./fixtures/listings/ohne-makler-502729.html', import.meta.url), 'utf8');
+  const parsed = parseListing(source, 'https://example.test/listing/502729');
   assert.equal(parsed.facts.city, 'Berlin');
   assert.equal(parsed.facts.district, 'Tegel');
   assert.equal(parsed.propertyType, 'flat');
   const check = berlinPriceCheck(parsed);
+  assert.ok(check, 'Tegel maps to an official row');
   assert.equal(check.area, 'Reinickendorf');
   assert.equal(check.mean, 3755);
-  assert.equal(check.deltaPct, 9);
+  assert.equal(check.low, 2262);
+  assert.equal(check.high, 5528);
   assert.equal(check.position, 'within');
+  assert.equal(Math.round(check.askingPerSqm), 4846);
+  assert.equal(check.deltaPct, 29);
   const en = priceCheckPresentation(parsed, 'en');
   const de = priceCheckPresentation(parsed, 'de');
+  assert.equal(en.kind, 'matched');
+  assert.equal(de.kind, 'matched');
   assert.match(en.lead, /Reinickendorf/);
   assert.match(de.lead, /Reinickendorf/);
   assert.equal(en.compareLabel, 'vs. area average (2025)');
   assert.equal(de.compareLabel, 'ggü. Gebietsmittel (2025)');
-  assert.match(en.lead, /€4,103\/m² is 9% above/);
-  assert.match(de.lead, /4\.103 €\/m² liegt 9 % über/);
+  assert.match(en.lead, /€4,846\/m² is 29% above/);
+  assert.match(de.lead, /4\.846 €\/m² liegt 29 % über/);
 });
 
 test('price-check copy avoids deal language and portal names, and the score does not consume it yet', () => {
