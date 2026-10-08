@@ -11,6 +11,7 @@ export type AppEnv = CloudflareEnv & {
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_ULTRA?: string;
   PAYMENTS_ENABLED?: string;
+  PAID_PLANS_ENABLED?: string;
   REPORT_LIMITS_ENABLED?: string;
   RESEND_API_KEY?: string;
   PASSWORD_RESET_FROM?: string;

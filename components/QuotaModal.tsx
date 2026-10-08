@@ -21,8 +21,8 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
       return;
     }
     setEligible(false);
-    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { user?: User | null; googleAvailable?: boolean; access?: DayPassAccess }).then((data) => {
-      if (!canOfferDayPass(data.access)) {
+    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { user?: User | null; googleAvailable?: boolean; access?: DayPassAccess; dayPassBillingAvailable?: boolean }).then((data) => {
+      if (!data.dayPassBillingAvailable || !canOfferDayPass(data.access)) {
         onClose();
         return;
       }

@@ -47,6 +47,7 @@
   },
   "vars": {
     "PAYMENTS_ENABLED": "true",
+    "PAID_PLANS_ENABLED": "false",
     "REPORT_LIMITS_ENABLED": "false",
     "OPENROUTER_MODEL": "google/gemma-4-26b-a4b-it:free",
     "JEV_MODEL": "jev-latest",

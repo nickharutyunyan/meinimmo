@@ -9,14 +9,44 @@ import { SiteFooter } from './SiteFooter';
 import { requestJson } from '@/lib/client-request';
 import { canOfferDayPass } from '@/lib/day-pass';
 
+type AccountSubscription = { plan: 'pro' | 'ultra'; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean };
+
 type AccountState = {
   user: { username: string | null; email: string | null; name: string | null } | null;
   access: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string };
-  subscription: { plan: 'pro' | 'ultra'; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  subscription: AccountSubscription | null;
   googleAvailable: boolean;
+  paidPlansEnabled: boolean;
   billingAvailable: boolean;
   dayPassBillingAvailable: boolean;
 };
+
+function subscriptionDetail(de: boolean, subscription: AccountSubscription) {
+  const date = subscription.currentPeriodEnd
+    ? new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(subscription.currentPeriodEnd))
+    : null;
+  if (subscription.cancelAtPeriodEnd || subscription.status === 'canceled') {
+    return date
+      ? (de ? `Dein Abo endet am ${date}. Danach wird nichts mehr berechnet.` : `Your subscription ends on ${date}. You will not be charged again.`)
+      : (de ? 'Dein Abo ist gekündigt und wird nicht noch einmal berechnet.' : 'Your subscription is cancelled and will not renew.');
+  }
+  if (subscription.status === 'past_due') {
+    return de
+      ? 'Die letzte Zahlung ist fehlgeschlagen. Im Stripe-Portal kannst du die Zahlung aktualisieren oder kündigen.'
+      : 'The latest payment did not go through. You can update the payment or cancel in the Stripe portal.';
+  }
+  if (subscription.status === 'trialing') {
+    return date ? (de ? `Testphase bis ${date}.` : `Trial until ${date}.`) : (de ? 'Testphase.' : 'Trial.');
+  }
+  if (subscription.status === 'active') {
+    return date
+      ? (de ? `Nächste Verlängerung am ${date}.` : `Next renewal on ${date}.`)
+      : (de ? 'Das Abo verlängert sich monatlich.' : 'Renews monthly.');
+  }
+  return de
+    ? `Status: ${subscription.status}. Im Stripe-Portal kannst du das Abo verwalten oder kündigen.`
+    : `Status: ${subscription.status}. You can manage or cancel it in the Stripe portal.`;
+}
 
 export function AccountPage({ locale }: { locale: Locale }) {
   const de = locale === 'de';
@@ -29,9 +59,6 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const [passwordReset, setPasswordReset] = useState(false);
   const resumedCheckout = useRef(false);
   const subscriptionIsCurrent = Boolean(data?.subscription && !['canceled', 'incomplete_expired'].includes(data.subscription.status));
-  const subscriptionDate = data?.subscription?.currentPeriodEnd
-    ? new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(data.subscription.currentPeriodEnd))
-    : null;
   const inFlight = useRef(false);
   const networkError = de ? 'Verbindung fehlgeschlagen. Bitte versuche es erneut.' : 'Connection failed. Please try again.';
   const refresh = async () => {
@@ -120,16 +147,14 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <p>{data.access.kind === 'day_pass' ? (de ? 'Berichte mit diesem Pass erstellt' : 'reports created with this pass') : (de ? 'Berichte heute erstellt' : 'reports created today')}</p>
           <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
           <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
-        </section> : <section className="account-card usage-card"><span>{de ? 'TESTPHASE' : 'TESTING'}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.'}</small></section>}
+        </section> : <section className="account-card usage-card"><span>{data.subscription ? data.subscription.plan.toUpperCase() : (de ? 'KOSTENLOS' : 'FREE')}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{data.subscription ? (de ? 'Das ist dein aktuelles Abo. Verwalten oder kündigen kannst du es unten.' : 'This is your current plan. Manage or cancel it below.') : (de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.')}</small></section>}
         <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required /><small>{de ? 'Hierhin schicken wir einen Link, falls du dein Passwort vergisst.' : 'We’ll send a secure link here if you forget your password.'}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {data.subscription ? <section className="subscription-card">
         <div>
           <p className="eyebrow">{de ? 'DEIN ABO' : 'YOUR SUBSCRIPTION'}</p>
           <h2>{data.subscription.plan === 'ultra' ? 'Ultra' : 'Pro'}</h2>
-          <p>{data.subscription.cancelAtPeriodEnd
-            ? (subscriptionDate ? (de ? `Dein Abo endet am ${subscriptionDate}. Danach wird nichts mehr berechnet.` : `Your subscription ends on ${subscriptionDate}. You will not be charged again.`) : (de ? 'Dein Abo ist gekündigt und wird nicht noch einmal berechnet.' : 'Your subscription is cancelled and will not renew.'))
-            : (subscriptionDate ? (de ? `Nächste Verlängerung am ${subscriptionDate}.` : `Next renewal on ${subscriptionDate}.`) : (de ? 'Das Abo verlängert sich monatlich.' : 'Renews monthly.'))}</p>
+          <p>{subscriptionDetail(de, data.subscription)}</p>
         </div>
         <button onClick={portal} disabled={busy}>{de ? 'Abo bei Stripe verwalten oder kündigen' : 'Manage or cancel in Stripe'}</button>
       </section> : null}
@@ -144,13 +169,13 @@ export function AccountPage({ locale }: { locale: Locale }) {
       <p className="separation-note">{de ? 'Deine persönlichen Kontodaten werden in einer eigenen Datenbank gespeichert – getrennt von Immobilien-Berichten.' : 'Your personal account data is stored in its own database, separate from property reports.'}</p>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
     </section> : <section className="account-shell auth-shell">
-      <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'signup' ? (de ? 'In einer Minute startklar.' : 'Ready in a minute.') : (de ? 'Willkommen zurück.' : 'Welcome back.')}</h1><p>{de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.'}</p></div>
+      <div className="account-heading"><p className="eyebrow">{de ? 'KONTO' : 'ACCOUNT'}</p><h1>{mode === 'signup' ? (de ? 'In einer Minute startklar.' : 'Ready in a minute.') : (de ? 'Willkommen zurück.' : 'Welcome back.')}</h1><p>{data.paidPlansEnabled ? (de ? 'Speichere deinen Zugang und schalte bei Bedarf mehr Berichte frei.' : 'Keep your access in one place and unlock more reports when you need them.') : (de ? 'Melde dich an, um Berichte deinem Konto zuzuordnen. Einen Bericht erstellen kannst du auch ohne Anmeldung.' : 'Sign in to keep reports with your account. You can create a report with no sign-up.')}</p></div>
       <div className="auth-card">
         {data.googleAvailable ? <a className="google-auth" href={`/api/auth/google/start?locale=${locale}&returnTo=${encodeURIComponent(returnTo || localePath(locale, '/account'))}`}><span>G</span>{de ? 'Mit Google weitermachen' : 'Continue with Google'}</a> : null}
         {data.googleAvailable ? <div className="auth-divider"><span>{de ? 'oder' : 'or'}</span></div> : null}
         <form className="credential-form" onSubmit={submit}>
           {mode === 'signup' ? <label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" autoComplete="name" /></label> : null}
-          {mode === 'signup' ? <><label>{de ? 'Nutzername' : 'Username'}<input name="username" autoComplete="username" required /></label><label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" required /><small>{de ? 'Nur für dein Konto, Zahlungen und die Passwort-Wiederherstellung.' : 'Used only for your account, payments and password recovery.'}</small></label></> : <label>{de ? 'Nutzername oder E-Mail' : 'Username or email'}<input name="identifier" autoComplete="username" required /></label>}
+          {mode === 'signup' ? <><label>{de ? 'Nutzername' : 'Username'}<input name="username" autoComplete="username" required /></label><label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" required /><small>{data.paidPlansEnabled ? (de ? 'Nur für dein Konto, Zahlungen und die Passwort-Wiederherstellung.' : 'Used only for your account, payments and password recovery.') : (de ? 'Nur für dein Konto und die Passwort-Wiederherstellung.' : 'Used only for your account and password recovery.')}</small></label></> : <label>{de ? 'Nutzername oder E-Mail' : 'Username or email'}<input name="identifier" autoComplete="username" required /></label>}
           <label>{de ? 'Passwort' : 'Password'}<input name="password" type="password" minLength={10} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />{mode === 'signup' ? <small>{de ? 'Mindestens 10 Zeichen, mit Buchstabe und Zahl.' : 'At least 10 characters, with a letter and a number.'}</small> : null}</label>
           <button className="primary-action" disabled={busy}>{busy ? (de ? 'Einen Moment…' : 'One moment…') : mode === 'signup' ? (de ? 'Konto erstellen' : 'Create account') : (de ? 'Anmelden' : 'Sign in')}</button>
         </form>

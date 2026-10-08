@@ -1,6 +1,7 @@
 import 'server-only';
 import Stripe from 'stripe';
 import { appEnvironment, authDatabase, type SessionUser } from './auth-db';
+import { dayPassCheckoutFulfilled } from './day-pass-payment';
 
 export type BillingPlan = 'day_pass' | 'pro' | 'ultra';
 
@@ -62,6 +63,30 @@ export async function createBillingPortal(user: SessionUser, origin: string, loc
   return (await stripeClient()).billingPortal.sessions.create({ customer: user.stripeCustomerId, return_url: `${origin}${prefix}/account`, locale });
 }
 
+export async function customerSubscriptionStatuses(customerId: string) {
+  const stripe = await stripeClient();
+  const statuses: string[] = [];
+  let startingAfter: string | undefined;
+  for (let page = 0; page < 10; page += 1) {
+    const listed = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    for (const subscription of listed.data) statuses.push(subscription.status);
+    if (!listed.has_more) break;
+    const last = listed.data.at(-1);
+    if (!last) break;
+    startingAfter = last.id;
+  }
+  return statuses;
+}
+
+function checkoutLinePriceId(session: Stripe.Checkout.Session) {
+  return session.line_items?.data[0]?.price?.id ?? null;
+}
+
 function subscriptionEnd(subscription: Stripe.Subscription) {
   const seconds = subscription.items.data[0]?.current_period_end;
   return seconds ? new Date(seconds * 1000).toISOString() : null;
@@ -103,13 +128,30 @@ export async function processStripeEvent(event: Stripe.Event) {
     const userId = session.client_reference_id || session.metadata?.user_id;
     const customer = typeof session.customer === 'string' ? session.customer : session.customer?.id;
     if (userId && customer) await db.prepare('UPDATE users SET stripe_customer_id = ?1, updated_at = ?2 WHERE id = ?3').bind(customer, new Date().toISOString(), userId).run();
-    if (userId && session.metadata?.plan === 'day_pass' && session.payment_status === 'paid' && session.amount_total === 500 && session.currency === 'eur') {
-      const startsAt = new Date();
-      const expiresAt = new Date(startsAt.getTime() + 24 * 60 * 60 * 1000);
-      await db.prepare(`
-        INSERT OR IGNORE INTO day_passes (id, user_id, stripe_checkout_session_id, starts_at, expires_at, report_limit, reports_used, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, 50, 0, ?4)
-      `).bind(crypto.randomUUID(), userId, session.id, startsAt.toISOString(), expiresAt.toISOString()).run();
+    if (userId && session.metadata?.plan === 'day_pass' && session.payment_status === 'paid') {
+      const env = await appEnvironment();
+      let linePriceId: string | null = null;
+      try {
+        const full = await (await stripeClient()).checkout.sessions.retrieve(session.id, { expand: ['line_items.data.price'] });
+        linePriceId = checkoutLinePriceId(full);
+      } catch (error) {
+        console.error('Day-pass price could not be read from Stripe; falling back to the amount check', error);
+      }
+      if (dayPassCheckoutFulfilled({
+        plan: session.metadata?.plan,
+        paymentStatus: session.payment_status,
+        amountTotal: session.amount_total,
+        currency: session.currency,
+        linePriceId,
+        configuredPriceId: env.STRIPE_PRICE_DAY_PASS,
+      })) {
+        const startsAt = new Date();
+        const expiresAt = new Date(startsAt.getTime() + 24 * 60 * 60 * 1000);
+        await db.prepare(`
+          INSERT OR IGNORE INTO day_passes (id, user_id, stripe_checkout_session_id, starts_at, expires_at, report_limit, reports_used, created_at)
+          VALUES (?1, ?2, ?3, ?4, ?5, 50, 0, ?4)
+        `).bind(crypto.randomUUID(), userId, session.id, startsAt.toISOString(), expiresAt.toISOString()).run();
+      }
     }
     const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
     if (subscriptionId) await saveSubscription(await (await stripeClient()).subscriptions.retrieve(subscriptionId));

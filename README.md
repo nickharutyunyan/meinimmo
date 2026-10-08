@@ -32,6 +32,8 @@ D1 is the authoritative store for reports and comparisons. The old `data/*.json`
 
 Personal account, credential, session and billing records live in the dedicated `AUTH_DB` D1 database. Property report content remains in `DB`; the private database only keeps opaque report IDs when a signed-in user opens or creates a report. Passwords are stored as salted PBKDF2 hashes and session cookies contain opaque tokens whose hashes are stored server-side.
 
+New purchases are hidden until digest-based pricing exists. `PAID_PLANS_ENABLED` defaults to off (`false` in `wrangler.jsonc`). Reports stay free, the billing portal still opens for an existing subscriber, and Stripe webhooks still record renewals and cancellations. Set `PAID_PLANS_ENABLED` to `true` to offer Pro, Ultra and the day pass again. Leave `PAYMENTS_ENABLED` and the Stripe secrets in place while plans are hidden.
+
 Create these recurring Stripe prices in EUR before enabling subscriptions:
 
 - `STRIPE_PRICE_DAY_PASS`: €5 one-time payment

@@ -150,6 +150,20 @@ export const copy = {
   },
 } as const;
 
+const hiddenPlanFaq = {
+  en: ['Is Review a House free?', 'Reports are free, with no daily limit and no sign-up required.'],
+  de: ['Ist Review a House kostenlos?', 'Berichte sind kostenlos, ohne Tageslimit und ohne Anmeldung.'],
+} as const;
+
+export function homePresentation(locale: Locale, paidPlansOffered: boolean) {
+  const home = copy[locale].home;
+  if (paidPlansOffered) return home;
+  return {
+    ...home,
+    faqs: home.faqs.map((entry, index) => (index === home.faqs.length - 1 ? hiddenPlanFaq[locale] : entry)),
+  };
+}
+
 export function localizedValue(value: string | undefined, locale: Locale) {
   if (!value || /not stated|unknown|address not stated/i.test(value)) return copy[locale].report.notDisclosed;
   const legacyNotRented = ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(value);

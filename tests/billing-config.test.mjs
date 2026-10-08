@@ -10,20 +10,42 @@ const configured = {
 };
 
 test('billing stays disabled unless the payment feature is explicitly enabled', () => {
-  assert.deepEqual(billingAvailability(configured), { enabled: false, subscriptions: false, dayPass: false });
+  assert.deepEqual(billingAvailability(configured), {
+    enabled: false,
+    plansEnabled: false,
+    subscriptions: false,
+    dayPass: false,
+  });
 });
 
-test('subscription checkout is independent from day-pass and report-limit configuration', () => {
-  assert.deepEqual(billingAvailability({ ...configured, PAYMENTS_ENABLED: 'true', STRIPE_PRICE_DAY_PASS: undefined }), {
+test('paid plans stay hidden while payments infrastructure remains on', () => {
+  assert.deepEqual(billingAvailability({ ...configured, PAYMENTS_ENABLED: 'true' }), {
     enabled: true,
+    plansEnabled: false,
+    subscriptions: false,
+    dayPass: false,
+  });
+  assert.equal(billingAvailability({ ...configured, PAYMENTS_ENABLED: 'true', PAID_PLANS_ENABLED: 'false' }).plansEnabled, false);
+});
+
+test('subscription checkout is independent from day-pass configuration once plans are offered', () => {
+  assert.deepEqual(billingAvailability({
+    ...configured,
+    PAYMENTS_ENABLED: 'true',
+    PAID_PLANS_ENABLED: 'on',
+    STRIPE_PRICE_DAY_PASS: undefined,
+  }), {
+    enabled: true,
+    plansEnabled: true,
     subscriptions: true,
     dayPass: false,
   });
 });
 
-test('all payment paths are available when their Stripe resources are configured', () => {
-  assert.deepEqual(billingAvailability({ ...configured, PAYMENTS_ENABLED: 'enabled' }), {
+test('all payment paths are available when plans are offered and their Stripe resources are configured', () => {
+  assert.deepEqual(billingAvailability({ ...configured, PAYMENTS_ENABLED: 'enabled', PAID_PLANS_ENABLED: 'true' }), {
     enabled: true,
+    plansEnabled: true,
     subscriptions: true,
     dayPass: true,
   });
