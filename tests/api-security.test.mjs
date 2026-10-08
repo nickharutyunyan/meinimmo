@@ -15,6 +15,7 @@ test('state-changing public product routes require a same-origin request', async
     'app/api/assess/route.ts',
     'app/api/comparisons/route.ts',
     'app/api/reports/[id]/questions/route.ts',
+    'app/api/reports/[id]/feedback/route.ts',
   ]) {
     const route = await source(path);
     assert.match(route, /requireSameOrigin\(request\)/, path);

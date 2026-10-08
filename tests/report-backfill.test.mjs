@@ -4,6 +4,7 @@ import test from 'node:test';
 import { backfillRejection } from '../cloudflare/backfill-gate.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL, backfillAuthorized, mergedBackfillReport, runBackfillBatch } from '../lib/report-backfill.ts';
+import { parseListing } from '../lib/listing-parser.ts';
 import { EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { refreshFailureMarker } from '../lib/report-refresh.ts';
 
@@ -99,7 +100,7 @@ function backfillRows(records) {
 }
 
 test('backfill selects recent reports that only have an attempt timestamp', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100805);
+  assert.equal(EXTRACTION_VERSION, 2026100806);
   const attempted = '2026-10-08T12:00:00.000Z';
   const recent = {
     extractionVersion: 2026100802,
@@ -283,4 +284,40 @@ test('page, print, sitemap and metadata routes do not read archived HTML', async
   assert.doesNotMatch(gate, /listing-parser|assessment|\/lib\/store/);
   const assess = await read('app/api/assess/route.ts');
   assert.match(assess, /deterministicAssessment/);
+});
+
+test('a backfilled report gets factEvidence from the archived source', async () => {
+  const html = await readFile(new URL('./fixtures/listings/ohne-makler-471956.html', import.meta.url), 'utf8');
+  const parsed = parseListing(html, 'https://example.test/471956');
+  const previous = {
+    ...parsed,
+    id: 'kept-report',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    extractionVersion: 2026100803,
+    factEvidence: undefined,
+    aiEnriched: true,
+    aiFactChecked: true,
+    categories: parsed.categories,
+    offerQuestions: ['Kept question about the roof?'],
+    offerQuestionsDe: ['Behaltene Frage zum Dach?'],
+    source: 'https://example.test/listing',
+  };
+  const merged = mergedBackfillReport(previous, parsed, '2026-10-08T16:00:00.000Z');
+  assert.equal(merged.id, 'kept-report');
+  assert.equal(merged.createdAt, previous.createdAt);
+  assert.equal(merged.aiEnriched, true);
+  assert.equal(merged.aiFactChecked, true);
+  assert.deepEqual(merged.offerQuestions, previous.offerQuestions);
+  assert.equal(merged.extractionVersion, EXTRACTION_VERSION);
+  assert.deepEqual(merged.factEvidence, parsed.factEvidence);
+  assert.match(merged.factEvidence.price.excerpt, /172\.000/);
+  assert.match(merged.factEvidence.rooms.excerpt, /1-Zimmer|Zimmer 1/);
+  assert.match(merged.factEvidence.area.excerpt, /30/);
+  assert.match(merged.factEvidence.housegeld.excerpt, /197/);
+  assert.match(merged.factEvidence.heating.excerpt, /Heizung|Zentralheizung/);
+  assert.equal(merged.factEvidence.price.kind, 'stated');
+  for (const [field, evidence] of Object.entries(parsed.factEvidence)) {
+    assert.equal(evidence.kind, 'stated', field);
+    assert.equal(merged.factEvidence[field].excerpt, evidence.excerpt, field);
+  }
 });

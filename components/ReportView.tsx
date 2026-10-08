@@ -29,8 +29,11 @@ import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxon
 import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
+import { labelledFactEvidence, provenanceForField } from '@/lib/fact-provenance';
+import { factSourceCopy } from '@/lib/fact-source-copy';
+import { FactSource } from './FactSource';
 
-export function ReportView({ report: initialReport, locale, mortgageRate, renderedAt }: { report: Report; locale: Locale; mortgageRate?: MortgageRateSnapshot; renderedAt?: number }) {
+export function ReportView({ report: initialReport, locale, mortgageRate, renderedAt, reportingEnabled = false }: { report: Report; locale: Locale; mortgageRate?: MortgageRateSnapshot; renderedAt?: number; reportingEnabled?: boolean }) {
   const [report, setReport] = useState(initialReport);
   const [copied, setCopied] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
@@ -87,8 +90,10 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
   const glance = glanceFacts(report, locale);
   if (priceView.kind === 'matched') {
     const perSqm = glance.findIndex(([label]) => label === text.perSqm);
-    glance.splice(perSqm >= 0 ? perSqm + 1 : glance.length, 0, [priceView.glanceLabel, priceView.glanceValue]);
+    glance.splice(perSqm >= 0 ? perSqm + 1 : glance.length, 0, [priceView.glanceLabel, priceView.glanceValue, 'priceCheck']);
   }
+  const sourceCopy = factSourceCopy[locale];
+  const evidenceRows = labelledFactEvidence(report, locale);
   const propertyScore = displayedPropertyScore(report);
   const verdict = reportVerdict(report, locale);
   const verdictText = /[.!?]$/.test(verdict) ? verdict : `${verdict}.`;
@@ -145,18 +150,18 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
       {clarify.length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{clarify.map(w => <p key={w}>{w}</p>)}</section> : null}
       <div className="report-grid">
         <div>
-          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
+          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value, field]) => <div key={`${field}-${key}`}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><div className="fact-value"><b><GlossaryText locale={locale}>{value}</GlossaryText></b><FactSource reportId={report.id} locale={locale} label={key} provenance={provenanceForField(report, field, value, locale)} reportingEnabled={reportingEnabled} /></div></div>)}</div></section>
           <PriceCheckCard report={report} locale={locale} />
           <section className="card red-flags"><p className="eyebrow">{text.redFlags}</p>{redFlags.length ? redFlags.map(flag => <div className={`red-flag red-flag-${flag.severity}`} key={flag.id}><p><span className="red-flag-dot" aria-hidden="true" /><span className="red-flag-label">{flag.severity === 'high' ? text.redFlagSerious : text.redFlagCheck}</span> <GlossaryText locale={locale}>{redFlagSentence(report, flag, locale)}</GlossaryText></p>{flag.evidence ? <blockquote><small>{text.redFlagFrom}</small> {flag.evidence}</blockquote> : null}</div>) : <p className="red-flags-empty">{text.redFlagsEmpty}</p>}</section>
           {propertyCategories.length ? <section className="card property-profile"><p className="eyebrow">{text.profile}</p><div className="feature-list">{propertyCategories.map(category => <span key={category}>{category}</span>)}</div></section> : null}
           {features.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
           {warnings.length ? <section className="card data-notes"><p className="eyebrow">{text.notes}</p>{warnings.map((item) => <p key={item}><GlossaryText locale={locale}>{item}</GlossaryText></p>)}</section> : null}
-          {report.evidence ? <details className="card source-evidence"><summary>{locale === 'de' ? 'Belege aus dem Angebot ansehen' : 'View source evidence'}</summary><p>{locale === 'de' ? 'Auszüge aus der Quelle. Angaben des Verkäufers sind nicht unabhängig bestätigt.' : 'Excerpts from the source. Seller statements have not been independently verified.'}</p>{Object.entries(report.evidence).filter(([, lines]) => lines.length).map(([field, lines]) => <div key={field}>{lines.map((line, i) => <blockquote key={i}>{line}</blockquote>)}</div>)}</details> : null}
+          {evidenceRows.length ? <details className="card source-evidence"><summary>{sourceCopy.viewEvidence}</summary><p>{sourceCopy.evidenceNote}</p>{evidenceRows.map(row => <div key={row.field}><h3>{row.label}</h3><blockquote>{row.excerpt}</blockquote></div>)}</details> : null}
           {location.mapQuery ? <LocationCard location={location} locale={locale} reportId={report.id} geocode={report.geocode} /> : null}
         </div>
         <aside>
-          <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} />
+          <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} reportingEnabled={reportingEnabled} />
           <ReportNote reportId={report.id} locale={locale} />
           <OfferQuestions report={report} locale={locale} />
           <AdSlot locale={locale} kind="finance" compact />

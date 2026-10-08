@@ -36,4 +36,4 @@
  .sidebar.collapsed~.workspace{margin-left:0}
 }
 .integrity-alert{border-left:4px solid #a54d3f;background:#fff9f0;padding:20px;margin-bottom:30px}
-.source-evidence{overflow-wrap:anywhere}.source-evidence summary{cursor:pointer;font-weight:600}.source-evidence blockquote{margin:10px 0;padding-left:12px;border-left:2px solid var(--line);font-size:13px;line-height:1.5}
+.source-evidence{overflow-wrap:anywhere}.source-evidence summary{cursor:pointer;font-weight:600}.source-evidence h3{margin:14px 0 0;font:600 13px/1.3 var(--sans);text-transform:uppercase}.source-evidence blockquote{margin:10px 0;padding-left:12px;border-left:2px solid var(--line);font-size:13px;line-height:1.5}

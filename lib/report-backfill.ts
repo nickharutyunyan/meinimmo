@@ -51,6 +51,7 @@ export function mergedBackfillReport(previous: Report, parsed: Report, attempted
     locationEvidence: previous.locationEvidence,
     offerQuestions: previous.aiEnriched ? previous.offerQuestions : parsed.offerQuestions,
     offerQuestionsDe: previous.aiEnriched ? previous.offerQuestionsDe : parsed.offerQuestionsDe,
+    factEvidence: parsed.factEvidence,
   });
 }
 
