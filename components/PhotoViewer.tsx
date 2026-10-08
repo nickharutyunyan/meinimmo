@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type MouseEvent, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { copy, type Locale } from '../lib/i18n.ts';
 import { photoCount, plainNumber } from '../lib/format.ts';
@@ -34,6 +34,7 @@ export function PhotoViewer({
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const [dragY, setDragY] = useState(0);
   const failRef = useRef(onFail);
   failRef.current = onFail;
   const text = copy[locale].report;
@@ -131,6 +132,15 @@ export function PhotoViewer({
     if (!point) return;
     touch.current = { x: point.clientX, y: point.clientY };
   };
+  const onTouchMove = (event: TouchEvent) => {
+    const start = touch.current;
+    if (!start || window.innerWidth >= 768) return;
+    const point = event.changedTouches[0];
+    if (!point) return;
+    const dx = point.clientX - start.x;
+    const dy = point.clientY - start.y;
+    setDragY(dy > 12 && dy > Math.abs(dx) ? Math.min(dy, 240) : 0);
+  };
   const onTouchEnd = (event: TouchEvent) => {
     const start = touch.current;
     touch.current = null;
@@ -139,19 +149,22 @@ export function PhotoViewer({
     if (!point) return;
     const command = swipeCommand(point.clientX - start.x, point.clientY - start.y, window.innerWidth);
     if (command === 'close') onClose();
-    else if (command === 'next') move(1);
+    else setDragY(0);
+    if (command === 'next') move(1);
     else if (command === 'previous') move(-1);
   };
 
   return createPortal(<div
     ref={dialogRef}
-    className="photo-viewer"
+    className={dragY > 0 ? 'photo-viewer is-dragging' : 'photo-viewer'}
     role="dialog"
     aria-modal="true"
     aria-label={text.photoViewerLabel}
     tabIndex={-1}
+    style={dragY > 0 ? { transform: `translate3d(0, ${dragY}px, 0)` } : undefined}
     onMouseDown={backdrop}
     onTouchStart={onTouchStart}
+    onTouchMove={onTouchMove}
     onTouchEnd={onTouchEnd}
   >
     <button ref={closeRef} type="button" className="photo-viewer-close" aria-label={text.photoClose} onClick={onClose}><span aria-hidden="true">×</span></button>
@@ -206,8 +219,8 @@ export function PhotoViewer({
       </button>)}
     </div>
     <p className="photo-viewer-credit">
-      {text.photoCredit}{' '}
-      <a href={listingUrl} target="_blank" rel="noopener noreferrer nofollow">{text.photoOriginal} <span aria-hidden="true">↗</span></a>
+      <span>{text.photoCredit}</span>
+      <a href={listingUrl} target="_blank" rel="noopener noreferrer nofollow">{text.photoOriginal}{'\u00A0'}<span aria-hidden="true">↗</span></a>
     </p>
   </div>, document.body);
 }
