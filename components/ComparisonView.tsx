@@ -3,8 +3,7 @@ import { scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import type { Report } from '@/lib/types';
-import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { neighborhoodForReport } from '@/lib/geocode';
+import { reportNeighborhood, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, formatScore } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
@@ -22,14 +21,12 @@ function scoreCell(item: Report, total: number, locale: Locale) {
   return `${formatScore(total, locale)} / 10`;
 }
 
-export async function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
+export function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
   const text = copy[locale].compare;
   const firstScore = calculatePropertyScore(first);
   const secondScore = calculatePropertyScore(second);
-  const [firstNeighborhood, secondNeighborhood] = await Promise.all([
-    neighborhoodForReport(first),
-    neighborhoodForReport(second),
-  ]);
+  const firstNeighborhood = reportNeighborhood(first);
+  const secondNeighborhood = reportNeighborhood(second);
   const known = (value?: string) => localizedValue(value, locale) === copy[locale].report.notDisclosed ? '—' : localizedValue(value, locale);
   const energy = (item: Report) => {
     const energyClass = known(item.facts.energy);

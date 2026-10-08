@@ -6,8 +6,8 @@ import { rememberUserReport, reserveReportAllowance } from '@/lib/access';
 import { anonymousToken, attachAnonymousCookie, requireSameOrigin } from '@/lib/auth';
 import { publicListingUrl } from '@/lib/security';
 import { stableReportId } from '@/lib/report-id';
-import { neighborhoodForPostalCode } from '@/lib/geocode';
-import { refreshDerivedReport, unsupportedListingReason } from '@/lib/listing-parser';
+import { attachReportGeocode } from '@/lib/geocode-runtime';
+import { unsupportedListingReason } from '@/lib/listing-parser';
 import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-source';
 import { deleteSourcePdf, saveSourcePdf } from '@/lib/source-storage';
 import { categorizeProperty } from '@/lib/jev';
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
         if (latest?.extractionVersion !== candidate.extractionVersion || latest?.sourceReviewAttemptedAt !== candidate.sourceReviewAttemptedAt) return;
         await replaceReport({
           ...categorized,
+          geocode: categorized.geocode || latest?.geocode,
           offerQuestions: latest?.offerQuestions || categorized.offerQuestions,
           offerQuestionsDe: latest?.offerQuestionsDe || categorized.offerQuestionsDe,
           aiEnriched: latest?.aiEnriched || categorized.aiEnriched,
@@ -65,25 +66,7 @@ export async function POST(request: NextRequest) {
   const verifyLater = (candidate: Awaited<ReturnType<typeof findReport>> & object, sourceText: string) => {
     after(async () => {
       try {
-        let prepared = candidate;
-        if (!prepared.facts.street && !prepared.facts.district && prepared.facts.postalCode) {
-          const neighborhood = await neighborhoodForPostalCode(prepared.facts.postalCode, prepared.facts.city);
-          if (neighborhood) {
-            prepared = refreshDerivedReport({
-              ...prepared,
-              location: neighborhood,
-              facts: { ...prepared.facts, district: neighborhood, locationPrecision: 'neighborhood' },
-            });
-            const latest = await findReport(prepared.id);
-            if (latest?.extractionVersion !== candidate.extractionVersion || latest?.sourceReviewAttemptedAt !== candidate.sourceReviewAttemptedAt) return;
-            await replaceReport({
-              ...prepared,
-              offerQuestions: latest?.offerQuestions || prepared.offerQuestions,
-              offerQuestionsDe: latest?.offerQuestionsDe || prepared.offerQuestionsDe,
-              aiEnriched: latest?.aiEnriched || prepared.aiEnriched,
-            });
-          }
-        }
+        const prepared = candidate;
         // Taxonomy v2 reads immutable source excerpts, not generated facts or
         // scores, so its single request can run alongside evidence review.
         const [verified, classified] = await Promise.all([
@@ -98,6 +81,7 @@ export async function POST(request: NextRequest) {
         if (latest?.extractionVersion !== candidate.extractionVersion || latest?.sourceReviewAttemptedAt !== candidate.sourceReviewAttemptedAt) return;
         await replaceReport({
           ...categorized,
+          geocode: categorized.geocode || latest?.geocode,
           offerQuestions: latest?.offerQuestions || categorized.offerQuestions,
           offerQuestionsDe: latest?.offerQuestionsDe || categorized.offerQuestionsDe,
           aiEnriched: latest?.aiEnriched || categorized.aiEnriched,
@@ -217,6 +201,8 @@ export async function POST(request: NextRequest) {
       return respond({ error: de ? 'Im Angebot fehlt eine verlässliche Lageangabe. Ohne belegbare Lage erstellen wir keinen Bericht.' : 'The listing does not provide a reliable location. We will not create a report without one.' }, 422);
     }
   }
+
+  report = await timed('geocode', () => attachReportGeocode(report));
 
   try {
     if (uploadedPdf) {

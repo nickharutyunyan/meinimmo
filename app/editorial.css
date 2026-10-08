@@ -1422,6 +1422,18 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   filter: grayscale(.18) sepia(.08) saturate(.72) contrast(.94);
 }
 
+.map-credit {
+  display: block;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.map-credit a {
+  color: inherit;
+}
+
 .location-card > a {
   padding: 11px 0;
 }

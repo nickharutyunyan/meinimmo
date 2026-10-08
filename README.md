@@ -8,7 +8,7 @@ Listing photos on a report are remote thumbnail URLs only. The app never downloa
 
 1. Copy `.dev.vars.example` to `.dev.vars`.
 2. Put `OPENROUTER_API_KEY` in `.dev.vars`. The file is ignored by git. `OPENROUTER_MODEL` defaults to OpenRouter's zero-cost `openrouter/free` router.
-3. Initialize both local D1 databases with `npm run db:migrate:local` and `npm run auth-db:migrate:local`.
+3. Initialize both local D1 databases with `npm run db:migrate:local` and `npm run auth-db:migrate:local`. Migration `0004_geocode_cache.sql` stores Nominatim results for 30 days and the shared one-request-per-second slot. Apply it with the other D1 migrations.
 4. Run `npm run dev` for fast Next.js development, or `npm run preview` to test inside the Workers runtime.
 
 ## First Cloudflare deployment
