@@ -7,7 +7,7 @@ import { checkedCharacteristic, refreshDerivedReport } from './listing-parser.ts
 
 import { cleanReportAddress } from './location-validation.ts';
 import { EXTRACTION_VERSION, presentStoredReport } from './report-integrity.ts';
-import { BACKFILL_BATCH_SIZE } from './report-backfill.ts';
+import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL } from './report-backfill.ts';
 import { withTimeout } from './io-timeout.ts';
 import { invalidateReportHtml } from './report-html-cache.ts';
 
@@ -70,18 +70,7 @@ export async function report(id: string) {
 /** At most one batch of report JSON. Archived HTML is loaded one id at a time by the caller. */
 export async function staleReportsForBackfill() {
   const db = await database();
-  const result = await withTimeout(db.prepare(`
-    SELECT data FROM reports
-    WHERE COALESCE(json_extract(data, '$.country'), '') != 'AM'
-      AND COALESCE(json_extract(data, '$.extractionVersion'), -1) != ?1
-      -- A missing extractionVersion is JSON null, so COALESCE makes it eligible.
-      AND NOT (
-        json_extract(data, '$.sourceUnavailable') = 1
-        AND typeof(json_extract(data, '$.sourceReviewAttemptedAt')) = 'text'
-      )
-    ORDER BY created_at ASC
-    LIMIT ?2
-  `).bind(EXTRACTION_VERSION, BACKFILL_BATCH_SIZE).all<StoredRow>());
+  const result = await withTimeout(db.prepare(STALE_REPORT_BACKFILL_SQL).bind(EXTRACTION_VERSION, BACKFILL_BATCH_SIZE).all<StoredRow>());
   return result.results.map(row => JSON.parse(row.data) as Report);
 }
 

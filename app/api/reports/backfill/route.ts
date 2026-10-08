@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { appEnvironment } from '@/lib/auth-db';
-import { backfillAuthorized, runBackfillBatch, type BackfillStatus } from '@/lib/report-backfill';
+import { backfillAuthorized, mergedBackfillReport, runBackfillBatch, type BackfillStatus } from '@/lib/report-backfill';
 import type { Report } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
@@ -30,15 +30,12 @@ export async function POST(request: NextRequest) {
         await markUnavailable();
         return 'unavailable';
       }
-      await replaceReport({
+      const refreshed = item.aiEnriched ? parsed : {
         ...parsed,
-        id: item.id,
-        createdAt: item.createdAt,
-        sourceFile: item.sourceFile,
-        sourceReviewAttemptedAt: attempted,
         offerQuestions: defaultOfferQuestions(parsed),
         offerQuestionsDe: defaultOfferQuestions(parsed, 'de'),
-      });
+      };
+      await replaceReport(mergedBackfillReport(item, refreshed, attempted));
       return 'refreshed';
     } catch {
       try {
