@@ -11,6 +11,7 @@ import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { ComparisonShareButton } from './ComparisonShareButton';
 import { visibleComparisonRows } from '@/lib/comparison';
+import { redFlagSummary } from '@/lib/red-flags';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
@@ -64,6 +65,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [locale === 'de' ? 'Ausrichtung' : 'Orientation', localizedTaxonomyValue(first, 'orientation', locale) || '—', localizedTaxonomyValue(second, 'orientation', locale) || '—'],
     [text.use, tenancy(first), tenancy(second)],
     [text.condition, known(first.facts.condition), known(second.facts.condition)],
+    [text.redFlags, redFlagSummary(first, locale), redFlagSummary(second, locale)],
     [text.housegeld, housegeld(first), housegeld(second)],
     [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
     [text.energy, energy(first), energy(second)],
