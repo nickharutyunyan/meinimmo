@@ -1,11 +1,11 @@
 import { localizedWarnings } from '@/lib/report-copy';
-import { scoreAvailable } from '@/lib/report-integrity';
+import { scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
-import { calculatePropertyScore, formatScore, scoreConfidence } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -88,10 +88,9 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     return [`${text.option} ${option}: ${copy[locale].report.components.price} — ${copy[locale].report.priceNotScored}`];
   });
   const lowNotes = [first, second].flatMap((item, index) => {
-    const confidence = scoreConfidence(item);
-    if (scoreAvailable(item) || confidence.level !== 'low') return [];
+    if (scoreAvailable(item)) return [];
     const option = index === 0 ? 'A' : 'B';
-    return [`${text.option} ${option}: ${copy[locale].report.lowConfidence.replaceAll('{present}', String(confidence.present))}`];
+    return [`${text.option} ${option}: ${scoreExplanation(item, locale)}`];
   });
 
   return <main className="comparison-page" lang={locale}>

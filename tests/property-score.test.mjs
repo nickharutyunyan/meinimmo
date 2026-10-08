@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
-import { scoreAvailable, scoreExplanation, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { reportConflicts, reportVerdict, scoreAvailable, scoreExplanation, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { berlinPriceCheck } from '../lib/price-check.ts';
 import {
   activeScoreWeights,
   calculatePropertyScore,
@@ -212,8 +213,9 @@ test('four of eight key facts withholds the score in English and German', () => 
   assert.equal(scoreConfidence(thin).present, 4);
   assert.equal(scoreConfidence(thin).level, 'low');
   assert.equal(scoreAvailable(thin), false);
-  assert.equal(scoreExplanation(thin, 'en'), 'Not enough stated facts for a score (4 of 8). Ask the seller for the missing details.');
-  assert.equal(scoreExplanation(thin, 'de'), 'Zu wenige Angaben für einen Score (4 von 8). Frag beim Verkäufer nach den fehlenden Angaben.');
+  assert.equal(scoreExplanation(thin, 'en'), 'Not enough stated facts for a score (4 of 8). Missing: floor, energy class, Hausgeld, street address. Ask the seller for the missing details.');
+  assert.equal(scoreExplanation(thin, 'de'), 'Zu wenige Angaben für einen Score (4 von 8). Es fehlen: Etage, Energieklasse, Hausgeld, Straße. Frag beim Verkäufer nach den fehlenden Angaben.');
+  assert.equal(reportVerdict(thin, 'en'), scoreExplanation(thin, 'en'));
 
   const five = shell({ facts: { ...thin.facts, floor: '2. OG' } });
   assert.equal(scoreConfidence(five).present, 5);
@@ -222,7 +224,48 @@ test('four of eight key facts withholds the score in English and German', () => 
   const conflicted = shell({ qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'] });
   assert.equal(scoreConfidence(conflicted).level, 'high');
   assert.equal(scoreAvailable(conflicted), false);
-  assert.match(scoreExplanation(conflicted, 'en'), /missing or conflicting/);
+  assert.equal(scoreExplanation(conflicted, 'en'), 'Score withheld: the listing contradicts itself on the room count.');
+  assert.equal(scoreExplanation(conflicted, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Zimmerzahl.');
+});
+
+test('missing walking time and sun orientation do not withhold the score', () => {
+  const sparse = shell({
+    sunOrientation: 'not stated',
+    daylight: undefined,
+    facts: { neighborhood: { transitMentioned: false, parkMentioned: false, dailyNeedsMentioned: false } },
+  });
+  assert.equal(scoreConfidence(sparse).level, 'high');
+  assert.equal(scoreAvailable(sparse), true);
+  assert.equal(reportVerdict(sparse, 'en'), 'Assessment of the listing’s stated facts');
+});
+
+test('a separately priced garage is a note, not a conflict, and stays out of the Berlin price', () => {
+  const note = 'The listing separately quotes €12,500 for parking. Confirm whether this is additional and required; it is not included in the stated total.';
+  const lichterfelde = shell({
+    address: 'Lichterfelde, 12209 Berlin',
+    sunOrientation: 'not stated',
+    qualityWarnings: [note],
+    facts: {
+      city: 'Berlin',
+      district: 'Lichterfelde',
+      locationPrecision: 'street',
+      price: 442_512,
+      area: 80,
+      totalCost: 442_512,
+      parkingPrice: 12_500,
+      neighborhood: {},
+    },
+  });
+  const check = berlinPriceCheck(lichterfelde);
+  assert.equal(check.area, 'Steglitz');
+  assert.equal(check.deltaPct, 26);
+  assert.equal(check.askingPerSqm, 442_512 / 80);
+  const score = calculatePropertyScore(lichterfelde);
+  assert.equal(score.breakdown.price, 3);
+  assert.equal(scoreAvailable(lichterfelde), true);
+  assert.ok(['high', 'medium'].includes(scoreConfidence(lichterfelde).level));
+  assert.equal(reportConflicts(lichterfelde).some(problem => /separately quotes/i.test(problem)), false);
+  assert.match(lichterfelde.qualityWarnings.join(' '), /separately quotes/);
 });
 
 test('saved fixtures score price only for the Berlin flat, without a new extraction version', () => {
@@ -246,9 +289,13 @@ test('saved fixtures score price only for the Berlin flat, without a new extract
 
   assert.equal(erfdeScore.breakdown.price, null);
   assert.equal(scoreConfidence(erfde).present, 7);
-  assert.equal(scoreAvailable(erfde), false);
+  assert.equal(scoreConfidence(erfde).level, 'high');
+  assert.equal(scoreAvailable(erfde), true);
 
   assert.equal(osnabruckScore.breakdown.price, null);
   assert.equal(scoreConfidence(osnabruck).present, 8);
   assert.equal(scoreAvailable(osnabruck), false);
+  assert.equal(scoreExplanation(osnabruck, 'en'), 'Score withheld: the listing contradicts itself on rental status.');
+  assert.equal(scoreExplanation(osnabruck, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Vermietung.');
+  assert.equal(reportConflicts(osnabruck).some(problem => /separately quotes/i.test(problem)), false);
 });

@@ -42,9 +42,10 @@ test('Erfde bungalow is a house in Erfde with a flagged postcode and no flat adv
   assert.equal(report.facts.district, 'Bargen');
   assert.equal(report.facts.postalCode, undefined);
   assert.equal(report.facts.rooms, '4');
-  assert.equal(report.score, null);
-  assert.equal(report.scoreBreakdown, undefined);
-  assert.equal(scoreAvailable(report), false);
+  assert.equal(typeof report.score, 'number');
+  assert.ok(report.scoreBreakdown);
+  assert.equal(report.scoreBreakdown.price, null);
+  assert.equal(scoreAvailable(report), true);
   assert.notEqual(resolveLocation(report).basis, 'none');
   assert.match(report.qualityWarnings.join(' '), /2803/);
   assert.match(report.qualityWarnings.join(' '), /not a valid 5-digit code/);

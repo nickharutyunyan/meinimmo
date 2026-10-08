@@ -108,6 +108,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
   ];
   const propertyScore = calculatePropertyScore(report);
+  const verdict = reportVerdict(report, locale);
+  const verdictText = /[.!?]$/.test(verdict) ? verdict : `${verdict}.`;
   const breakdown = propertyScore.breakdown;
   const showScore = scoreAvailable(report);
   const summary = localizedSummary(report, locale);
@@ -149,7 +151,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);
           return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label} <b>{figure}</b>{unscored ? <em>{text.priceNotScored}</em> : null}</span>;
         })}</div><Link className="score-method-link" href={localePath(locale, '/method')}>{text.howWeReview}</Link></div></details></div>
-        <div className="verdict-copy"><h2>{reportVerdict(report, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
+        <div className="verdict-copy"><h2>{verdictText}</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
       {reportConflicts(report).length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{warnings.filter(w => !/exact street|exact floor/.test(w)).map(w => <p key={w}>{w}</p>)}</section> : null}

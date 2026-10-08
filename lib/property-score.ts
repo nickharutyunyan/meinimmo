@@ -164,8 +164,6 @@ function sourceScore(report: Report) {
   return clamp(checks.reduce((sum, [present, weight]) => sum + (present ? weight : 0), 0));
 }
 
-const unknown = (value?: string) => !value || UNKNOWN.test(value);
-
 export const SCORE_WEIGHTS: Record<keyof ScoreBreakdown, number> = {
   price: 0.25,
   neighborhood: 0.2,
@@ -236,6 +234,11 @@ export function scoreConfidence(report: Report): ScoreConfidence {
   return { present, total: 8, level };
 }
 
+/** Key facts that do not count. Walking time and sun orientation are not in this list. */
+export function missingKeyFacts(report: Report): KeyFact[] {
+  return KEY_FACTS.filter((fact) => !keyFactStated(report, fact) || keyFactBlocked(report, fact));
+}
+
 export function formatScore(value: number, locale: Locale) {
   return value.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
@@ -246,18 +249,6 @@ export function scoreConfidenceLabel(confidence: ScoreConfidence, locale: Locale
     .replace('{level}', name)
     .replace('{present}', String(confidence.present))
     .replace('{total}', String(confidence.total));
-}
-
-/** Sub-scores produced with no measured evidence. Two or more withhold the published score. */
-export function defaultScoreComponents(report: Report): Array<keyof ScoreBreakdown> {
-  const defaults: Array<keyof ScoreBreakdown> = [];
-  const neighborhood = report.facts.neighborhood;
-  const hasMinutes = Boolean(neighborhood?.transitMinutes || neighborhood?.parkMinutes || neighborhood?.dailyNeedsMinutes);
-  if (!hasMinutes) defaults.push('neighborhood');
-  if (unknown(report.sunOrientation) && !report.daylight) defaults.push('light');
-  if (unknown(report.facts.energy) && !report.facts.energyDemand) defaults.push('energy');
-  if (unknown(report.facts.year) && unknown(report.facts.condition)) defaults.push('building');
-  return defaults;
 }
 
 /** Read-time rubric. Score changes must not bump EXTRACTION_VERSION or re-parse archived HTML. */

@@ -1,9 +1,11 @@
 import type { Report } from './types';
 import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
-import { defaultScoreComponents, scoreConfidence } from './property-score.ts';
+import { missingKeyFacts, scoreConfidence } from './property-score.ts';
 
 export const EXTRACTION_VERSION = 2026100802;
+
+const CONFLICT_NOTE = /conflicting|conflicts with|occupants remain|class and consumption|needs a fresh source review/i;
 
 export function reportConflicts(report: Report) {
   const problems: string[] = [];
@@ -12,7 +14,9 @@ export function reportConflicts(report: Report) {
   if (f.street && !validStreet(f.street)) problems.push('The extracted street is not a valid property location.');
   if (f.buyerCosts !== undefined && f.totalCost >= f.price && Math.abs(f.price + f.buyerCosts - f.totalCost) > 2) problems.push('The stated purchase price, buyer costs and total do not agree. Financing uses the stated total; confirm the breakdown.');
   if (/^New build$/i.test(f.condition || '') && Number(f.year) < Number(report.createdAt.slice(0, 4)) - 5) problems.push('Construction year and new-build condition conflict. Confirm the actual condition.');
-  problems.push(...(report.qualityWarnings || []).filter(w => /conflicting|occupants remain|class and consumption|needs a fresh source review|separately quotes/i.test(w)));
+  // A separately priced garage stays a data note. It is not a conflict and must not withhold the score.
+  problems.push(...(report.qualityWarnings || []).filter(w => CONFLICT_NOTE.test(w) && !/separately quotes/i.test(w)));
+  if (f.tenancyConflict && !problems.some(problem => /conflicts with|occupants remain|rental status/i.test(problem))) problems.push('The listing contradicts itself on rental status.');
   return [...new Set(problems)];
 }
 
@@ -22,20 +26,67 @@ export function scoreAvailable(report: Report) {
   if (!(report.facts.price > 0 && report.facts.area > 0)) return false;
   if (!report.facts.city) return false;
   if (report.typeSource === 'fallback') return false;
-  if (defaultScoreComponents(report).length >= 2) return false;
+  // Missing walking times and sun orientation never withhold. Only a real conflict, or 4 or fewer key facts, does.
   if (reportConflicts(report).length > 0) return false;
   return scoreConfidence(report).level !== 'low';
 }
 
+type ConflictTopic = 'rental' | 'rooms' | 'energy' | 'price' | 'year' | 'address' | 'source';
+
+const CONFLICT_FACT: Record<Locale, Record<Exclude<ConflictTopic, 'address' | 'source'>, string>> = {
+  en: { rental: 'rental status', rooms: 'the room count', energy: 'the energy certificate', price: 'the purchase price', year: 'the year built' },
+  de: { rental: 'der Vermietung', rooms: 'der Zimmerzahl', energy: 'dem Energieausweis', price: 'dem Kaufpreis', year: 'dem Baujahr' },
+};
+
+const MISSING_FACT: Record<Locale, Record<ReturnType<typeof missingKeyFacts>[number], string>> = {
+  en: { price: 'price', area: 'living area', rooms: 'rooms', year: 'year built', floor: 'floor', energy: 'energy class', hausgeld: 'Hausgeld', location: 'street address' },
+  de: { price: 'Kaufpreis', area: 'Wohnfläche', rooms: 'Zimmer', year: 'Baujahr', floor: 'Etage', energy: 'Energieklasse', hausgeld: 'Hausgeld', location: 'Straße' },
+};
+
+function conflictTopics(problems: string[]) {
+  const found: ConflictTopic[] = [];
+  const add = (topic: ConflictTopic) => { if (!found.includes(topic)) found.push(topic); };
+  for (const problem of problems) {
+    if (/occupants remain|rental status|not rented|conflicts with/i.test(problem)) add('rental');
+    else if (/room count/i.test(problem)) add('rooms');
+    else if (/class and consumption/i.test(problem)) add('energy');
+    else if (/do not agree/i.test(problem)) add('price');
+    else if (/new-build condition/i.test(problem)) add('year');
+    else if (/not a valid property location/i.test(problem)) add('address');
+    else if (/fresh source review/i.test(problem)) add('source');
+  }
+  return found;
+}
+
+/** Why the score is hidden. Conflicts name the fact; low data lists the missing key facts. */
+export function withholdReason(report: Report, locale: Locale) {
+  const text = copy[locale].report;
+  const topics = conflictTopics(reportConflicts(report));
+  const sentences: string[] = [];
+  const facts = topics.filter((topic): topic is Exclude<ConflictTopic, 'address' | 'source'> => topic !== 'address' && topic !== 'source');
+  if (facts.length) sentences.push(text.conflictWithheld.replace('{facts}', facts.map(topic => CONFLICT_FACT[locale][topic]).join(locale === 'de' ? ' und ' : ' and ')));
+  if (topics.includes('address')) sentences.push(text.addressWithheld);
+  if (topics.includes('source')) sentences.push(text.sourceWithheld);
+  const confidence = scoreConfidence(report);
+  if (confidence.level === 'low') {
+    const missing = missingKeyFacts(report).map(fact => MISSING_FACT[locale][fact]).join(', ');
+    const named = text.lowConfidence.replaceAll('{present}', String(confidence.present)).replace('. ', `. ${text.missingFacts.replace('{facts}', missing)} `);
+    sentences.push(named);
+  }
+  if (sentences.length) return sentences.join(' ');
+  if (!(report.facts.price > 0 && report.facts.area > 0)) return text.figuresWithheld;
+  if (!report.facts.city) return text.placeWithheld;
+  if (report.typeSource === 'fallback') return text.typeWithheld;
+  return text.scoreWithheld;
+}
+
 export function scoreExplanation(report: Report, locale: Locale) {
   if (scoreAvailable(report)) return copy[locale].report.scoreExplainer;
-  const confidence = scoreConfidence(report);
-  if (confidence.level === 'low') return copy[locale].report.lowConfidence.replaceAll('{present}', String(confidence.present));
-  return copy[locale].report.scoreWithheld;
+  return withholdReason(report, locale);
 }
 
 export function reportVerdict(report: Report, locale: 'en' | 'de') {
-  if (!scoreAvailable(report)) return locale === 'de' ? 'Wichtige Angaben zuerst klären' : 'Resolve the key facts first';
+  if (!scoreAvailable(report)) return withholdReason(report, locale);
   return locale === 'de' ? 'Einordnung der Angebotsangaben' : 'Assessment of the listing’s stated facts';
 }
 
