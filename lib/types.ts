@@ -160,5 +160,12 @@ export type Report = {
   taxonomyEvidence?: TaxonomyEvidence;
   taxonomy?: FactualTaxonomy;
   locationEvidence?: string;
+  /** One Nominatim result stored with the report. Later views read this and do not geocode again. */
+  geocode?: {
+    lat: number;
+    lon: number;
+    /** street: a street or house number was stated. postcode: only a coarser area was stated. */
+    precision: 'street' | 'postcode';
+  };
 };
 export type Comparison = { id: string; reportIds: [string, string]; createdAt: string };
