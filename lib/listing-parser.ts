@@ -2,7 +2,7 @@ import type { Report } from './types';
 import { calculatePropertyScore } from './property-score.ts';
 import { factualLocation, reportTitle } from './display.ts';
 import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
-import { isNewOrFirstOccupancy } from './property-condition.ts';
+import { canonicalCondition, isNewOrFirstOccupancy } from './property-condition.ts';
 import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
@@ -96,20 +96,83 @@ export function checkedCharacteristic(value: string | undefined, kind: Character
 }
 
 
-export function htmlToLines(raw: string) {
-  return decodeHtml(listingContent(raw)
-    .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/(?:address|article|aside|blockquote|dd|div|dl|dt|figcaption|figure|h[1-6]|header|li|main|p|section|span|table|tbody|td|tfoot|th|thead|tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' '))
-    .split(/\r?\n/)
-    .map(tidy)
-    .filter(Boolean);
+const MAX_PARSED_LINES = 800;
+const MAX_LINE_CHARS = 1_500;
+const BLOCK_CLOSE = /^(?:address|article|aside|blockquote|dd|div|dl|dt|figcaption|figure|h[1-6]|header|li|main|p|section|span|table|tbody|td|tfoot|th|thead|tr)$/i;
+
+/** One forward pass. A missing `>` is not a tag, and later `<` reuse the scan. */
+function stripTags(value: string) {
+  const parts: string[] = [];
+  let plainStart = 0;
+  let proven = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) !== 60) continue;
+    const limit = Math.min(value.length, index + 400);
+    let end = -1;
+    for (let cursor = Math.max(index + 1, proven); cursor < limit; cursor += 1) {
+      if (value.charCodeAt(cursor) === 62) { end = cursor; break; }
+    }
+    if (end < 0) { proven = Math.max(proven, limit); continue; }
+    parts.push(value.slice(plainStart, index));
+    const tag = value.slice(index + 1, end).trim();
+    const name = tag.replace(/^\//, '').split(/[\s/>]/)[0] || '';
+    if (/^br$/i.test(name)) parts.push('\n');
+    else if (tag.startsWith('/') && BLOCK_CLOSE.test(name)) parts.push('\n');
+    else parts.push(' ');
+    plainStart = end + 1;
+    index = end;
+  }
+  parts.push(value.slice(plainStart));
+  return parts.join('');
+}
+
+type HtmlLineLimits = { maxRawChars?: number; maxLines?: number; maxLineChars?: number; maxTotalChars?: number };
+
+/** Parser callers use the defaults. A verifier can raise them so a long source is rejected instead of silently shortened. */
+export function htmlToLines(raw: string, limits: HtmlLineLimits = {}) {
+  const maxRawChars = limits.maxRawChars ?? 1_500_000;
+  const maxLines = limits.maxLines ?? MAX_PARSED_LINES;
+  const maxLineChars = limits.maxLineChars ?? MAX_LINE_CHARS;
+  const maxTotalChars = limits.maxTotalChars ?? Number.POSITIVE_INFINITY;
+  const source = raw.length > maxRawChars ? raw.slice(0, maxRawChars) : raw;
+  const lines = decodeHtml(stripTags(listingContent(source))).split(/\r?\n/).map(tidy).filter(Boolean);
+  const bounded: string[] = [];
+  let total = 0;
+  for (const line of lines) {
+    if (bounded.length >= maxLines || total > maxTotalChars) break;
+    const piece = line.length > maxLineChars ? line.slice(0, maxLineChars) : line;
+    bounded.push(piece);
+    total += piece.length + 1;
+  }
+  return bounded;
+}
+
+function elementText(raw: string, tag: string) {
+  const lower = raw.toLowerCase();
+  const open = `<${tag}`;
+  let from = 0;
+  while (from < raw.length) {
+    const start = lower.indexOf(open, from);
+    if (start < 0) return '';
+    const next = lower.charCodeAt(start + open.length);
+    if (next >= 97 && next <= 122) { from = start + open.length; continue; }
+    const limit = Math.min(raw.length, start + 300);
+    let tagEnd = -1;
+    for (let cursor = start + open.length; cursor < limit; cursor += 1) {
+      if (raw.charCodeAt(cursor) === 62) { tagEnd = cursor; break; }
+    }
+    if (tagEnd < 0) { from = start + open.length; continue; }
+    const close = lower.indexOf(`</${tag}>`, tagEnd);
+    if (close < 0) return '';
+    return raw.slice(tagEnd + 1, Math.min(close, tagEnd + 1 + 500));
+  }
+  return '';
 }
 
 function pageTitle(raw: string) {
-  const tagged = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const tagged = elementText(raw, 'h1') || elementText(raw, 'title');
   if (tagged) return tidy(tagged);
-  if (/<[a-z][\s\S]*>/i.test(raw)) return '';
+  if (/<[a-z]/i.test(raw)) return '';
   return htmlToLines(raw).find(line => line.length >= 12 && /\p{L}/u.test(line)) || '';
 }
 
@@ -217,17 +280,33 @@ type JsonObject = Record<string, unknown>;
 
 function jsonLdObjects(raw: string) {
   const objects: JsonObject[] = [];
-  for (const match of raw.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+  const lower = raw.toLowerCase();
+  let from = 0;
+  while (objects.length < 400 && from < raw.length) {
+    const marker = lower.indexOf('application/ld+json', from);
+    if (marker < 0) break;
+    const start = lower.lastIndexOf('<script', marker);
+    const tagEnd = raw.indexOf('>', marker);
+    if (start < 0 || tagEnd < 0 || marker - start > 500 || tagEnd - start > 500) {
+      from = marker + 20;
+      continue;
+    }
+    const close = lower.indexOf('</script>', tagEnd);
+    if (close < 0) break;
+    const body = raw.slice(tagEnd + 1, close);
+    from = close + 9;
+    if (body.length > 200_000) continue;
     try {
-      const parsed = JSON.parse(decodeHtml(match[1])) as unknown;
-      const visit = (value: unknown) => {
-        if (Array.isArray(value)) return value.forEach(visit);
+      const parsed = JSON.parse(decodeHtml(body)) as unknown;
+      const visit = (value: unknown, depth: number) => {
+        if (depth > 8 || objects.length >= 400) return;
+        if (Array.isArray(value)) return value.forEach(item => visit(item, depth + 1));
         if (!value || typeof value !== 'object') return;
         const object = value as JsonObject;
         objects.push(object);
-        Object.values(object).forEach(visit);
+        Object.values(object).forEach(item => visit(item, depth + 1));
       };
-      visit(parsed);
+      visit(parsed, 0);
     } catch {
       // Invalid third-party JSON-LD must not break a listing import.
     }
@@ -266,6 +345,46 @@ const HOUSE_NO = String.raw`\d{1,4}[a-z]?(?:\s*[-–/]\s*\d{1,4}[a-z]?)?`;
 const HEADER_AREA = String.raw`[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}(?:\s+[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}){0,2}`;
 const HEADER_CITY = String.raw`[A-ZÄÖÜ][\p{L}äöüß.-]+(?:\s+(?:am|an|im|auf)\s+[A-ZÄÖÜ][\p{L}äöüß.-]+)?`;
 const BUNDESLAND = String.raw`Schleswig-Holstein|Niedersachsen|Nordrhein-Westfalen|Bayern|Baden-W[uü]rttemberg|Hessen|Rheinland-Pfalz|Sachsen-Anhalt|Sachsen|Th[uü]ringen|Brandenburg|Mecklenburg-Vorpommern|Saarland|Berlin|Hamburg|Bremen`;
+const BUNDESLAND_EXPRESSION = new RegExp(`^(?:${BUNDESLAND})$`, 'iu');
+const STREET_SUFFIX_EXPRESSION = new RegExp(STREET_SUFFIX, 'iu');
+const HEADER_STREET_EXPRESSION = new RegExp(
+  `^(?:(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*)?(${HEADER_STREET})(?:\\s+(${HOUSE_NO}))?\\s*,?\\s+(?:(${HEADER_AREA})\\s*,\\s*)?(\\d{5})\\s+(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(?:${BUNDESLAND}))?(?![\\p{L}\\d])`,
+  'u',
+);
+const HEADER_TOWN_EXPRESSION = new RegExp(
+  `^(?:(\\d{3,5})\\s+)?(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(${BUNDESLAND}))?(?![\\p{L}\\d])`,
+  'u',
+);
+const STREET_AREA_EXPRESSION = new RegExp(`\\b(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*([A-ZÄÖÜ][\\p{L}äöüß -]{1,45})\\s*,\\s*(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
+const VISIBLE_ADDRESS_EXPRESSION = new RegExp(`\\b(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?(?:\\s*[-–/]\\s*\\d{1,4}[a-z]?)?)?)\\s*,?\\s+(?:[A-ZÄÖÜ][\\p{L}äöüß -]{1,45},\\s*)?(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
+const LABELED_STREET_EXPRESSION = new RegExp(`^\\s*(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)\\s*[.,]?$`, 'iu');
+const PROPERTY_STREET_EXPRESSION = new RegExp(`\\b(?:Wohnung|Haus|Immobilie|Objekt)\\s+(?:liegt|befindet\\s+sich)\\s+(?:direkt\\s+)?(?:in\\s+der|an\\s+der)\\s+(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)`, 'iu');
+const LOCATION_LINE_EXPRESSION = new RegExp(`^\\s*(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*(?:[^,]{2,50},\\s*)?\\d{5}\\s+[A-ZÄÖÜ]`, 'iu');
+const STREET_SUFFIX_TOKENS = ['straße', 'str.', 'allee', 'weg', 'platz', 'gasse', 'damm', 'ufer', 'chaussee', 'ring', 'steig'];
+
+/**
+ * Street patterns are polynomial when the name class can swallow the suffix.
+ * Run them on the whole line when it is short, otherwise only on a few short
+ * windows around a real suffix. That stays linear in the length of the line.
+ */
+function matchStreetPattern(value: string, expression: RegExp) {
+  if (value.length <= 180) return value.match(expression);
+  const lower = value.toLocaleLowerCase('de-DE');
+  let windows = 0;
+  for (const suffix of STREET_SUFFIX_TOKENS) {
+    let from = 0;
+    while (windows < 8 && from < lower.length) {
+      const at = lower.indexOf(suffix, from);
+      if (at < 0) break;
+      const window = value.slice(Math.max(0, at - 70), Math.min(value.length, at + suffix.length + 90));
+      const match = window.match(expression);
+      if (match) return match;
+      windows += 1;
+      from = at + suffix.length;
+    }
+  }
+  return null;
+}
 
 type AddressHeader = {
   street?: string;
@@ -284,7 +403,7 @@ function headerFragment(line: string) {
 
 function acceptTown(postal: string, city: string, district: string, state: string) {
   if (!city || /^(?:deutschland|germany)$/i.test(city)) return false;
-  if (new RegExp(`^(?:${BUNDESLAND})$`, 'iu').test(city)) return false;
+  if (BUNDESLAND_EXPRESSION.test(city)) return false;
   if (state) return true;
   if (/^\d{5}$/.test(postal)) return true;
   return /^\d{3,4}$/.test(postal) && Boolean(district);
@@ -292,10 +411,8 @@ function acceptTown(postal: string, city: string, district: string, state: strin
 
 /** Portal address header, not seller prose. A street without a suffix still counts when it has a house number. */
 function matchAddressHeader(value: string): AddressHeader | undefined {
-  const streetMatch = value.match(new RegExp(
-    `^(?:(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*)?(${HEADER_STREET})(?:\\s+(${HOUSE_NO}))?\\s*,?\\s+(?:(${HEADER_AREA})\\s*,\\s*)?(\\d{5})\\s+(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(?:${BUNDESLAND}))?(?![\\p{L}\\d])`,
-    'u',
-  ));
+  if (!value || value.length > 240) return undefined;
+  const streetMatch = value.match(HEADER_STREET_EXPRESSION);
   if (streetMatch) {
     const name = tidy(streetMatch[1]);
     const number = tidy(streetMatch[2] || '');
@@ -303,17 +420,14 @@ function matchAddressHeader(value: string): AddressHeader | undefined {
     const postalCode = streetMatch[4];
     const city = tidy(streetMatch[5]);
     const parenthetical = tidy(streetMatch[6] || '');
-    const hasSuffix = new RegExp(STREET_SUFFIX, 'iu').test(name);
+    const hasSuffix = STREET_SUFFIX_EXPRESSION.test(name);
     const street = tidy(number ? `${name} ${number}` : name);
     const barePreposition = /^(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder)$/iu.test(name);
     if ((number || hasSuffix) && !barePreposition && validStreet(street) && city) {
       return { street, postalCode, city, district: parenthetical || area, found: true };
     }
   }
-  const townMatch = value.match(new RegExp(
-    `^(?:(\\d{3,5})\\s+)?(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(${BUNDESLAND}))?(?![\\p{L}\\d])`,
-    'u',
-  ));
+  const townMatch = value.match(HEADER_TOWN_EXPRESSION);
   if (!townMatch) return undefined;
   const postal = townMatch[1] || '';
   const city = tidy(townMatch[2]);
@@ -349,7 +463,7 @@ function parseAddressHeader(lines: string[]): AddressHeader {
 }
 
 function visibleLocation(lines: string[], title: string) {
-  const text = lines.slice(0, 500).join(' \n ');
+  const text = lines.slice(0, 200).join(' \n ').slice(0, 12_000);
   const cityNames = [
     'Berlin', 'Hamburg', 'München', 'Köln', 'Frankfurt am Main', 'Stuttgart', 'Düsseldorf', 'Leipzig', 'Dortmund', 'Essen',
     'Bremen', 'Dresden', 'Hannover', 'Nürnberg', 'Duisburg', 'Bochum', 'Wuppertal', 'Bielefeld', 'Bonn', 'Münster',
@@ -358,13 +472,12 @@ function visibleLocation(lines: string[], title: string) {
     'Kassel', 'Potsdam', 'Saarbrücken', 'Oldenburg', 'Osnabrück', 'Heidelberg', 'Darmstadt', 'Regensburg', 'Würzburg',
     'Ingolstadt', 'Ulm', 'Wolfsburg', 'Göttingen', 'Koblenz', 'Jena', 'Trier', 'Coburg', 'Reinbek',
   ];
-  const cityEvidence = `${title} ${lines.slice(0, 80).join(' ')}`;
+  const cityEvidence = `${title} ${lines.slice(0, 80).join(' ')}`.slice(0, 8_000);
   const namedCity = cityNames.find((cityName) => new RegExp(`\\b${cityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(cityEvidence)) || '';
   const postal = lines.slice(0, 500).map((line, index) => `${line} ${/^\([^)]+\)$/.test(lines[index + 1] || '') ? lines[index + 1] : ''}`.match(/\b(\d{5})\s+([^(),|·]{2,65})(?:\s*\(([^)\n]{2,50})\))?/u)).find(Boolean);
-  const streetAreaExpression = new RegExp(`\\b(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*([A-ZÄÖÜ][\\p{L}äöüß -]{1,45})\\s*,\\s*(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
-  const streetArea = lines.slice(0, 500).map((line) => line.match(streetAreaExpression)).find(Boolean);
+  const streetArea = lines.slice(0, 500).map((line) => matchStreetPattern(line, STREET_AREA_EXPRESSION)).find(Boolean);
   const labeledDistrict = text.match(/\b(?:Stadtteil|Ortsteil|Bezirk|Kiez|Mikrolage)\s*[:\-]?\s*([A-ZÄÖÜ][\p{L}äöüß-]{2,}(?:\s+[A-ZÄÖÜ][\p{L}äöüß-]{2,})?)/u)?.[1];
-  const kiezSource = lines.slice(0, 100).filter(line => !/zwischen|unweit|nähe|near|between/i.test(line)).join(' ');
+  const kiezSource = lines.slice(0, 100).filter(line => !/zwischen|unweit|nähe|near|between/i.test(line)).join(' ').slice(0, 8_000);
   const kiezStem = kiezSource.match(/(?:im|inmitten\s+des|gelegen\s+im)\s+([A-ZÄÖÜ][\p{L}äöüß-]{2,})(?:[\s-]+Kiez|kiez)\b/u)?.[1];
   const microNeighborhood = kiezStem ? `${kiezStem.replace(/-$/u, '')}kiez` : '';
   const city = namedCity || tidy(postal?.[2] || '').match(/^([A-ZÄÖÜ][\p{L}äöüß.-]+)/u)?.[1] || '';
@@ -382,10 +495,9 @@ function agencyContext(lines: string[], index: number) {
 }
 
 function visibleAddress(lines: string[], expectedCity: string, expectedPostal: string) {
-  const expression = new RegExp(`\\b(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?(?:\\s*[-–/]\\s*\\d{1,4}[a-z]?)?)?)\\s*,?\\s+(?:[A-ZÄÖÜ][\\p{L}äöüß -]{1,45},\\s*)?(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
   for (let index = 0; index < Math.min(lines.length, 500); index += 1) {
     const candidate = cleanAddressPlaceholders(`${lines[index]}\n${lines[index + 1] || ''}`);
-    const match = candidate.match(expression);
+    const match = matchStreetPattern(candidate, VISIBLE_ADDRESS_EXPRESSION);
     if (!match || !validStreet(match[1]) || agencyContext(lines, index)) continue;
     if (expectedPostal && match[2] !== expectedPostal) continue;
     if (expectedCity && match[3].localeCompare(expectedCity, 'de', { sensitivity: 'base' }) !== 0) continue;
@@ -395,13 +507,10 @@ function visibleAddress(lines: string[], expectedCity: string, expectedPostal: s
 }
 
 function visiblePropertyStreet(lines: string[]) {
-  const labeled = new RegExp(`^\\s*(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)\\s*[.,]?$`, 'iu');
-  const propertyStreet = new RegExp(`\\b(?:Wohnung|Haus|Immobilie|Objekt)\\s+(?:liegt|befindet\\s+sich)\\s+(?:direkt\\s+)?(?:in\\s+der|an\\s+der)\\s+(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)`, 'iu');
-  const locationLine = new RegExp(`^\\s*(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*(?:[^,]{2,50},\\s*)?\\d{5}\\s+[A-ZÄÖÜ]`, 'iu');
   for (let index = 0; index < Math.min(lines.length, 500); index += 1) {
     const line = cleanAddressPlaceholders(lines[index]);
-    if (agencyContext(lines, index)) continue;
-    const candidate = tidy(line.match(labeled)?.[1] || line.match(propertyStreet)?.[1] || line.match(locationLine)?.[1] || '');
+    if (line.length > 240 || agencyContext(lines, index)) continue;
+    const candidate = tidy(line.match(LABELED_STREET_EXPRESSION)?.[1] || matchStreetPattern(line, PROPERTY_STREET_EXPRESSION)?.[1] || line.match(LOCATION_LINE_EXPRESSION)?.[1] || '');
     if (candidate && validStreet(candidate)) return candidate;
   }
   return '';
@@ -438,10 +547,14 @@ export function normalizedTenancy(value: string, text = '') {
   return undefined;
 }
 
+const LABELLED_CONDITIONS = new Set(['Needs renovation', 'Needs modernization', 'Under construction', 'Renovated', 'Like new', 'New build', 'Well maintained']);
+
 export function normalizedCondition(value: string, context = '') {
   const explicit = tidy(value);
   if (/^(?:Erstbezug|First occupancy)$/i.test(explicit)) return explicit;
-  const evidence = `${explicit} ${context}`;
+  const labelled = canonicalCondition(explicit);
+  if (labelled && LABELLED_CONDITIONS.has(labelled)) return labelled;
+  const evidence = context.slice(0, 12_000);
   if (/\b(?:renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|renovation\s+required|needs\s+renovation)\b/i.test(evidence)) return 'Needs renovation';
   if (/\b(?:modernisierungsbed[uü]rftig|verbesserungsbed[uü]rftig(?:e[snrm]?)?|needs\s+moderni[sz]ation)\b/i.test(evidence)) return 'Needs modernization';
   if (/\b(?:im\s+bau|bauprojekt|projektiert|fertigstellung\s+(?:voraussichtlich|geplant)|under\s+construction)\b/i.test(evidence)) return 'Under construction';
@@ -548,15 +661,15 @@ function roomNumber(value: string) {
 /** Ranges and sentences about other units are not this home's room count. */
 function ignoresRoomLine(line: string) {
   if (/\b(?:die meisten|viele von ihnen|viele davon|nachbarwohnungen|übrigen)\b/i.test(line) && /zimmer/i.test(line)) return true;
-  if (/\d+(?:[,.]\d+)?\s*-?\s*zimmer[\s-]*wohnungen\b/i.test(line)) return true;
-  if (/\d+(?:[,.]\d+)?\s*(?:-|–|bis)\s*(?:bis\s+|hin\s+zu\s+)?\d+/i.test(line) && /zimmer/i.test(line)) return true;
-  if (/\beinheiten\b/i.test(line) && /\d+(?:[,.]\d+)?\s*-?\s*zimmer/i.test(line)) return true;
+  if (/\d+(?:[,.]\d+)?\s{0,3}-?\s{0,3}zimmer[\s-]{0,3}wohnungen\b/i.test(line)) return true;
+  if (/\d+(?:[,.]\d+)?\s{0,3}(?:-|–|bis)\s{0,3}(?:bis\s{1,3}|hin\s{1,3}zu\s{1,3})?\d+/i.test(line) && /zimmer/i.test(line)) return true;
+  if (/\beinheiten\b/i.test(line) && /\d+(?:[,.]\d+)?\s{0,3}-?\s{0,3}zimmer/i.test(line)) return true;
   return false;
 }
 
 function unitRoomTokens(line: string) {
   if (ignoresRoomLine(line)) return [];
-  return [...line.matchAll(/\b(\d+(?:[,.]\d+)?)[\s-]*(?:Zimmer|Zi\.|rooms?)\b/gi)].map(match => match[1]);
+  return [...line.matchAll(/\b(\d+(?:[,.]\d+)?)[\s-]{0,3}(?:Zimmer|Zi\.|rooms?)\b/gi)].map(match => match[1]);
 }
 
 function labelledRoomTokens(lines: string[]) {
@@ -617,7 +730,7 @@ function resolvePropertyType(raw: string, lines: string[], title: string, proper
   if (jsonType) return { propertyType: jsonType, typeSource: 'structured' };
   const fromTitle = classifyTypeLabel(title);
   if (fromTitle) return { propertyType: fromTitle, typeSource: 'keyword' };
-  const fromBody = classifyTypeLabel(propertyLines.join(' '));
+  const fromBody = classifyTypeLabel(propertyLines.join(' ').slice(0, 12_000));
   if (fromBody) return { propertyType: fromBody, typeSource: 'keyword' };
   return { propertyType: 'flat', typeSource: 'fallback' };
 }
@@ -643,7 +756,7 @@ function publishScore(report: Report) {
 
 export function parseListing(raw: string, source: string): Report {
   const lines = htmlToLines(raw);
-  const text = lines.join(' \n ');
+  const text = lines.join(' \n ').slice(0, 30_000);
   const title = pageTitle(raw);
   const currency = /(\d[\d.,]*)\s*(?:€|EUR|e(?=\s|$))/i;
   const areaValue = /(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
@@ -664,11 +777,12 @@ export function parseListing(raw: string, source: string): Report {
     || firstMatch(lines, /\b(?:Baujahr|Year of construction)\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})\b/i)
     || firstMatch([title, ...lines], /\b(18\d{2}|19\d{2}|20\d{2})\s+(?:errichtet|erbaut)/i);
   const year = yearValue || UNKNOWN;
-  const floorRaw = firstMatch(lines, /(?:Etage|Typ|Stockwerk)\s*[:\-]?\s*(Hochparterre)\b/i) || firstMatch(lines, /(?:Wohnung|Sie)\s+(?:selbst\s+)?(?:liegt|befindet sich)\s+im\s+(Hochparterre)\b/i) || firstMatch(lines, /(?:Wohnung|ETW|Wohneigentumseinheit)[^;!?]{0,90}\bim\s+(Hochparterre)\s+gelegen/i)
-    || firstMatch(lines, /\b(?:Etage|Geschoss|Stockwerk)\s*[:\-]?\s+((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))/i)
-    || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3)
-    || firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
-  const floor = normalizedFloor(floorRaw) || UNKNOWN;
+  const labelledHochparterre = firstMatch(lines, /(?:Etage|Typ|Stockwerk)\s*[:\-]?\s*(Hochparterre)\b/i);
+  const proseHochparterre = firstMatch(lines, /(?:Wohnung|Sie)\s+(?:selbst\s+)?(?:liegt|befindet sich)\s+im\s+(Hochparterre)\b/i)
+    || firstMatch(lines, /(?:Wohnung|ETW|Wohneigentumseinheit)[^;!?]{0,90}\bim\s+(Hochparterre)\s+gelegen/i);
+  const labelledFloorRaw = firstMatch(lines, /\b(?:Etage|Geschoss|Stockwerk)\s*[:\-]?\s+((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))/i)
+    || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3);
+  const proseFloorRaw = firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
   const heating = checkedCharacteristic(firstMatch(lines, /\b(?:Heizungsart|Heizung|Heating type)\b\s*[:\-]?\s*([^|;]{3,70})$/i)
     || aroundLabel(lines, /^(?:Heizungsart|Heizung|Heating type)$/i, /^(.{3,70})$/, 0, 2), 'heating') || UNKNOWN;
   const energySource = checkedCharacteristic(firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)\b\s*[:\-]?\s*([^|;]{2,45})$/i)
@@ -684,7 +798,7 @@ export function parseListing(raw: string, source: string): Report {
     || aroundLabel(lines, /^(?:Objektzustand|Bauzustand|Zustand|Condition)$/i, /^(.{3,60})$/, 0, 2), 'condition');
   const locationStart = lines.findIndex(line => /^(?:Lage|Lagebeschreibung|Location)$/i.test(line));
   const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart);
-  const condition = normalizedCondition(conditionRaw, `${title} ${propertyLines.join(' ')}`);
+  const condition = normalizedCondition(conditionRaw, `${title} ${propertyLines.join(' ').slice(0, 12_000)}`);
   const tenancyRaw = checkedCharacteristic(firstMatch(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)\s*[:\-]?\s+(.{3,45})$/i) || aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2), 'tenancy');
   const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
   const tenancyEvidence = lines
@@ -733,11 +847,15 @@ export function parseListing(raw: string, source: string): Report {
       ? formatStreetAddress(headerLocation.street, postalCode, city)
       : visibleAddress(lines, city, postalCode)
         || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`) : '');
-  const address = statedAddress || 'Address not stated';
+  const placeOnly = tidy([postalCode, city].filter(Boolean).join(' '));
+  const address = statedAddress || placeOnly || 'Address not stated';
   const street = jsonLocation.street || headerLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet);
   const exactStreet = hasHouseNumber(street);
 
   const { propertyType, typeSource } = resolvePropertyType(raw, lines, title, propertyLines);
+  const floor = normalizedFloor(propertyType === 'house'
+    ? (labelledHochparterre || labelledFloorRaw)
+    : (labelledHochparterre || proseHochparterre || labelledFloorRaw || proseFloorRaw)) || UNKNOWN;
   // Never treat the next arbitrary line after an "Ausstattung" heading as a
   // characteristic. Exposes frequently put another heading there (for
   // example "★ Wichtiges auf einen Blick ★"), followed by costs or legal
@@ -792,7 +910,9 @@ export function parseListing(raw: string, source: string): Report {
     !street ? 'Exact street address is not disclosed in the listing.' : '',
     floor === UNKNOWN && propertyType !== 'house' ? 'The listing does not disclose an exact floor.' : '',
     !explicitTotal ? 'The listing does not provide a complete acquisition total; the financing card uses a rough buyer-cost estimate.' : '',
-    tenancy === 'Rented' && !advertisedYield ? 'The unit is rented but no verified yield was extracted.' : '',
+    tenancy === 'Rented' && !advertisedYield
+      ? (propertyType === 'house' ? 'The house is rented but no verified yield was extracted.' : 'The unit is rented but no verified yield was extracted.')
+      : '',
   ].filter(Boolean);
 
   const report: Report = {
@@ -843,7 +963,7 @@ export function unsupportedListingReason(raw: string) {
 export function looksLikePropertyListing(raw: string) {
   if (unsupportedListingReason(raw)) return false;
   const lines = htmlToLines(raw);
-  const text = lines.join(' ');
+  const text = lines.join(' ').slice(0, 40_000);
   const unavailable = /seite\s+nicht\s+gefunden|page\s+not\s+found|nicht\s+(mehr\s+)?verf[uü]gbar/i.test(text);
   const signals = [
     /(?:kaufpreis|mietpreis|preis|purchase\s+price|asking\s+price)\s*[:\-]?\s*\d[\d.,]*\s*(?:€|eur|e(?=\s|$))/i,

@@ -52,7 +52,11 @@ export function jevFactCandidates(report: Report) {
 }
 
 export function jevFactCheckRequest(report: Report, source: string, model = 'jev-latest') {
-  const text = htmlToLines(source).join('\n');
+  const text = htmlToLines(source, {
+    maxLineChars: JEV_MAX_SOURCE_CHARS + 1,
+    maxLines: 20_000,
+    maxTotalChars: JEV_MAX_SOURCE_CHARS + 1,
+  }).join('\n');
   // Never silently truncate: the end can contain a tenant, conflicting price,
   // availability restriction or an agency address.
   if (text.length < 150 || text.length > JEV_MAX_SOURCE_CHARS) return undefined;

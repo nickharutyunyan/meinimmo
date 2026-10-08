@@ -35,7 +35,10 @@ test('Erfde bungalow is a house in Erfde with a flagged postcode and no flat adv
   const report = parse('502750');
   assert.equal(report.propertyType, 'house');
   assert.equal(report.typeSource, 'structured');
+  assert.equal(report.address, 'Erfde');
   assert.equal(report.facts.city, 'Erfde');
+  assert.equal(report.facts.condition, 'Like new');
+  assert.equal(report.facts.floor, 'not stated');
   assert.equal(report.facts.district, 'Bargen');
   assert.equal(report.facts.postalCode, undefined);
   assert.equal(report.facts.rooms, '4');
@@ -111,13 +114,13 @@ test('address header accepts streets without a suffix and ignores seller prose',
   }
 
   const prose = listing('<p>Das Haus liegt ruhig in der Molenseten Gegend, unweit vom Markt.</p><div>20095 Hamburg</div>');
-  assert.equal(prose.address, 'Address not stated');
+  assert.equal(prose.address, '20095 Hamburg');
   assert.equal(prose.facts.street, undefined);
   assert.equal(prose.facts.city, 'Hamburg');
   assert.match(prose.qualityWarnings.join(' '), /street address is not disclosed/i);
 
   const areaOnly = listing('<div>Prenzlauer Berg, 10439 Berlin</div>');
-  assert.equal(areaOnly.address, 'Address not stated');
+  assert.equal(areaOnly.address, '10439 Berlin');
   assert.equal(areaOnly.facts.street, undefined);
   assert.equal(areaOnly.facts.city, 'Berlin');
   assert.equal(areaOnly.facts.postalCode, '10439');
