@@ -6,6 +6,7 @@ import { guideCopy } from '../lib/guide';
 import { localePath, type Locale } from '../lib/i18n';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
+import { OSM_ATTRIBUTION, OSM_COPYRIGHT_URL } from '../lib/osm-map';
 
 function osmEmbed(lat: number, lon: number) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.015}%2C${lat - 0.009}%2C${lon + 0.015}%2C${lat + 0.009}&layer=mapnik&marker=${lat}%2C${lon}`;
@@ -89,7 +90,10 @@ export default function GuideArticleView({ article, locale }: { article: GuideAr
             </a>)}
           </div>}
           {section.map && <div className="guide-map-block">
-            <div className="guide-map-frame"><iframe title={section.map.label} loading="lazy" src={osmEmbed(section.map.lat, section.map.lon)} /></div>
+            <div className="guide-map-column">
+              <div className="guide-map-frame"><iframe title={section.map.label} loading="lazy" src={osmEmbed(section.map.lat, section.map.lon)} /></div>
+              <p className="map-credit"><a href={OSM_COPYRIGHT_URL} target="_blank" rel="noreferrer">{OSM_ATTRIBUTION}</a></p>
+            </div>
             <div className="guide-map-notes">
               <p className="eyebrow">{de ? 'ORTE AUF DER KARTE' : 'PLACES ON THE MAP'}</p>
               <h3>{section.map.label}</h3>

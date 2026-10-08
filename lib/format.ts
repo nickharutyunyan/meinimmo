@@ -70,6 +70,17 @@ export function score(value: unknown, locale: Locale) {
   }).format(amount);
 }
 
+/**
+ * `{n} / {total}` for both locales. Pass the locale template so the separator
+ * stays with the copy. Unknown numbers stay blank rather than becoming zero.
+ */
+export function photoCount(index: unknown, total: unknown, locale: Locale, template = '{n} / {total}') {
+  const current = plainNumber(index, locale);
+  const count = plainNumber(total, locale);
+  if (!current || !count) return '';
+  return template.replaceAll('{n}', current).replaceAll('{total}', count);
+}
+
 /** Grouped number. `digits` is the maximum fraction digits; trailing zeros are omitted. */
 export function plainNumber(value: unknown, locale: Locale, digits = 0) {
   const amount = finite(value);
