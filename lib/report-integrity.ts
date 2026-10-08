@@ -2,7 +2,7 @@ import type { Report } from './types';
 import { validStreet } from './location-validation.ts';
 import { defaultScoreComponents } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100801;
+export const EXTRACTION_VERSION = 2026100802;
 
 export function reportConflicts(report: Report) {
   const problems: string[] = [];

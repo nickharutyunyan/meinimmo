@@ -2,7 +2,8 @@ import type { Report } from './types';
 import { calculatePropertyScore } from './property-score.ts';
 import { factualLocation, reportTitle } from './display.ts';
 import { extractAvailabilityDate, formatAvailabilityDate } from './availability.ts';
-import { isNewOrFirstOccupancy } from './property-condition.ts';
+import { canonicalCondition, isNewOrFirstOccupancy } from './property-condition.ts';
+import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, groundLeaseSentence, tenancyConflictSentence } from './red-flags.ts';
 import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
@@ -57,7 +58,7 @@ const characteristicRules: Record<CharacteristicKind, { prefix: RegExp; expected
   },
   energySource: {
     prefix: /^(?:wesentliche[rs]?\s+energietr[aä]ger|energietr[aä]ger|main\s+energy\s+source)\s*[:\-]\s*/i,
-    expected: /(?:umweltw[aä]rme|fernw[aä]rme|erdw[aä]rme|w[aä]rmepumpe|gas|[oö]l|strom|elektr|solar|pellet|holz|biomasse|kohle|district\s+heat|electric|heat\s+pump)/i,
+    expected: /(?:umweltw[aä]rme|fernw[aä]rme|erdw[aä]rme|wasserw[aä]rme|luftw[aä]rme|luft\s*[-/]?\s*wasser|w[aä]rmepumpe|gas|[oö]l|strom|elektr|solar|pellet|holz|biomasse|kohle|district\s+heat|electric|heat\s+pump|air(?:\s*[-/]\s*|\s+to\s+)water)/i,
   },
   energyCertificate: {
     prefix: /^(?:energie\s*ausweistyp|energieausweis|energy\s+certificate)\s*[:\-]\s*/i,
@@ -441,11 +442,17 @@ export function normalizedTenancy(value: string, text = '') {
 export function normalizedCondition(value: string, context = '') {
   const explicit = tidy(value);
   if (/^(?:Erstbezug|First occupancy)$/i.test(explicit)) return explicit;
-  const evidence = `${explicit} ${context}`;
+  // The labelled Zustand wins. A building described as "gepflegt" must not
+  // replace an explicit "Neuwertig" (or the other way around).
+  const labelled = explicit ? canonicalCondition(explicit) : undefined;
+  if (labelled && labelled !== explicit) return labelled;
+  if (/^(?:Needs renovation|Needs modernization|Under construction|Renovated|Like new|New build|Well maintained)$/.test(explicit)) return explicit;
+  const evidence = context;
   if (/\b(?:renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|renovation\s+required|needs\s+renovation)\b/i.test(evidence)) return 'Needs renovation';
   if (/\b(?:modernisierungsbed[uü]rftig|verbesserungsbed[uü]rftig(?:e[snrm]?)?|needs\s+moderni[sz]ation)\b/i.test(evidence)) return 'Needs modernization';
   if (/\b(?:im\s+bau|bauprojekt|projektiert|fertigstellung\s+(?:voraussichtlich|geplant)|under\s+construction)\b/i.test(evidence)) return 'Under construction';
   if (/\b(?:erstbezug\s+nach\s+(?:komplett)?sanierung|kernsaniert|vollst[aä]ndig\s+saniert|saniert|renoviert|fully\s+renovated)\b/i.test(evidence)) return 'Renovated';
+  if (/\b(?:neuwertig|like\s+new|as-new\s+condition)\b/i.test(evidence)) return 'Like new';
   if (/\b(?:neubau(?:wohnung|haus)?|new\s+(?:build|construction)|first\s+occupancy\s+after\s+new\s+construction)\b/i.test(evidence)) return 'New build';
   if (/\b(?:gepflegt(?:e[snrm]?)?|well\s+maintained)\b/i.test(evidence)) return 'Well maintained';
   return explicit && explicit.length <= 60 && !/^(?:-|0|n\/a|keine\s+angabe)$/i.test(explicit) ? explicit : undefined;
@@ -482,24 +489,32 @@ function summaryFor(report: Report) {
   const price = facts.price ? `The asking price is €${facts.price.toLocaleString('de-DE')}${facts.area ? ` (€${Math.round(facts.price / facts.area).toLocaleString('de-DE')}/m²)` : ''}.` : '';
   const building = [
     facts.year !== UNKNOWN ? `built in ${facts.year}` : '',
+    facts.construction === 'Timber frame' ? 'timber-frame construction' : '',
     facts.condition && facts.condition !== UNKNOWN ? `described as ${facts.condition.toLowerCase()}` : '',
     facts.energy !== UNKNOWN ? `energy class ${facts.energy}` : '',
     facts.energySource ? `heated via ${facts.energySource}` : '',
   ].filter(Boolean).join(', ');
-  const space = facts.area ? ` has ${facts.area} m² of living area${facts.usableArea ? ` and ${facts.usableArea} m² of usable area` : ''}` : '';
+  const plot = facts.plotArea && report.propertyType === 'house' ? ` on a ${facts.plotArea.toLocaleString('en-GB')} m² plot` : '';
+  const space = facts.area ? ` has ${facts.area} m² of living area${facts.usableArea ? ` and ${facts.usableArea} m² of usable area` : ''}${plot}` : '';
   const first = `This ${identity}${space}. ${price}${building ? ` Listing details: ${building}.` : ''}`.trim();
 
   const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'en');
-  const investment = availableFrom
+  const investment = facts.tenancyConflict
+    ? tenancyConflictSentence(facts, 'en')
+    : availableFrom && facts.tenancy !== 'Rented'
     ? `The listing states that the property will be available from ${availableFrom}; confirm vacant handover on that date in the purchase contract.`
     : facts.tenancy === 'Rented'
-    ? `It is sold rented${facts.advertisedYield ? ` and advertised at a ${facts.advertisedYield.toLocaleString('en-GB', { maximumFractionDigits: 2 })}% return` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`
+    ? `It is sold rented${facts.rentedUntilText ? ` until ${facts.rentedUntilText}` : ''}${facts.advertisedYield ? ` and advertised at a ${facts.advertisedYield.toLocaleString('en-GB', { maximumFractionDigits: 2 })}% return` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`
     : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
       ? 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.'
       : '';
   const occupancyWarning = facts.tenancy === 'Occupancy unclear' ? 'The portal says not rented, but the description says occupants remain. Current occupancy and vacant handover need clarification.' : '';
   const costs = facts.housegeld && report.propertyType !== 'house' ? ` Monthly Hausgeld${facts.housegeldYear ? ` for ${facts.housegeldYear}` : ''} is stated at €${facts.housegeld.toLocaleString('de-DE')}; separate recoverable tenant costs from the owner-only share.` : '';
-  const second = `${occupancyWarning || investment}${costs}`.trim();
+  const asIs = facts.soldAsIs
+    ? (report.propertyType === 'house' ? 'The house is sold as-is (Ist-Zustand).' : 'The unit is sold as-is (Ist-Zustand).')
+    : '';
+  const honest = [asIs, groundLeaseSentence(facts, 'en')].filter(Boolean).join(' ');
+  const second = `${occupancyWarning || investment}${honest ? ` ${honest}` : ''}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
 }
 
@@ -654,6 +669,8 @@ export function parseListing(raw: string, source: string): Report {
     || firstMatch(lines, /\b(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)\s+(?:Wohnfl[aä]che|Living area)/i));
   const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 1, 3));
+  const plotArea = number(firstMatch(lines, /\bGrundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm)/i)
+    || aroundLabel(lines, /^Grundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?$/i, /(\d[\d.,]*)\s*(?:m²|qm|sqm)/i, 4, 2));
   const labelledRooms = labelledRoomTokens(lines);
   const unitRooms = [title, ...lines].flatMap(unitRoomTokens);
   const roomCounts = new Set([...labelledRooms, ...unitRooms].map(roomNumber).filter((value): value is number => value !== undefined));
@@ -692,9 +709,18 @@ export function parseListing(raw: string, source: string): Report {
     .slice(0, 12)
     .join(' ');
   let tenancy = normalizedTenancy(tenancyRaw, `${title} ${availabilityPhrase} ${tenancyEvidence}`);
-  const availabilityDate = extractAvailabilityDate(lines);
-  const occupancyConflict = tenancy === 'Not rented' && propertyLines.some(line => /derzeit.{0,60}bewohnt|bewohner.{0,70}weiterhin|wohnen.{0,40}weiterhin/i.test(line));
+  let availabilityDate = extractAvailabilityDate(lines);
+  const rentalText = findTenancyConflict(lines);
+  let tenancyConflict = false;
+  if (rentalText && (tenancy === 'Not rented' || /(?:nicht|un)\s*vermietet/i.test(tenancyRaw))) {
+    tenancy = 'Rented';
+    tenancyConflict = true;
+  } else if (rentalText && !tenancy) tenancy = 'Rented';
+  if (rentalText?.availableFrom && !availabilityDate) availabilityDate = rentalText.availableFrom;
+  const occupancyConflict = !tenancyConflict && tenancy === 'Not rented' && propertyLines.some(line => /derzeit.{0,60}bewohnt|bewohner.{0,70}weiterhin|wohnen.{0,40}weiterhin/i.test(line));
   if (occupancyConflict) tenancy = 'Occupancy unclear';
+  const lease = findGroundLease(lines);
+  const heatingInstall = findHeatingInstallYear(lines);
   const advertisedYield = number(firstMatch([title, ...lines], /([\d,.]+)\s*%\s*(?:Rendite|return)/i) || firstMatch(lines, /(?:Rendite|return)\s*(?:von|:)?\s*([\d,.]+)\s*%/i));
   const housegeldCandidates = lines.flatMap(line => {
     if (!/\b(?:Hausgeld(?:höhe)?|Community fees)\b/i.test(line)) return [];
@@ -749,7 +775,12 @@ export function parseListing(raw: string, source: string): Report {
     ['Fußbodenheizung', /\b(?:Fußbodenheizung|Underfloor heating)\b/i], ['Garten', /\b(?:Garten|Garden)\b/i],
   ] as const;
   for (const [label, expression] of statedFeatures) {
-    if (propertyLines.some(line => expression.test(line) && !/nahe|nähe|umgebung|entfernt|Britzer Garten/i.test(line) && !/\b(?:kein(?:e[nmrs]?)?|ohne)\s+(?:einen?\s+)?(?:Balkon|Terrasse|Garten|Aufzug|Keller|Einbauküche)/i.test(line)) && !features.some(feature => expression.test(feature))) features.push(label);
+    const mentioned = propertyLines.some(line => line.split(/(?<=[.!?])\s+/).some(sentence =>
+      expression.test(sentence)
+      && !/\b(?:die meisten|viele von ihnen|viele davon|nachbarwohnungen|andere wohnungen|übrigen wohnungen)\b/i.test(sentence)
+      && !/nahe|nähe|umgebung|entfernt|Britzer Garten/i.test(sentence)
+      && !/\b(?:kein(?:e[nmrs]?)?|ohne)\s+(?:einen?\s+)?(?:Balkon|Terrasse|Garten|Aufzug|Keller|Einbauküche)/i.test(sentence)));
+    if (mentioned && !features.some(feature => expression.test(feature))) features.push(label);
   }
   if (propertyLines.some(line => /\b(?:komplett\s+)?möbliert(?:e[nsr]?)?\b/i.test(line)) && !/möblierte\s+Darstellung|Mobiliar.{0,40}nicht.{0,20}enthalten|unmöbliert|nicht\s+möbliert/i.test(text)) features.unshift('Möbliert');
   const sunOrientation = checkedCharacteristic(aroundLabel(lines, /^(?:Ausrichtung|Balkon\/Terrasse Ausrichtung|Himmelsrichtung|Orientation)$/i, /^(.{2,40})$/, 0, 2), 'orientation')
@@ -767,7 +798,15 @@ export function parseListing(raw: string, source: string): Report {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
     buyerCosts: buyerCosts || undefined, brokerFee, buyerCommission: buyerCommission || undefined, housegeld: housegeld || undefined, housegeldYear, parkingPrice,
-    tenancy, availabilityDate, advertisedYield: advertisedYield || undefined, condition, features,
+    tenancy, tenancyConflict: tenancyConflict || undefined, rentedUntilText: rentalText?.untilText, availabilityDate, advertisedYield: advertisedYield || undefined, condition, features,
+    plotArea: plotArea >= 20 ? plotArea : undefined,
+    soldAsIs: findSoldAsIs(lines) ? true : undefined,
+    construction: findTimberFrame(title, lines) ? 'Timber frame' : undefined,
+    groundLease: lease ? true : undefined,
+    groundRentYear: lease?.year,
+    groundRentMonth: lease?.month,
+    groundRentInServiceCharge: lease?.inCharges || undefined,
+    heatingYear: heatingInstall?.year,
     postalCode: postalCode || undefined, city: city || undefined, district: district || undefined,
     street: street || undefined,
     locationPrecision: street ? (exactStreet ? 'address' as const : 'street' as const) : district ? 'neighborhood' as const : postalCode ? 'postal' as const : city ? 'city' as const : undefined,
@@ -787,6 +826,7 @@ export function parseListing(raw: string, source: string): Report {
     housegeldYear ? `The Hausgeld amount refers to ${housegeldYear}; confirm the current economic plan before budgeting.` : '',
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',
     energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy ? 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.' : '',
+    tenancyConflict ? tenancyConflictSentence({ rentedUntilText: rentalText?.untilText, availabilityDate }, 'en') : '',
     occupancyConflict ? 'The portal says not rented, but the description says occupants remain. Confirm their legal status and vacant handover before proceeding.' : '',
     headerLocation.malformedPostal ? `The listing prints "${headerLocation.malformedPostal}" as the postcode, which is not a valid 5-digit code. The town is still used.` : '',
     !street ? 'Exact street address is not disclosed in the listing.' : '',
@@ -818,6 +858,7 @@ export function parseListing(raw: string, source: string): Report {
   };
   report.qualityWarnings = [...new Set([...(report.qualityWarnings || []), ...reportConflicts(report)])];
   report.title = reportTitle(report);
+  report.redFlags = detectRedFlags(lines, report);
   report.summary = summaryFor(report);
   report.considerations = considerationsFor(report);
   return publishScore(report);

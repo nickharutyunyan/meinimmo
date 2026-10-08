@@ -3,6 +3,7 @@ import type { Report } from './types';
 import { factualLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
+import { groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -36,19 +37,23 @@ export function localizedSummary(report: Report, locale: Locale) {
   const roomPrefix = stated(facts.rooms) ? `${facts.rooms.replace('.', ',')}-Zimmer-` : '';
   const factualPlace = factualLocation(report);
   const place = factualPlace ? ` in ${factualPlace}` : '';
+  const plot = facts.plotArea && house ? ` auf einem ${facts.plotArea.toLocaleString('de-DE')} m² Grundstück` : '';
   const space = facts.area
-    ? ` hat ${facts.area.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Wohnfläche${facts.usableArea ? ` und ${facts.usableArea.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Nutzfläche` : ''}`
+    ? ` hat ${facts.area.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Wohnfläche${facts.usableArea ? ` und ${facts.usableArea.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Nutzfläche` : ''}${plot}`
     : '';
   const price = facts.price ? ` Der Kaufpreis liegt bei ${facts.price.toLocaleString('de-DE')} €${facts.area ? ` (${Math.round(facts.price / facts.area).toLocaleString('de-DE')} €/m²)` : ''}.` : '';
   const building = [
     stated(facts.year) ? `Baujahr ${facts.year}` : '',
+    facts.construction === 'Timber frame' ? 'Holzbau (Holzständer)' : '',
     stated(facts.condition) ? `Zustand laut Angebot: ${localizedValue(facts.condition, 'de')}` : '',
     stated(facts.energy) ? `Energieklasse ${facts.energy}` : '',
     facts.energySource ? `Energieträger ${facts.energySource}` : '',
   ].filter(Boolean).join(', ');
   const first = `${house ? 'Dieses' : 'Diese'} ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
   const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
-  const occupancy = facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom
+  const occupancy = facts.tenancyConflict
+    ? tenancyConflictSentence(facts, 'de')
+    : facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom && facts.tenancy !== 'Rented'
     ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
     : facts.tenancy === 'Rented'
     ? `Die Immobilie wird vermietet verkauft${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
@@ -56,7 +61,11 @@ export function localizedSummary(report: Report, locale: Locale) {
       ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
       : '';
   const costs = facts.housegeld && !house ? ` Das Hausgeld${facts.housegeldYear ? ` für ${facts.housegeldYear}` : ''} liegt laut Angebot bei ${facts.housegeld.toLocaleString('de-DE')} € im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
-  const second = `${occupancy}${costs}`.trim();
+  const asIs = facts.soldAsIs
+    ? (house ? 'Das Haus wird im Ist-Zustand verkauft.' : 'Die Einheit wird im Ist-Zustand verkauft.')
+    : '';
+  const honest = [asIs, groundLeaseSentence(facts, 'de')].filter(Boolean).join(' ');
+  const second = `${occupancy}${honest ? ` ${honest}` : ''}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
 }
 
@@ -91,6 +100,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/Hausgeld amount refers to/.test(warning)) return `Die Hausgeldangabe bezieht sich auf ${report.facts.housegeldYear}. Prüfe den aktuellen Wirtschaftsplan.`;
     if (/conflicting room counts/.test(warning)) return 'Das Angebot enthält widersprüchliche Zimmerzahlen. Prüfe den Grundriss; der Titel nennt deshalb keine Zimmerzahl.';
     if (/energy class and consumption/.test(warning)) return 'Die angegebene Energieklasse und der Verbrauch passen nicht zu den üblichen Klassengrenzen. Prüfe den Energieausweis.';
+    if (/key-facts table says it is not rented/.test(warning)) return tenancyConflictSentence(report.facts, 'de');
     if (/portal says not rented/.test(warning)) return 'Das Portal meldet nicht vermietet, aber laut Beschreibung wohnen noch Menschen in der Wohnung. Kläre ihren rechtlichen Status und die freie Übergabe.';
     if (/not a valid 5-digit code/i.test(warning)) {
       const code = warning.match(/"(\d+)"/)?.[1] || '';
@@ -106,7 +116,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
 
 export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   const { facts } = report;
-  const questions: string[] = [];
+  const questions: string[] = [...highFlagQuestions(report, locale)];
   if (locale === 'de') {
     if (facts.tenancy === 'Rented') questions.push('Kann ich den Mietvertrag, die aktuelle Nettokaltmiete und die Zahlungshistorie sehen?');
     else if (facts.availabilityDate) questions.push(`Ist die freie Übergabe am ${formatAvailabilityDate(facts.availabilityDate, 'de')} im Kaufvertrag zugesichert?`);

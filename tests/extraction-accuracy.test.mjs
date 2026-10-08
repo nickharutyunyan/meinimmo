@@ -155,3 +155,55 @@ test('property type prefers structured fields, then keywords, then a scored-with
   assert.equal(scoreAvailable(fallback), false);
   assert.equal(keyword.score === null, false);
 });
+
+test('Osnabrück shows the ground lease and the rented-until conflict, never vacant', () => {
+  const html = fixture('502050');
+  const report = parse('502050');
+  const lease = report.redFlags.find(flag => flag.id === 'leasehold');
+  assert.ok(lease);
+  assert.equal(lease.severity, 'high');
+  assert.ok(lease.evidence.length <= 220);
+  assert.equal(html.includes(lease.evidence), true);
+  assert.equal(report.facts.tenancy, 'Rented');
+  assert.equal(report.facts.tenancyConflict, true);
+  assert.equal(report.facts.rentedUntilText, 'Ende November 2026');
+  assert.equal(report.facts.availabilityDate, '2026-12-01');
+  assert.equal(report.facts.groundLease, true);
+  assert.equal(report.facts.groundRentYear, 997);
+  assert.equal(report.facts.groundRentMonth, 83);
+  assert.equal(report.facts.groundRentInServiceCharge, true);
+  const corpus = facing(report);
+  assert.match(corpus, /Pacht|Erbpacht|Erbbau|lease|ground rent/i);
+  assert.match(corpus, /November|Dezember|December|until the end|bis Ende|currently rented|is rented until/i);
+  assert.match(report.summary, /until the end of November 2026/);
+  assert.match(report.summary, /free from 1 December 2026/);
+  assert.match(report.summary, /ground rent/i);
+  assert.doesNotMatch(corpus, /\bvacant\b/i);
+  assert.match(offerQuestionsFor(report, 'en')[0], /leasehold term/);
+  assert.match(offerQuestionsFor(report, 'de')[0], /Restlaufzeit/);
+  assert.match(localizedSummary(report, 'de'), /Pachtgrundstück/);
+  assert.match(localizedSummary(report, 'de'), /widerspricht/);
+});
+
+test('Berlin does not invent a balcony or terrace from other flats, and is sold as-is', () => {
+  const report = parse('502729');
+  assert.deepEqual(report.facts.features, ['Keller']);
+  assert.equal(report.facts.soldAsIs, true);
+  assert.match(facing(report), /Ist-Zustand|as-is|current condition/i);
+  assert.doesNotMatch(facing(report), /terrace|garden|Terrasse|Garten|Balkon|balcony/i);
+  assert.equal((report.redFlags || []).some(flag => flag.id === 'teileigentum'), false);
+});
+
+test('Erfde keeps like-new condition, the heat pump, the plot and timber construction', () => {
+  const report = parse('502750');
+  assert.equal(report.facts.condition, 'Like new');
+  assert.match(report.facts.energySource, /Luft|Wasserwärme|Wärmepumpe|heat pump/i);
+  assert.equal(report.facts.plotArea, 500);
+  assert.equal(report.facts.construction, 'Timber frame');
+  assert.match(facing(report), /timber|wood|Holz/i);
+  assert.match(localizedSummary(report, 'de'), /Neuwertig/);
+  assert.match(localizedSummary(report, 'de'), /500 m² Grundstück/);
+  assert.match(localizedSummary(report, 'de'), /Luft-\/Wasserwärme/);
+  assert.doesNotMatch(facing(report), FLAT_ADVICE);
+  assert.equal((report.redFlags || []).some(flag => flag.id === 'noHausgeld'), false);
+});

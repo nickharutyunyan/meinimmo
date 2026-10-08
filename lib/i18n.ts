@@ -69,6 +69,7 @@ export const copy = {
       brief: 'REVIEW A HOUSE / PROPERTY REPORT', copyLink: 'Copy share link', copied: 'Link copied', score: 'LISTING RUBRIC',
       deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'A fixed rubric of stated listing facts, not a valuation or recommendation. Price bands are not adjusted to local comparable sales. Missing facts reduce confidence; conflicting critical facts withhold the score.', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', commission: "Buyer's commission", monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
       atGlance: 'AT A GLANCE', profile: 'PROPERTY PROFILE', details: 'LISTING DETAILS', matters: 'WHAT MATTERS', notes: 'DATA NOTES', notDisclosed: 'Not disclosed',
+      plot: 'Plot area', redFlags: 'RED FLAGS', redFlagsEmpty: 'No red flags found in the listing text. That is not a guarantee, so check the documents.', redFlagSerious: 'Serious', redFlagCheck: 'Check', redFlagFrom: 'From the listing:',
       components: { price: 'Price', neighborhood: 'Neighborhood', space: 'Space', building: 'Building', energy: 'Energy', light: 'Light', costs: 'Costs', source: 'Source' },
       source: 'SOURCE', original: 'View original listing ↗', downloadPdf: 'Download PDF ↓', saved: 'Report saved', assessMore: 'CREATE MORE REPORTS', plansTitle: 'Keep the decision process moving.', plansCopy: 'Reports are free, with no daily limit. No sign-up, and no subscription required.', perMonth: '/month', proLimit: '10 reports per day', ultraLimit: '100 reports per day', proButton: 'Upgrade to Pro', ultraButton: 'Choose Ultra',
     },
@@ -77,7 +78,7 @@ export const copy = {
     },
     questions: { label: 'ASK BEFORE YOU OFFER', reviewing: 'Reviewing listing', tailored: 'Tailored to this listing', core: '', title: 'Questions worth asking', note: '' },
     map: { label: 'NEIGHBORHOOD', intro: 'Use the map to verify walking routes to U-Bahn, S-Bahn, trams, parks and daily essentials—not just straight-line distance.', loading: 'Locating the neighborhood…', explore: 'Explore on OpenStreetMap ↗', approximate: 'The listing does not disclose an exact address. The map is centered on the most precise stated area:', exact: 'The listing provides an exact street address.' },
-    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', property: 'PROPERTY', option: 'OPTION', address: 'Address', neighborhood: 'Neighborhood', asking: 'Asking price', acquisition: 'Total acquisition cost', commission: "Buyer's commission", perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', score: 'Listing rubric' },
+    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', property: 'PROPERTY', option: 'OPTION', address: 'Address', neighborhood: 'Neighborhood', asking: 'Asking price', acquisition: 'Total acquisition cost', commission: "Buyer's commission", perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', redFlags: 'Red flags', score: 'Listing rubric' },
     ads: { partner: 'PARTNER SPACE', note: 'A quiet place for a useful partner—not a distraction.', finance: 'Financing, survey or buyer-service partner', local: 'Local agent, architect or home partner' },
   },
   de: {
@@ -137,6 +138,7 @@ export const copy = {
       brief: 'REVIEW A HOUSE / IMMOBILIEN-BERICHT', copyLink: 'Link kopieren', copied: 'Link kopiert', score: 'ANGEBOTSRASTER',
       deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Ein festes Raster der Angebotsangaben, kein Wertgutachten und keine Kaufempfehlung. Preisgrenzen sind nicht an lokale Vergleichsverkäufe angepasst. Bei wichtigen Widersprüchen wird kein Score angezeigt.', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', commission: 'Käuferprovision', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
       atGlance: 'AUF EINEN BLICK', profile: 'IMMOBILIENPROFIL', details: 'ANGABEN IM EXPOSÉ', matters: 'WAS WICHTIG IST', notes: 'HINWEISE ZU DEN DATEN', notDisclosed: 'Nicht angegeben',
+      plot: 'Grundstücksfläche', redFlags: 'WARNSIGNALE', redFlagsEmpty: 'Im Angebotstext keine Warnsignale gefunden. Das ist keine Garantie, prüfe die Unterlagen.', redFlagSerious: 'Ernst', redFlagCheck: 'Prüfen', redFlagFrom: 'Aus dem Angebot:',
       components: { price: 'Preis', neighborhood: 'Lage', space: 'Platz', building: 'Gebäude', energy: 'Energie', light: 'Licht', costs: 'Kosten', source: 'Quelle' },
       source: 'QUELLE', original: 'Originalangebot öffnen ↗', downloadPdf: 'PDF herunterladen ↓', saved: 'Bericht gespeichert', assessMore: 'MEHR BERICHTE ERSTELLEN', plansTitle: 'Bleib bei deiner Suche im Fluss.', plansCopy: 'Berichte sind kostenlos, ohne Tageslimit. Ohne Anmeldung und ohne Abo.', perMonth: '/Monat', proLimit: '10 Berichte pro Tag', ultraLimit: '100 Berichte pro Tag', proButton: 'Pro wählen', ultraButton: 'Ultra wählen',
     },
@@ -145,7 +147,7 @@ export const copy = {
     },
     questions: { label: 'VOR DEM ANGEBOT FRAGEN', reviewing: 'Angebot wird geprüft', tailored: 'Auf dieses Angebot zugeschnitten', core: '', title: 'Fragen, die sich lohnen', note: '' },
     map: { label: 'LAGE', intro: 'Prüfe auf der Karte echte Wege zu U-Bahn, S-Bahn, Tram, Parks und Dingen des täglichen Lebens – nicht nur die Luftlinie.', loading: 'Lage wird gesucht…', explore: 'Auf OpenStreetMap öffnen ↗', approximate: 'Im Angebot steht keine genaue Adresse. Die Karte zeigt den genauesten genannten Bereich:', exact: 'Im Angebot steht eine genaue Straßenadresse.' },
-    compare: { label: 'IMMOBILIENVERGLEICH', title: 'Zwei Immobilien, direkt nebeneinander.', property: 'IMMOBILIE', option: 'OPTION', address: 'Adresse', neighborhood: 'Stadtteil', asking: 'Kaufpreis', acquisition: 'Gesamte Kaufkosten', commission: 'Käuferprovision', perSqm: 'Preis pro Wohn-m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', housegeld: 'Hausgeld', monthly: '/ Monat', return: 'Angegebene Rendite', energy: 'Energie', score: 'Angebotsraster' },
+    compare: { label: 'IMMOBILIENVERGLEICH', title: 'Zwei Immobilien, direkt nebeneinander.', property: 'IMMOBILIE', option: 'OPTION', address: 'Adresse', neighborhood: 'Stadtteil', asking: 'Kaufpreis', acquisition: 'Gesamte Kaufkosten', commission: 'Käuferprovision', perSqm: 'Preis pro Wohn-m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', housegeld: 'Hausgeld', monthly: '/ Monat', return: 'Angegebene Rendite', energy: 'Energie', redFlags: 'Warnsignale', score: 'Angebotsraster' },
     ads: { partner: 'PLATZ FÜR PARTNER', note: 'Ein ruhiger Platz für einen hilfreichen Partner – ohne Ablenkung.', finance: 'Finanzierung, Gutachten oder Kaufberatung', local: 'Makler, Architekt oder Partner fürs Zuhause' },
   },
 } as const;
@@ -185,6 +187,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
       EG: 'Ground floor', Erdgeschoss: 'Ground floor', Hochparterre: 'Raised ground floor', Souterrain: 'Lower ground floor', DG: 'Top floor', Dachgeschoss: 'Top floor',
       Etagenheizung: 'Individual heating system', Zentralheizung: 'Central heating', Fernwärme: 'District heating', Gasheizung: 'Gas heating', Ölheizung: 'Oil heating', Wärmepumpe: 'Heat pump',
       Fußbodenheizung: 'Underfloor heating', Nachtspeicherheizung: 'Night-storage heating', Pelletheizung: 'Pellet heating', Blockheizkraftwerk: 'Combined heat and power system',
+      'Luft-/Wasserwärme': 'Air-to-water heat', 'Timber frame': 'Timber frame',
     };
     return englishTranslations[normalized] || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
   }
@@ -193,6 +196,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
     Rented: 'Vermietet', 'Not rented': 'Nicht vermietet', Vacant: 'Nicht vermietet', 'Owner-occupied': 'Nicht vermietet',
     'Available to move in': 'Nicht vermietet', 'Needs renovation': 'Renovierungsbedürftig', 'Needs modernization': 'Modernisierungsbedürftig',
     'Under construction': 'Im Bau', 'New build': 'Neubau', Renovated: 'Renoviert', 'Like new': 'Neuwertig', 'Well maintained': 'Gepflegt',
+    'Timber frame': 'Holzbau', 'Luft-/Wasserwärme': 'Luft-/Wasserwärme',
       'Floor-to-ceiling windows; abundant daylight claimed': 'Bodentiefe Fenster; viel Tageslicht laut Angebot',
       'Sunny balcony stated': 'Sonniger Balkon laut Exposé',
   };
@@ -202,6 +206,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
 export function localizedTenancy(value: string | undefined, availabilityDate: string | undefined, locale: Locale) {
   if (value === 'Occupancy unclear') return locale === 'de' ? 'Bewohnung ungeklärt' : 'Occupancy unclear';
   const date = formatAvailabilityDate(availabilityDate, locale);
+  if (value === 'Rented' && date) return locale === 'de' ? `Vermietet, frei ab ${date}` : `Rented, free from ${date}`;
   if (date) return locale === 'de' ? `Bezugsfrei ab ${date}` : `Available from ${date}`;
   return localizedValue(value, locale);
 }
