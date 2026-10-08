@@ -151,8 +151,8 @@ export const copy = {
 } as const;
 
 const hiddenPlanFaq = {
-  en: ['Is Review a House free?', 'You can create two reports per day for free, with no sign-up.'],
-  de: ['Ist Review a House kostenlos?', 'Zwei Berichte pro Tag sind kostenlos, ohne Anmeldung.'],
+  en: ['Is Review a House free?', 'Reports are free, with no daily limit and no sign-up required.'],
+  de: ['Ist Review a House kostenlos?', 'Berichte sind kostenlos, ohne Tageslimit und ohne Anmeldung.'],
 } as const;
 
 export function homePresentation(locale: Locale, paidPlansOffered: boolean) {
