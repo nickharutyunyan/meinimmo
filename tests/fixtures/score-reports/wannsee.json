@@ -1,0 +1,66 @@
+{
+  "id": "deb7fba272381a14",
+  "title": "2-room flat · Wannsee",
+  "address": "14109 Berlin",
+  "location": "Wannsee",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/501404/",
+  "createdAt": "2026-10-03T21:41:23.263Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 824000,
+    "area": 136.08,
+    "rooms": "2",
+    "year": "1971",
+    "floor": "2. OG",
+    "energy": "not stated",
+    "heating": "Fußbodenheizung",
+    "energySource": "Öl",
+    "energyDemand": 192,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 883768,
+    "buyerCosts": 59768,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 528,
+    "parkingPrice": 25000,
+    "tenancy": "Not rented",
+    "condition": "Well maintained",
+    "features": [
+      "Balkon",
+      "Terrasse",
+      "Einbauküche",
+      "Keller",
+      "Fußbodenheizung",
+      "Garten"
+    ],
+    "postalCode": "14109",
+    "city": "Berlin",
+    "district": "Wannsee",
+    "locationPrecision": "neighborhood",
+    "transitStop": "Wannsee",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The listing separately quotes €25,000 for parking. Confirm whether this is additional and required; it is not included in the stated total.",
+    "Exact street address is not disclosed in the listing."
+  ],
+  "redFlags": [],
+  "score": 5.41,
+  "scoreBreakdown": {
+    "price": 3,
+    "neighborhood": 6.1,
+    "space": 7,
+    "building": 6.6,
+    "energy": 1.8,
+    "light": 6.5,
+    "costs": 7.9,
+    "source": 10
+  }
+}

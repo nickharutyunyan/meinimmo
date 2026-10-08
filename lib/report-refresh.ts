@@ -1,7 +1,7 @@
 // Page views do not call this module. The maps below stay empty unless a test
 // or a future caller starts a refresh, and both refuse new keys once full.
 import { createBoundedMap } from './bounded-cache.ts';
-import { EXTRACTION_VERSION } from './report-integrity.ts';
+import { EXTRACTION_VERSION, storedVersionIsNewer } from './report-integrity.ts';
 import type { Report } from './types.ts';
 
 /** Caller-side budget for one archived re-parse. It does not preempt a running parse. */
@@ -39,10 +39,11 @@ export function resetReportRefreshState() {
  * version is still old. Current reports and Armenian reports are skipped.
  */
 export function needsArchivedRefresh(item: Pick<Report, 'country' | 'extractionVersion' | 'sourceUnavailable' | 'sourceReviewAttemptedAt'>) {
+  if (storedVersionIsNewer(item.extractionVersion)) return false;
   if (item.country === 'AM') return false;
   if (item.sourceUnavailable && item.sourceReviewAttemptedAt) return false;
-  if (item.extractionVersion == null) return true;
-  return item.extractionVersion !== EXTRACTION_VERSION;
+  if (typeof item.extractionVersion !== 'number' || !Number.isFinite(item.extractionVersion)) return true;
+  return item.extractionVersion < EXTRACTION_VERSION;
 }
 
 /** Persist this when a re-parse cannot finish. The marker, not the old version, is what the next read checks. */

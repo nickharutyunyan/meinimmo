@@ -99,7 +99,7 @@ function backfillRows(records) {
 }
 
 test('backfill selects recent reports that only have an attempt timestamp', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100804);
+  assert.equal(EXTRACTION_VERSION, 2026100805);
   const attempted = '2026-10-08T12:00:00.000Z';
   const recent = {
     extractionVersion: 2026100802,
@@ -130,6 +130,18 @@ test('backfill selects recent reports that only have an attempt timestamp', () =
   assert.equal(selected.includes('current'), false);
   assert.equal(selected.includes('armenia'), false);
   assert.equal(selected.includes('marked-unavailable'), false);
+});
+
+test('backfill selects an older version and leaves the current and newer versions stored', () => {
+  assert.match(STALE_REPORT_BACKFILL_SQL, /extractionVersion'\), -1\) < \?1/);
+  assert.doesNotMatch(STALE_REPORT_BACKFILL_SQL, /extractionVersion'\), -1\) != \?1/);
+  const selected = backfillRows([
+    { id: 'older', createdAt: '2026-08-01T00:00:00.000Z', data: { extractionVersion: EXTRACTION_VERSION - 1, country: 'DE', futureField: { ok: true } } },
+    { id: 'equal', createdAt: '2026-08-02T00:00:00.000Z', data: { extractionVersion: EXTRACTION_VERSION, country: 'DE', futureField: { ok: true } } },
+    { id: 'newer', createdAt: '2026-08-03T00:00:00.000Z', data: { extractionVersion: EXTRACTION_VERSION + 1, country: 'DE', futureField: { ok: true }, score: 8.2 } },
+    { id: 'missing', createdAt: '2026-08-04T00:00:00.000Z', data: { country: 'DE' } },
+  ]);
+  assert.deepEqual(selected, ['older', 'missing']);
 });
 
 test('marking the selected rows unavailable drains the backfill', () => {

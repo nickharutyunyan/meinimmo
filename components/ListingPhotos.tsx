@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { copy, type Locale } from '../lib/i18n.ts';
 import { plainNumber } from '../lib/format.ts';
-import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
-import { nextActiveUrl, nextPhotoAttempt } from '../lib/photo-viewer.ts';
+import { isRemoteListingSource, listingPhotoSlot, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
+import { nextActiveUrl } from '../lib/photo-viewer.ts';
 import { PhotoViewer } from './PhotoViewer.tsx';
 
-export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?: string[]; listingUrl: string; locale: Locale; renderedAt?: number }) {
-  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
-  // Expiry is decided on the server. A cached document still drops a link
-  // whose `exp` passes after that render, once the browser has mounted.
+export function ListingPhotos({ urls, listingUrl, locale, renderedAt, initialFailed }: { urls?: string[]; listingUrl: string; locale: Locale; renderedAt?: number; initialFailed?: readonly string[] }) {
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set(initialFailed));
+  // Expiry follows the img src. A cached document still drops a signed src
+  // whose time passes after that render, once the browser has mounted.
   const [now, setNow] = useState(() => renderedAt ?? Date.now());
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -18,7 +18,7 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?:
   useEffect(() => {
     setNow(Date.now());
   }, []);
-  const photos = listingPhotosToShow(urls, failed, now);
+  const photos = listingPhotosToShow(urls, failed, now, listingUrl);
   const photosRef = useRef(photos);
   photosRef.current = photos;
   activeRef.current = activeUrl;
@@ -69,8 +69,7 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?:
     .replaceAll('{n}', plainNumber(position, locale))
     .replaceAll('{total}', plainNumber(total, locale));
   const activeIndex = activeUrl ? photos.indexOf(activeUrl) : -1;
-  const order = displayableListingPhotos(urls);
-  const thumbFor = (url: string) => listingThumbnailUrl(url, listingUrl, Math.max(0, order.indexOf(url)));
+  const thumbFor = (url: string) => listingThumbnailUrl(url, listingUrl, listingPhotoSlot(urls, url));
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
     <p id="listing-photos-caption" className="listing-photos-caption">{text.photosCaption}</p>
@@ -99,13 +98,10 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?:
           referrerPolicy="no-referrer"
           decoding="async"
           onError={(event) => {
-            const img = event.currentTarget;
-            const next = nextPhotoAttempt(url, img.src);
-            if (next && img.dataset.photoFallback !== '1') {
-              img.dataset.photoFallback = '1';
-              img.src = next;
-              return;
-            }
+            const image = event.currentTarget;
+            image.hidden = true;
+            const frame = image.parentElement;
+            if (frame) frame.hidden = true;
             markFailed(url);
           }}
         />
@@ -115,6 +111,7 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?:
       photos={photos}
       thumbs={photos.map(thumbFor)}
       index={activeIndex}
+      now={now}
       listingUrl={listingUrl}
       locale={locale}
       onClose={() => {

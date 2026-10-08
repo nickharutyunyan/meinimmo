@@ -15,6 +15,11 @@ test('money uses English and German currency formats', () => {
   assert.equal(visible(money(142.59, 'de')), '142,59 €');
   assert.equal(money(99.5, 'en'), '€99.50');
   assert.equal(visible(money(99.5, 'de')), '99,50 €');
+  assert.equal(money(83, 'en'), '€83');
+  assert.equal(visible(money(83, 'de')), '83 €');
+  assert.equal(money(9, 'en'), '€9.00');
+  assert.equal(visible(money(9, 'de')), '9,00 €');
+  assert.equal(money(83.4, 'en'), '€83.40');
   assert.equal(money(0, 'en'), '€0.00');
   assert.equal(visible(money(0, 'de')), '0,00 €');
   assert.equal(money(-1000, 'en'), '−€1,000');

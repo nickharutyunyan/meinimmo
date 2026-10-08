@@ -67,3 +67,19 @@ export function trappedFocusIndex(current: number, count: number, backwards: boo
 export function nextPhotoAttempt(stored: string, attempted: string) {
   return attempted && attempted !== stored ? stored : null;
 }
+
+/** Full stored frame, or the slot thumbnail when that stored URL has expired. */
+export function viewerFrameSrc(stored: string, medium: string, expired: boolean) {
+  if (expired && medium && medium !== stored) return medium;
+  return stored;
+}
+
+/**
+ * One more URL after a frame fails. A failed full frame tries the slot
+ * thumbnail. An expired frame does not load the signed URL again.
+ */
+export function viewerFrameFallback(stored: string, medium: string, attempted: string, expired: boolean) {
+  if (medium && medium !== stored && attempted !== medium) return medium;
+  if (expired) return null;
+  return nextPhotoAttempt(stored, attempted);
+}

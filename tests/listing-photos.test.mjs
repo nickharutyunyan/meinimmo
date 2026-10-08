@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import esbuild from 'esbuild';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
 import { LISTING_IMAGE_HOSTS, LISTING_THUMBNAIL_HOSTS } from '../lib/listing-image-hosts.ts';
-import { displayableListingPhotos, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotosExpireAt, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, displayedListingPhotoExpired, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotoHref, listingPhotoSlot, listingPhotosExpireAt, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { copy } from '../lib/i18n.ts';
 
@@ -213,7 +213,11 @@ test('report overview renders EN and DE captions and print and compare omit phot
   const source = await readFile(new URL('../components/ListingPhotos.tsx', import.meta.url), 'utf8');
   assert.match(source, /renderedAt \?\? Date\.now\(\)/);
   assert.match(source, /useEffect\(\(\) => \{\s*setNow\(Date\.now\(\)\);/);
-  assert.match(source, /listingPhotosToShow\(urls, failed, now\)/);
+  assert.match(source, /listingPhotosToShow\(urls, failed, now, listingUrl\)/);
+  assert.match(source, /loading="lazy"/);
+  assert.match(source, /referrerPolicy="no-referrer"/);
+  assert.match(source, /image\.hidden = true/);
+  assert.doesNotMatch(source, /photosExpireAt|rs:fill/);
   assert.deepEqual(listingPhotosToShow([expired, future, plain], new Set(), Date.now()), [future, plain]);
   assert.deepEqual(listingPhotosToShow([expired, `${CDN}/also-old.jpg?exp=2`], new Set(), Date.now()), []);
   const thumbSigned = `${CDN}/rs:fit:1920:1080/q:90/plain/photo.jpg?sig=YcsrfoeC&exp=9999999999`;
@@ -226,6 +230,7 @@ test('report overview renders EN and DE captions and print and compare omit phot
   }));
   assert.equal(thumbs.includes('old.jpg'), false);
   assert.equal(thumbs.includes('rs:fit:1920'), false);
+  assert.match(thumbs, /picture\/0\/medium\.jpg/);
   assert.match(thumbs, /picture\/1\/medium\.jpg/);
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');
@@ -247,6 +252,91 @@ test('thumbnails use a smaller frame when the URL scheme allows it', () => {
   assert.equal(listingThumbnailUrl(open, listing, 0), `${CDN}/rs:fit:320:240/q:90/plain/photo.jpg`);
   const expired = `${CDN}/rs:fit:1920:1080/q:90/plain/old.jpg?sig=YcsrfoeC&exp=1`;
   assert.deepEqual(listingPhotosToShow([expired], new Set(), Date.now()), []);
+  assert.deepEqual(listingPhotosToShow([expired], new Set(), Date.now(), listing), [expired]);
+});
+
+test('medium.jpg thumbnails stay after the stored signed URL expires', async (t) => {
+  const ListingPhotos = await loadListingPhotos();
+  const at = Date.parse('2026-10-09T12:00:00.000Z');
+  const exp = Date.parse('2026-10-09T04:01:00.000Z') / 1000;
+  t.mock.timers.enable({ apis: ['Date'], now: at });
+  const listing = 'https://www.ohne-makler.net/immobilie/502729/';
+  const urls = [0, 1, 2, 3].map((index) => `${CDN}/rs:fit:1920:1080/q:90/plain/photo-${index}.jpg?sig=abc&exp=${exp}`);
+  assert.equal(listingPhotosExpireAt(urls), '2026-10-09T04:01:00.000Z');
+  const html = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls,
+    listingUrl: listing,
+    locale: 'en',
+    renderedAt: at,
+  }));
+  assert.match(html, /Photos from the listing · opens the original page/);
+  for (const index of [0, 1, 2, 3]) assert.match(html, new RegExp(`picture/${index}/medium\\.jpg`));
+  assert.equal([...html.matchAll(/<img /g)].length, 4);
+  assert.doesNotMatch(html, /rs:fill:|sig=|exp=|expires=|signature=/);
+  assert.match(html, /loading="lazy"/);
+  assert.match(html, /referrerpolicy="no-referrer"/i);
+  assert.match(html, /<button type="button" aria-label="Photo 1 of 4"/);
+  assert.doesNotMatch(html, /target="_blank"/);
+  const german = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls, listingUrl: listing, locale: 'de', renderedAt: at,
+  }));
+  assert.match(german, /Fotos aus dem Angebot · öffnet die Originalseite/);
+  assert.equal([...german.matchAll(/<img /g)].length, 4);
+
+  const signedOnly = [
+    `${CDN}/only-a.jpg?sig=abc&exp=${exp}`,
+    `${CDN}/only-b.jpg?signature=abc&expires=${exp}`,
+  ];
+  assert.equal(renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: signedOnly, listingUrl: listing, locale: 'en', renderedAt: at,
+  })), '');
+  assert.deepEqual(listingPhotosToShow(signedOnly, new Set(), at, listing), []);
+  assert.deepEqual(listingPhotosToShow(urls, new Set(), at, listing), urls);
+  const iso = `${CDN}/iso.jpg?signature=abc&expires=2026-10-09T04:01:00.000Z`;
+  assert.deepEqual(listingPhotosToShow([iso], new Set(), at), []);
+  assert.deepEqual(listingPhotosToShow([`${CDN}/forever.jpg?signature=abc`], new Set(), at), [`${CDN}/forever.jpg?signature=abc`]);
+  const medium = `https://www.ohne-makler.net/immobilie/502729/picture/0/medium.jpg`;
+  const redirect = `${CDN}/rs:fill:265:199/plain/photo.jpg?sig=fresh&exp=${exp}`;
+  assert.equal(displayedListingPhotoExpired(medium, at), false);
+  assert.equal(displayedListingPhotoExpired(redirect, at), true);
+  assert.equal(listingPhotoHref(listing, medium, at), listing);
+  assert.equal(listingPhotoHref(urls[0], medium, at), medium);
+  assert.equal(listingPhotoHref(signedOnly[0], signedOnly[0], at), undefined);
+
+  const mixed = [signedOnly[0], urls[0], urls[1]];
+  const mixedHtml = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: mixed, listingUrl: listing, locale: 'en', renderedAt: at,
+  }));
+  assert.doesNotMatch(mixedHtml, /picture\/0\/medium\.jpg/);
+  assert.match(mixedHtml, /picture\/1\/medium\.jpg/);
+  assert.match(mixedHtml, /picture\/2\/medium\.jpg/);
+  assert.equal(mixedHtml.includes('only-a.jpg'), false);
+  assert.equal(mixedHtml.includes('Photo 1 of 2'), true);
+  assert.equal(mixedHtml.includes('Photo 2 of 2'), true);
+
+  assert.equal(renderToStaticMarkup(createElement(ListingPhotos, {
+    urls, listingUrl: listing, locale: 'en', renderedAt: at, initialFailed: urls,
+  })), '');
+  const oneFailed = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls, listingUrl: listing, locale: 'de', renderedAt: at, initialFailed: [urls[0], urls[2]],
+  }));
+  assert.match(oneFailed, /Fotos aus dem Angebot/);
+  assert.doesNotMatch(oneFailed, /picture\/0\/medium\.jpg|picture\/2\/medium\.jpg/);
+  assert.match(oneFailed, /picture\/1\/medium\.jpg/);
+  assert.match(oneFailed, /picture\/3\/medium\.jpg/);
+  assert.equal([...oneFailed.matchAll(/<img /g)].length, 2);
+
+  const extracted = extractListingPhotoUrls(berlin);
+  assert.match(berlin, /panorama/);
+  assert.equal(extracted.some((url) => url.includes('panorama')), false);
+  assert.match(extracted[1], /NTAyNzI5L3Vrejg4aGhz/);
+  assert.equal(listingPhotoSlot(extracted, extracted[1]), 1);
+  assert.equal(listingThumbnailUrl(extracted[1], listing, listingPhotoSlot(extracted, extracted[1])), 'https://www.ohne-makler.net/immobilie/502729/picture/1/medium.jpg');
+  const adlershof = readFileSync(new URL('./fixtures/listings/ohne-makler-471956.html', import.meta.url), 'utf8');
+  const adlerPhotos = extractListingPhotoUrls(adlershof);
+  assert.match(adlerPhotos[0], /NDcxOTU2L3VnMGJ6b2Nk/);
+  assert.equal(adlerPhotos.some((url) => url.includes('/picture/')), false);
+  assert.equal(listingPhotoSlot(adlerPhotos, adlerPhotos[0]), 0);
 });
 
 test('adversarial photo markup stays inside the parse budget', () => {

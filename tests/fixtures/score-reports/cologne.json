@@ -1,0 +1,70 @@
+{
+  "id": "6c2cb1fb2e3d4934",
+  "title": "3-room flat · Ehrenfeld",
+  "address": "50823 Köln",
+  "location": "Ehrenfeld",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/499821/",
+  "createdAt": "2026-10-08T18:59:52.392Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 529000,
+    "area": 83.55,
+    "usableArea": 11,
+    "rooms": "3",
+    "year": "2017",
+    "floor": "1. OG",
+    "energy": "A",
+    "heating": "Fußbodenheizung",
+    "energySource": "Gas",
+    "energyDemand": 50,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 570359,
+    "buyerCosts": 41360,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 300,
+    "tenancy": "Rented",
+    "condition": "Like new",
+    "features": [
+      "Balkon",
+      "Keller",
+      "Aufzug",
+      "Fußbodenheizung"
+    ],
+    "postalCode": "50823",
+    "city": "Köln",
+    "district": "Ehrenfeld",
+    "locationPrecision": "neighborhood",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The stated energy class is one step off the stated demand. The score uses the lower class.",
+    "Exact street address is not disclosed in the listing.",
+    "The unit is rented but no verified yield was extracted."
+  ],
+  "redFlags": [
+    {
+      "id": "rentedOccupied",
+      "severity": "caution",
+      "evidence": "Aktuelle Nutzung Vermietet"
+    }
+  ],
+  "score": 7.12,
+  "scoreBreakdown": {
+    "price": null,
+    "neighborhood": 6.1,
+    "space": 9.3,
+    "building": 9.2,
+    "energy": 8.4,
+    "light": 6.5,
+    "costs": 7.2,
+    "source": 10
+  }
+}

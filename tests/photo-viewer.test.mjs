@@ -7,6 +7,8 @@ import {
   applyViewerKey,
   nextActiveUrl,
   nextPhotoAttempt,
+  viewerFrameFallback,
+  viewerFrameSrc,
   photosWithoutFailures,
   stepPhoto,
   swipeCommand,
@@ -70,6 +72,12 @@ test('broken images are skipped, dropped from the count, and an empty set stays 
 
   assert.equal(nextPhotoAttempt('https://cdn.example/a.jpg', 'https://cdn.example/a.jpg?size=thumb'), 'https://cdn.example/a.jpg');
   assert.equal(nextPhotoAttempt('https://cdn.example/a.jpg', 'https://cdn.example/a.jpg'), null);
+  const medium = 'https://cdn.example/picture/0/medium.jpg';
+  assert.equal(viewerFrameSrc('https://cdn.example/a.jpg', medium, false), 'https://cdn.example/a.jpg');
+  assert.equal(viewerFrameSrc('https://cdn.example/a.jpg', medium, true), medium);
+  assert.equal(viewerFrameFallback('https://cdn.example/a.jpg', medium, 'https://cdn.example/a.jpg', false), medium);
+  assert.equal(viewerFrameFallback('https://cdn.example/a.jpg', medium, medium, true), null);
+  assert.equal(viewerFrameFallback('https://cdn.example/a.jpg', medium, medium, false), 'https://cdn.example/a.jpg');
 });
 
 test('viewer copy is the specified English and German text', async () => {

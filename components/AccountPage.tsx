@@ -12,7 +12,7 @@ import { canOfferDayPass } from '@/lib/day-pass';
 type AccountSubscription = { plan: 'pro' | 'ultra'; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean };
 
 type AccountState = {
-  user: { username: string | null; email: string | null; name: string | null } | null;
+  user: { username: string | null; email: string | null; name: string | null; emailVerified: boolean } | null;
   access: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string };
   subscription: AccountSubscription | null;
   googleAvailable: boolean;
@@ -61,6 +61,12 @@ export function AccountPage({ locale }: { locale: Locale }) {
   const subscriptionIsCurrent = Boolean(data?.subscription && !['canceled', 'incomplete_expired'].includes(data.subscription.status));
   const inFlight = useRef(false);
   const networkError = de ? 'Verbindung fehlgeschlagen. Bitte versuche es erneut.' : 'Connection failed. Please try again.';
+  const recoveryEmailHint = de
+    ? 'Hierhin schicken wir einen Link, falls du dein Passwort vergisst.'
+    : 'We’ll send a secure link here if you forget your password.';
+  const recoveryEmailLocked = de
+    ? 'Diese E-Mail-Adresse ist noch nicht bestätigt, deshalb kannst du sie noch nicht ändern.'
+    : 'This email isn’t confirmed yet, so you can’t change it.';
   const refresh = async () => {
     const { response, data: result } = await requestJson<AccountState>('/api/auth/me', { cache: 'no-store' });
     if (!response.ok) throw new Error('account_unavailable');
@@ -148,7 +154,7 @@ export function AccountPage({ locale }: { locale: Locale }) {
           <small className="usage-note">{data.access.remaining} {de ? 'übrig' : 'remaining'}</small>
           <div aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, data.access.used / data.access.limit * 100))}%` }} /></div>
         </section> : <section className="account-card usage-card"><span>{data.subscription ? data.subscription.plan.toUpperCase() : (de ? 'KOSTENLOS' : 'FREE')}</span><strong>∞</strong><p>{de ? 'Berichte sind momentan unbegrenzt.' : 'Reports are currently unlimited.'}</p><small className="usage-note">{data.subscription ? (de ? 'Das ist dein aktuelles Abo. Verwalten oder kündigen kannst du es unten.' : 'This is your current plan. Manage or cancel it below.') : (de ? 'Tageslimits sind pausiert.' : 'Daily limits are paused.')}</small></section>}
-        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required /><small>{de ? 'Hierhin schicken wir einen Link, falls du dein Passwort vergisst.' : 'We’ll send a secure link here if you forget your password.'}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
+        <section className="account-card"><h2>{de ? 'Profil' : 'Profile'}</h2><form onSubmit={saveName}><label>{de ? 'Name (optional)' : 'Name (optional)'}<input name="name" defaultValue={data.user.name || ''}/></label>{data.user.username ? <label>{de ? 'E-Mail zur Wiederherstellung' : 'Recovery email'}<input name="email" type="email" autoComplete="email" defaultValue={data.user.email || ''} required={data.user.emailVerified} disabled={!data.user.emailVerified} /><small>{data.user.emailVerified ? recoveryEmailHint : recoveryEmailLocked}</small></label> : null}<button disabled={busy}>{de ? 'Speichern' : 'Save'}</button></form><button className="text-button" onClick={logout} disabled={busy}>{de ? 'Abmelden' : 'Sign out'}</button></section>
       </div>
       {data.subscription ? <section className="subscription-card">
         <div>

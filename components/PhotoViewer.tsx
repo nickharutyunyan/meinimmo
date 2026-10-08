@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from 'r
 import { createPortal } from 'react-dom';
 import { copy, type Locale } from '../lib/i18n.ts';
 import { photoCount, plainNumber } from '../lib/format.ts';
-import { applyViewerKey, nextPhotoAttempt, stepPhoto, swipeCommand, trappedFocusIndex } from '../lib/photo-viewer.ts';
+import { displayedListingPhotoExpired } from '../lib/listing-photos.ts';
+import { applyViewerKey, stepPhoto, swipeCommand, trappedFocusIndex, viewerFrameFallback, viewerFrameSrc } from '../lib/photo-viewer.ts';
 
 const FOCUSABLE = 'button:not([disabled]), a[href]';
 
@@ -16,6 +17,7 @@ export function PhotoViewer({
   photos,
   thumbs,
   index,
+  now,
   listingUrl,
   locale,
   onClose,
@@ -25,6 +27,7 @@ export function PhotoViewer({
   photos: readonly string[];
   thumbs: readonly string[];
   index: number;
+  now: number;
   listingUrl: string;
   locale: Locale;
   onClose: () => void;
@@ -88,8 +91,13 @@ export function PhotoViewer({
     return () => document.removeEventListener('keydown', onKey);
   }, [index, onClose, onSelect, total]);
 
+  const mediumAt = (url: string) => {
+    const at = photos.indexOf(url);
+    return at >= 0 ? thumbs[at] || '' : '';
+  };
   const previous = total > 0 ? photos[stepPhoto(index, -1, total)] ?? '' : '';
   const following = total > 0 ? photos[stepPhoto(index, 1, total)] ?? '' : '';
+  const neighborKey = thumbs.join('\n');
   useEffect(() => {
     if (!current) return;
     const seen = new Set<string>([current]);
@@ -97,10 +105,12 @@ export function PhotoViewer({
     for (const url of [previous, following]) {
       if (!url || seen.has(url)) continue;
       seen.add(url);
+      const medium = mediumAt(url);
+      const expired = displayedListingPhotoExpired(url, now);
       const img = new Image();
       img.referrerPolicy = 'no-referrer';
       img.onerror = () => {
-        const next = nextPhotoAttempt(url, img.src);
+        const next = viewerFrameFallback(url, medium, img.src, expired);
         if (next && img.dataset.photoFallback !== '1') {
           img.dataset.photoFallback = '1';
           img.src = next;
@@ -108,13 +118,13 @@ export function PhotoViewer({
         }
         failRef.current(url);
       };
-      img.src = url;
+      img.src = viewerFrameSrc(url, medium, expired);
       images.push(img);
     }
     return () => {
       for (const img of images) img.onerror = null;
     };
-  }, [current, following, previous]);
+  }, [current, following, neighborKey, now, previous]);
 
   if (!current || typeof document === 'undefined') return null;
 
@@ -173,13 +183,13 @@ export function PhotoViewer({
       <div className="photo-viewer-frame" onMouseDown={backdrop}>
         <img
           key={current}
-          src={current}
+          src={viewerFrameSrc(current, thumbs[index] || '', displayedListingPhotoExpired(current, now))}
           alt={alt(index + 1)}
           referrerPolicy="no-referrer"
           decoding="async"
           onError={(event) => {
             const img = event.currentTarget;
-            const next = nextPhotoAttempt(current, img.src);
+            const next = viewerFrameFallback(current, thumbs[index] || '', img.src, displayedListingPhotoExpired(current, now));
             if (next && img.dataset.photoFallback !== '1') {
               img.dataset.photoFallback = '1';
               img.src = next;
@@ -209,7 +219,7 @@ export function PhotoViewer({
           decoding="async"
           onError={(event) => {
             const img = event.currentTarget;
-            const next = nextPhotoAttempt(url, img.src);
+            const next = viewerFrameFallback(url, thumbs[thumbIndex] || '', img.src, displayedListingPhotoExpired(url, now));
             if (next && img.dataset.photoFallback !== '1') {
               img.dataset.photoFallback = '1';
               img.src = next;
