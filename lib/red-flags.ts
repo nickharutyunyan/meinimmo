@@ -35,10 +35,22 @@ const MONTHS_EN: Record<string, string> = {
   oktober: 'October', november: 'November', dezember: 'December',
 };
 
+/** Caps apply before any pattern runs. Amounts use a fixed number of digit groups, never [\d.]* . */
+const MAX_SCAN_LINE = 1_200;
+const MAX_SCAN_LINES = 800;
+const AMOUNT = String.raw`\d{1,3}(?:\.\d{3}){0,3}`;
+
 /** Lines after this are topic links and similar-listing chrome, not the offer. */
 export function listingFactLines(lines: string[]) {
-  const stop = lines.findIndex(line => /^(?:Themenportale|Ähnliche (?:Angebote|Immobilien)|Weitere Angebote|Das könnte dir auch gefallen)$/i.test(line));
-  return stop < 0 ? lines : lines.slice(0, stop);
+  const capped: string[] = [];
+  const limit = Math.min(lines.length, MAX_SCAN_LINES);
+  for (let index = 0; index < limit; index += 1) {
+    const line = lines[index];
+    if (!line) continue;
+    capped.push(line.length > MAX_SCAN_LINE ? line.slice(0, MAX_SCAN_LINE) : line);
+  }
+  const stop = capped.findIndex(line => /^(?:Themenportale|Ähnliche (?:Angebote|Immobilien)|Weitere Angebote|Das könnte dir auch gefallen)$/i.test(line));
+  return stop < 0 ? capped : capped.slice(0, stop);
 }
 
 /**
@@ -79,7 +91,7 @@ const LIFE_INTEREST = /\b(?:Nießbrauch|Niessbrauch|lebenslanges?\s+Wohnrecht|Wo
 const LEVY = /Sonderumlage/i;
 const LEVY_QUALIFIER = /beschlossen|geplant|anstehend|fällig|in Höhe von|\d+\s?€/i;
 const BACKLOG = /Instandhaltungsstau|Sanierungsstau|Instandsetzungsstau/i;
-const FORCED_SALE = /Zwangsversteigerung|Versteigerungstermin|Verkehrswertgutachten|Amtsgericht.{0,40}Versteigerung/i;
+const FORCED_SALE = /Zwangsversteigerung|Versteigerungstermin|Verkehrswertgutachten|Amtsgericht[^\n]{0,40}Versteigerung/i;
 const SOCIAL = /\b(?:WBS|Wohnberechtigungsschein|Belegungsbindung|Mietpreisbindung|öffentlich gefördert)\b/i;
 const LISTED = /Denkmalschutz|denkmalgeschützt|Baudenkmal/i;
 const HEATING_YEAR = /(?:Baujahr\s+(?:der\s+)?Heizung|Heizungsbaujahr|Baujahr\s+Anlagentechnik)\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})/i;
@@ -98,7 +110,7 @@ function gewerbeIsOfferedUnit(line: string) {
 }
 
 function teileigentumLine(line: string) {
-  const expression = /Teileigentum|Gewerbeeinheit|als Wohnung genutzt.{0,80}genehmig/gi;
+  const expression = /Teileigentum|Gewerbeeinheit|als Wohnung genutzt[^\n]{0,80}genehmig/gi;
   for (const match of line.matchAll(expression)) {
     const index = match.index ?? 0;
     if (mentionIsNegated(line, index, match[0].length)) continue;
@@ -152,7 +164,7 @@ function heatingInstallYear(lines: string[]) {
 
 function sentenceSaysRented(sentence: string) {
   if (/(?:nicht|un)\s*vermietet|kein(?:e|en)?\s+miet/i.test(sentence)) return false;
-  return /(?:\bist\b|\bbis\b).{0,80}\bvermietet\b|\bvermietet\s+bis\b|\bMietvertrag\s+l[aä]uft\s+bis\b|\b(?:aktuell|derzeit)\s+vermietet\b|\bwird\s+vermietet\s+verkauft\b|\bvermietet\s+verkauft\b/i.test(sentence);
+  return /(?:\bist\b|\bbis\b)[^\n]{0,80}\bvermietet\b|\bvermietet\s+bis\b|\bMietvertrag\s+l[aä]uft\s+bis\b|\b(?:aktuell|derzeit)\s+vermietet\b|\bwird\s+vermietet\s+verkauft\b|\bvermietet\s+verkauft\b/i.test(sentence);
 }
 
 export function lineSaysRented(line: string) {
@@ -189,11 +201,11 @@ export function findTenancyConflict(lines: string[]) {
 }
 
 function groundRentAmounts(text: string) {
-  const year = text.match(/jährlich(?:en|er)?\s+Belastung\s+von\s+(\d[\d.]*)/i)?.[1]
-    || text.match(/(\d[\d.]*)\s*(?:€|EUR)\s*(?:pro|\/)\s*Jahr/i)?.[1]
-    || text.match(/Erbbauzins[^0-9]{0,24}(\d[\d.]*)/i)?.[1];
-  const month = text.match(/mtl\.?\s*:?\s*(\d[\d.]*)/i)?.[1]
-    || text.match(/(\d[\d.]*)\s*(?:€|EUR)\s*(?:pro|\/)\s*Monat/i)?.[1];
+  const year = text.match(new RegExp(String.raw`jährlich(?:en|er)?\s+Belastung\s+von\s+(${AMOUNT})`, 'i'))?.[1]
+    || text.match(new RegExp(String.raw`(${AMOUNT})\s*(?:€|EUR)\s*(?:pro|\/)\s*Jahr`, 'i'))?.[1]
+    || text.match(new RegExp(String.raw`Erbbauzins[^\d]{0,24}(${AMOUNT})`, 'i'))?.[1];
+  const month = text.match(new RegExp(String.raw`mtl\.?\s*:?\s*(${AMOUNT})`, 'i'))?.[1]
+    || text.match(new RegExp(String.raw`(${AMOUNT})\s*(?:€|EUR)\s*(?:pro|\/)\s*Monat`, 'i'))?.[1];
   const parse = (value?: string) => {
     if (!value) return undefined;
     const amount = Number(value.replace(/\./g, '').replace(',', '.'));
@@ -217,7 +229,7 @@ export function findGroundLease(lines: string[]) {
     if (!evidence || amounts.year || amounts.month) evidence = evidenceQuote(line, match.index);
     year = year || amounts.year;
     month = month || amounts.month;
-    if (/enthalten|inklusive|in den .{0,40}(?:Hausgeld|Betriebskosten)/i.test(window)) inCharges = true;
+    if (/enthalten|inklusive|in den [^\n]{0,40}(?:Hausgeld|Betriebskosten)/i.test(window)) inCharges = true;
   }
   if (!evidence) return undefined;
   return { evidence, year, month, inCharges };
@@ -376,6 +388,11 @@ const QUESTIONS: Record<string, { en: string; de: string }> = {
 };
 
 export function redFlagSentence(report: Report, flag: RedFlag, locale: 'en' | 'de') {
+  if (flag.id === 'rentedOccupied' && report.propertyType === 'house') {
+    return locale === 'de'
+      ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Frag nach dem Mietvertrag, der Kündigungsfrist und ob das Haus frei übergeben werden kann.'
+      : 'Sold with a tenant: you cannot simply move in. Ask for the lease, the notice period and whether the house can be handed over vacant.';
+  }
   const text = COPY[flag.id][locale];
   if (flag.id !== 'heatingAge') return text;
   const year = report.facts.heatingYear;

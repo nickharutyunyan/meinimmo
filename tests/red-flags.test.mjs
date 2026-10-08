@@ -12,6 +12,7 @@ import {
   redFlagSummary,
 } from '../lib/red-flags.ts';
 import { offerQuestionsFor } from '../lib/report-copy.ts';
+import { performance } from 'node:perf_hooks';
 
 function report(facts = {}, extra = {}) {
   return {
@@ -268,6 +269,39 @@ test('the first offer question addresses a high flag in both languages', () => {
   assert.match(offerQuestionsFor(parsed, 'en')[0], /remaining leasehold term/);
   assert.match(offerQuestionsFor(parsed, 'de')[0], /Restlaufzeit/);
   assert.equal(offerQuestionsFor(report(), 'en')[0].includes('leasehold'), false);
+});
+
+test('a rented house does not get flat Hausgeld, floor or unit wording', () => {
+  const parsed = parseListing(`<title>Holzhaus zum Kauf</title><main>
+    <div>Objektart</div><div>Haus</div>
+    <div>Kaufpreis</div><div>300.000 €</div>
+    <div>Wohnfläche</div><div>100 m²</div>
+    <div>24803 Erfde</div>
+    <p>Die Immobilie ist vermietet.</p>
+  </main>`, 'https://example.test/house');
+  const text = [parsed.summary, ...(parsed.qualityWarnings || []), ...(parsed.considerations || []), ...offerQuestionsFor(parsed, 'en'), ...offerQuestionsFor(parsed, 'de')].join('\n');
+  assert.equal(parsed.propertyType, 'house');
+  assert.equal(parsed.facts.tenancy, 'Rented');
+  assert.match(parsed.qualityWarnings.join(' '), /The house is rented/);
+  assert.doesNotMatch(text, /The unit is rented|Hausgeld|Teilungserklärung|\bWEG\b|exact floor|which floor|\bEtage\b|Aufzug/i);
+  const flag = (parsed.redFlags || []).find(item => item.id === 'rentedOccupied');
+  assert.match(redFlagSentence(parsed, flag, 'en'), /house can be handed over vacant/);
+  assert.doesNotMatch(redFlagSentence(parsed, flag, 'en'), /flat|Teilungserklärung/i);
+});
+
+test('a large adversarial listing still parses within the time budget', () => {
+  const attack = `${'1.'.repeat(40_000)}${'bis '.repeat(20_000)}Pachtgrundstück ${'€'.repeat(30)} pro Jahr`;
+  const html = `<main><h1>Wohnung zum Kauf</h1><p>Kaufpreis 250.000 €</p><p>Wohnfläche 70 m²</p><p>10115 Berlin</p><p>${attack}</p></main>`;
+  const started = performance.now();
+  const parsed = parseListing(html, 'https://example.test/adversarial');
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed < 500, `parse took ${elapsed.toFixed(0)} ms`);
+  assert.equal(parsed.facts.city, 'Berlin');
+  const huge = Array.from({ length: 2_000 }, () => `${'1.'.repeat(20_000)} bis Pacht Sonderumlage`);
+  const scanStarted = performance.now();
+  detectRedFlags(huge, report());
+  const scanElapsed = performance.now() - scanStarted;
+  assert.ok(scanElapsed < 200, `red-flag scan took ${scanElapsed.toFixed(0)} ms`);
 });
 
 test('archived fixtures do not invent leasehold, residence rights, levies or Teileigentum', () => {

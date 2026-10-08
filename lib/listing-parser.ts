@@ -107,6 +107,20 @@ export function htmlToLines(raw: string) {
     .filter(Boolean);
 }
 
+/** Real fixture lines stay under 800 characters. Longer nodes are cut before any pattern runs. */
+const MAX_PARSED_LINE = 1_200;
+const MAX_PARSED_LINES = 800;
+
+function boundedLines(lines: string[]) {
+  const capped: string[] = [];
+  const limit = Math.min(lines.length, MAX_PARSED_LINES);
+  for (let index = 0; index < limit; index += 1) {
+    const line = lines[index];
+    capped.push(line.length > MAX_PARSED_LINE ? line.slice(0, MAX_PARSED_LINE) : line);
+  }
+  return capped;
+}
+
 function pageTitle(raw: string) {
   const tagged = raw.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
   if (tagged) return tidy(tagged);
@@ -657,7 +671,7 @@ function publishScore(report: Report) {
 }
 
 export function parseListing(raw: string, source: string): Report {
-  const lines = htmlToLines(raw);
+  const lines = boundedLines(htmlToLines(raw));
   const text = lines.join(' \n ');
   const title = pageTitle(raw);
   const currency = /(\d[\d.,]*)\s*(?:€|EUR|e(?=\s|$))/i;
@@ -832,7 +846,7 @@ export function parseListing(raw: string, source: string): Report {
     !street ? 'Exact street address is not disclosed in the listing.' : '',
     floor === UNKNOWN && propertyType !== 'house' ? 'The listing does not disclose an exact floor.' : '',
     !explicitTotal ? 'The listing does not provide a complete acquisition total; the financing card uses a rough buyer-cost estimate.' : '',
-    tenancy === 'Rented' && !advertisedYield ? 'The unit is rented but no verified yield was extracted.' : '',
+    tenancy === 'Rented' && !advertisedYield ? `The ${propertyType === 'house' ? 'house' : 'unit'} is rented but no verified yield was extracted.` : '',
   ].filter(Boolean);
 
   const report: Report = {
