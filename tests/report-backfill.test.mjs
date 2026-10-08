@@ -297,7 +297,15 @@ test('a backfilled report gets factEvidence from the archived source', async () 
   assert.equal(merged.aiFactChecked, true);
   assert.deepEqual(merged.offerQuestions, previous.offerQuestions);
   assert.equal(merged.extractionVersion, EXTRACTION_VERSION);
+  assert.deepEqual(merged.factEvidence, parsed.factEvidence);
   assert.match(merged.factEvidence.price.excerpt, /172\.000/);
   assert.match(merged.factEvidence.rooms.excerpt, /1-Zimmer|Zimmer 1/);
+  assert.match(merged.factEvidence.area.excerpt, /30/);
+  assert.match(merged.factEvidence.housegeld.excerpt, /197/);
+  assert.match(merged.factEvidence.heating.excerpt, /Heizung|Zentralheizung/);
   assert.equal(merged.factEvidence.price.kind, 'stated');
+  for (const [field, evidence] of Object.entries(parsed.factEvidence)) {
+    assert.equal(evidence.kind, 'stated', field);
+    assert.equal(merged.factEvidence[field].excerpt, evidence.excerpt, field);
+  }
 });
