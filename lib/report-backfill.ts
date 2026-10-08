@@ -86,20 +86,17 @@ export function mergedBackfillReport(previous: Report, parsed: Report, attempted
   });
 }
 
-/** One call re-extracts at most this many saved reports, unless BACKFILL_BATCH_SIZE overrides it. */
-export const BACKFILL_BATCH_SIZE = 2;
-/** Stop before starting another report once this much synchronous work is recorded. */
-export const BACKFILL_WORK_BUDGET_MS = 800;
 /**
- * A report is not started unless at least this much of the budget remains.
- * One archived listing is about 30–70 ms of main-thread work locally and was
- * about 400 ms of Worker CPU in production, so 400 ms is the reserve.
+ * One call re-extracts this many saved reports. `BACKFILL_BATCH_SIZE` may set
+ * 1–5. This count is the guard. A Worker clock does not advance during
+ * synchronous parse work, so a millisecond budget stays at 0 and never stops
+ * the batch.
  */
-export const BACKFILL_REPORT_RESERVE_MS = 400;
+export const BACKFILL_BATCH_SIZE = 1;
 const BACKFILL_BATCH_CAP = 5;
 const MINIMUM_TOKEN_LENGTH = 24;
 
-/** Env override. Blank, fractional, and out-of-range values stay at the default of 2. */
+/** Env override. Blank, fractional, and out-of-range values stay at the default of 1. */
 export function configuredBackfillBatchSize(value: string | undefined) {
   if (value == null || value.trim() === '') return BACKFILL_BATCH_SIZE;
   const parsed = Number(value);
@@ -119,44 +116,24 @@ export function backfillAuthorized(authorization: string | null, token: string |
 }
 
 /**
- * Runs the supplied refresh for a small batch. `account` records synchronous
- * work inside `refresh` (parsing). Time spent awaiting D1 is not work, so a
- * slow read does not by itself eat the CPU budget, and a fast parse cannot
- * hide behind it. The caller loads archived HTML inside `refresh` and must
- * not retain it after the promise resolves.
- * A report is started only when `reserveMs` of the budget is still free.
+ * Runs the supplied refresh for `batchSize` candidates (default
+ * {@link BACKFILL_BATCH_SIZE}). The caller loads archived HTML inside
+ * `refresh` and must not retain it after the promise resolves. An error on
+ * one report is recorded and the rest of the batch still runs.
  */
 export async function runBackfillBatch<T extends { id: string }>(options: {
   candidates: T[];
   batchSize?: number;
-  budgetMs?: number;
-  reserveMs?: number;
-  refresh: (item: T, account: (elapsedMs: number) => void) => Promise<BackfillStatus>;
+  refresh: (item: T) => Promise<BackfillStatus>;
 }) {
   const batchSize = options.batchSize ?? BACKFILL_BATCH_SIZE;
-  const budgetMs = options.budgetMs ?? BACKFILL_WORK_BUDGET_MS;
-  const reserveMs = options.reserveMs ?? BACKFILL_REPORT_RESERVE_MS;
   const processed: Array<{ id: string; status: BackfillStatus }> = [];
-  let usedMs = 0;
-  let stoppedEarly = false;
-  const account = (elapsedMs: number) => {
-    if (Number.isFinite(elapsedMs) && elapsedMs > 0) usedMs += elapsedMs;
-  };
   for (const item of options.candidates.slice(0, batchSize)) {
-    if (usedMs + reserveMs > budgetMs) {
-      stoppedEarly = true;
-      break;
-    }
     try {
-      processed.push({ id: item.id, status: await options.refresh(item, account) });
+      processed.push({ id: item.id, status: await options.refresh(item) });
     } catch {
       processed.push({ id: item.id, status: 'error' });
     }
   }
-  return {
-    processed,
-    stoppedEarly,
-    usedMs,
-    remainingBudgetMs: Math.max(0, budgetMs - usedMs),
-  };
+  return { processed };
 }
