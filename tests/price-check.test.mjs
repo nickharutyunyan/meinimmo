@@ -6,6 +6,7 @@ import directory from '../data/berlin-ortsteile.json' with { type: 'json' };
 import { parseListing } from '../lib/listing-parser.ts';
 import { askingPriceIsComparable, berlinPriceAvailability, berlinPriceCheck, matchOfficialPriceArea } from '../lib/price-check.ts';
 import { priceCheckLead, priceCheckPresentation } from '../lib/price-check-copy.ts';
+import { provenanceForField, provenanceSentence } from '../lib/fact-provenance.ts';
 
 const pdf2025 = {
   Mitte: [779, 3501, 15914, 9374],
@@ -286,4 +287,41 @@ test('price-check copy avoids deal language and portal names, and the score read
   assert.doesNotMatch(sameArea.lead, /official price area/);
   const sample = priceCheckLead(berlinPriceCheck(report()), 'en') + priceCheckLead(berlinPriceCheck(report()), 'de');
   assert.doesNotMatch(sample, /\b(deal|bargain|undervalued|schnäppchen|unterbewertet)\b/i);
+});
+
+test('the price-check source names the reference for that city, or none', () => {
+  const berlin = report({ facts: { price: 329_000, area: 42.42, district: 'Prenzlauer Berg' } });
+  assert.equal(
+    provenanceSentence(provenanceForField(berlin, 'priceCheck', '+23%', 'en'), 'en'),
+    'Official data: Gutachterausschuss Berlin, Immobilienmarktbericht 2025/2026 (dl-de/zero-2.0)',
+  );
+  assert.equal(
+    provenanceSentence(provenanceForField(berlin, 'priceCheck', '+23 %', 'de'), 'de'),
+    'Amtliche Daten: Gutachterausschuss Berlin, Immobilienmarktbericht 2025/2026 (dl-de/zero-2.0)',
+  );
+
+  const cologne = report({
+    facts: { city: 'Köln', district: 'Lindenthal', postalCode: '50931', year: '1960', price: 560_000, area: 100 },
+    location: 'Lindenthal',
+  });
+  assert.equal(
+    provenanceSentence(provenanceForField(cologne, 'priceCheck', '', 'en'), 'en'),
+    'Official data: Gutachterausschuss Köln, Grundstücksmarktbericht 2026 (dl-de/zero-2.0)',
+  );
+  assert.equal(
+    provenanceSentence(provenanceForField(cologne, 'priceCheck', '', 'de'), 'de'),
+    'Amtliche Daten: Gutachterausschuss Köln, Grundstücksmarktbericht 2026 (dl-de/zero-2.0)',
+  );
+
+  const house = report({ propertyType: 'house' });
+  const hamburg = report({ facts: { city: 'Hamburg', district: 'Eimsbüttel' }, location: 'Eimsbüttel' });
+  for (const item of [house, hamburg]) {
+    for (const locale of ['en', 'de']) {
+      const sentence = provenanceSentence(provenanceForField(item, 'priceCheck', '', locale), locale);
+      assert.doesNotMatch(sentence, /Gutachterausschuss/);
+      assert.equal(sentence, locale === 'de'
+        ? 'Für diesen Bericht gibt es keine amtliche Preisquelle.'
+        : 'No official price reference applies to this report.');
+    }
+  }
 });

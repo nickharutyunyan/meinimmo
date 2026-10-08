@@ -10,7 +10,8 @@ import {
   stateForReport,
   transferTaxRate,
 } from '../lib/buyer-costs.ts';
-import { acquisitionCosts } from '../lib/finance.ts';
+import { acquisitionCosts, defaultEquity, financingScenario } from '../lib/finance.ts';
+import { provenanceSentence } from '../lib/fact-provenance.ts';
 import { money, percent } from '../lib/format.ts';
 
 const RATES = {
@@ -234,6 +235,75 @@ test('buyer-cost copy is in both languages and does not name a listing portal', 
     assert.doesNotMatch(text, /immobilienscout|immoscout|ohne-makler|kleinanzeigen|immowelt|immonet/i);
     assert.match(view.footnote, locale === 'de' ? /GNotKG/ : /GNotKG/);
     assert.match(view.rows[1].label, locale === 'de' ? /Schätzung/ : /estimate/i);
+  }
+});
+
+const visible = (value) => String(value).replace(/\u00a0/g, ' ').replace(/\u202f/g, ' ');
+
+test('the total equals the price plus the displayed lines, stated or not', () => {
+  const stated = listing({
+    city: 'Berlin',
+    price: 329_000,
+    buyerCosts: 24_494,
+    totalCost: 353_494,
+    buyerCommission: 'Commission-free',
+  });
+  const omitted = listing({ city: 'Berlin', price: 329_000, buyerCommission: 'Commission-free' });
+
+  for (const input of [stated, omitted]) {
+    const breakdown = buyerCostBreakdown(input);
+    const included = breakdown.lines.filter((line) => line.included);
+    const low = included.reduce((sum, line) => sum + line.low, 0);
+    const high = included.reduce((sum, line) => sum + line.high, 0);
+    assert.equal(low, 19_740 + 6_580 + 0);
+    assert.equal(breakdown.financingLow, low);
+    assert.equal(breakdown.financingHigh, high);
+    assert.equal(breakdown.totalLow, breakdown.price + low);
+    assert.equal(breakdown.totalHigh, breakdown.price + high);
+    assert.equal(breakdown.totalLow, 355_320);
+    for (const locale of ['en', 'de']) {
+      const view = buyerCostView(input, locale);
+      assert.equal(visible(view.summaryAmount), locale === 'de' ? '26.320 €' : '€26,320');
+      assert.equal(visible(view.totalAmount), locale === 'de' ? '355.320 €' : '€355,320');
+      assert.equal(visible(view.rows.find((row) => row.key === 'tax').amount), locale === 'de' ? '19.740 €' : '€19,740');
+      assert.equal(visible(view.rows.find((row) => row.key === 'notary').amount), locale === 'de' ? '6.580 €' : '€6,580');
+      assert.equal(visible(view.rows.find((row) => row.key === 'broker').amount), locale === 'de' ? '0 €' : '€0');
+    }
+  }
+
+  const statedEn = buyerCostView(stated, 'en');
+  const statedDe = buyerCostView(stated, 'de');
+  assert.equal(visible(statedEn.statedNote), 'The listing states €24,494 in ancillary costs; our estimate is €26,320.');
+  assert.equal(visible(statedDe.statedNote), 'Das Angebot nennt 24.494 € Kaufnebenkosten; unsere Schätzung liegt bei 26.320 €.');
+  assert.equal(buyerCostView(omitted, 'en').statedNote, undefined);
+  assert.equal(buyerCostView(omitted, 'de').statedNote, undefined);
+  assert.doesNotMatch(JSON.stringify(statedEn), /Financing uses/);
+  assert.doesNotMatch(JSON.stringify(statedDe), /Finanzierung nutzt/);
+
+  const costs = acquisitionCosts(stated);
+  const equity = defaultEquity(costs.total);
+  const withHousegeld = financingScenario({
+    total: costs.total, equity, interest: 3.5, repayment: 2, housegeld: 187.92, includeHousegeld: true,
+  });
+  const withoutHousegeld = financingScenario({
+    total: costs.total, equity, interest: 3.5, repayment: 2, housegeld: 187.92, includeHousegeld: false,
+  });
+  assert.equal(withHousegeld.loan + equity, costs.total);
+  assert.equal(withoutHousegeld.loan + equity, costs.total);
+  assert.equal(withHousegeld.loanPayment, withHousegeld.loan * (3.5 + 2) / 100 / 12);
+  assert.equal(withHousegeld.knownOutlay, withHousegeld.loanPayment + 187.92);
+  assert.equal(withoutHousegeld.knownOutlay, withoutHousegeld.loanPayment);
+  assert.equal(withHousegeld.knownOutlay - withoutHousegeld.knownOutlay, 187.92);
+});
+
+test('the notary source states the estimate once, in English and German', () => {
+  for (const [locale, prefix] of [['en', 'Estimate:'], ['de', 'Schätzung:']]) {
+    const row = buyerCostView(listing({ city: 'Berlin', buyerCommission: 'Commission-free' }), locale).rows.find((item) => item.key === 'notary');
+    const sentence = provenanceSentence({
+      field: 'notary', kind: 'estimated', quotes: [], basis: row.basis, reportedValue: row.amount,
+    }, locale);
+    assert.equal(sentence.split(prefix).length - 1, 1, sentence);
+    assert.match(sentence, locale === 'de' ? /^Schätzung: üblicherweise / : /^Estimate: typically /);
   }
 });
 
