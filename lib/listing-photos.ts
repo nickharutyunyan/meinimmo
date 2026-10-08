@@ -1,0 +1,343 @@
+import { listingImageHostAllowed } from './listing-image-hosts.ts';
+
+/** Same raw-HTML cap as the listing parser. Longer pages are scanned only up to here. */
+const MAX_PHOTO_HTML_CHARS = 1_500_000;
+const MAX_PHOTOS = 8;
+const MAX_ATTR_CHARS = 2_048;
+const MAX_JSON_LD_BODY = 200_000;
+const MAX_JSON_LD_BLOCKS = 40;
+
+const ENTITIES: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>' };
+
+export function isRemoteListingSource(source: string) {
+  return source.startsWith('https://') || source.startsWith('http://');
+}
+
+export function isDisplayableListingPhoto(value: string) {
+  if (!value || value.length > MAX_ATTR_CHARS) return false;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('https://') || trimmed.startsWith('data:')) return false;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password) return false;
+  if (!listingImageHostAllowed(url)) return false;
+  const path = url.pathname.toLowerCase();
+  if (path.includes('/pixel') || path.includes('spacer') || path.includes('1x1') || path.includes('tracking')) return false;
+  return true;
+}
+
+/** Render-time allowlist. Stored strings that are not absolute https on a listing CDN are dropped. */
+export function displayableListingPhotos(urls: readonly string[] | undefined) {
+  if (!urls?.length) return [];
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const value of urls) {
+    if (typeof value !== 'string' || !isDisplayableListingPhoto(value) || seen.has(value)) continue;
+    seen.add(value);
+    kept.push(value.trim());
+    if (kept.length === MAX_PHOTOS) break;
+  }
+  return kept;
+}
+
+/** Photos still shown after image-load failures. An empty list hides the strip. */
+export function listingPhotosToShow(urls: readonly string[] | undefined, failed: ReadonlySet<string>) {
+  return displayableListingPhotos(urls).filter((url) => !failed.has(url));
+}
+
+/**
+ * Up to 8 absolute https image URLs from og:image, JSON-LD images, gallery
+ * <img>/srcset, and lightbox anchors. One forward pass: no regex over the
+ * document and no nested quantifiers. Tracking pixels and data: URLs are dropped.
+ */
+export function extractListingPhotoUrls(html: string) {
+  if (!html || !html.includes('<')) return [];
+  const source = html.length > MAX_PHOTO_HTML_CHARS ? html.slice(0, MAX_PHOTO_HTML_CHARS) : html;
+  if (!mayContainListingPhotos(source)) return [];
+
+  const openGraph: string[] = [];
+  const gallery: string[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const open = source.indexOf('<', index);
+    if (open < 0) break;
+    const tag = readTag(source, open);
+    index = tag.next > open ? tag.next : open + 1;
+    if (!tag.attrs) continue;
+    if (tag.name === 'meta') {
+      const property = (tag.attrs.property || tag.attrs.name || '').toLowerCase();
+      if (property === 'og:image' || property === 'og:image:url' || property === 'og:image:secure_url') {
+        const content = tag.attrs.content;
+        if (content) openGraph.push(content);
+      }
+      continue;
+    }
+    if (tag.name === 'img' || tag.name === 'source') {
+      if (isTrackingPixel(tag.attrs)) continue;
+      const chosen = preferredImageUrl(tag.attrs.src || '', tag.attrs.srcset || '');
+      if (chosen) gallery.push(chosen);
+      continue;
+    }
+    if (tag.name === 'a') {
+      const box = (tag.attrs['data-glightbox'] || '').toLowerCase();
+      if ((box.includes('type: image') || box.includes('type:image')) && tag.attrs.href) gallery.push(tag.attrs.href);
+    }
+  }
+
+  const structured = source.includes('ld+json') || source.includes('LD+JSON') ? jsonLdImageUrls(source) : [];
+  return displayableListingPhotos([...openGraph, ...structured, ...gallery]);
+}
+
+function mayContainListingPhotos(source: string) {
+  return source.includes('<img') || source.includes('<IMG') || source.includes('<Img')
+    || source.includes('og:image') || source.includes('og:Image')
+    || source.includes('srcset=') || source.includes('srcSet=')
+    || source.includes('data-glightbox') || source.includes('data-Glightbox')
+    || source.includes('ld+json') || source.includes('LD+JSON');
+}
+
+type StartTag = { name: string; attrs: Record<string, string> | null; next: number };
+
+const KEPT_ATTRS = new Set(['src', 'srcset', 'width', 'height', 'href', 'content', 'property', 'name', 'data-glightbox']);
+
+function readTag(source: string, open: number): StartTag {
+  const marker = source.charCodeAt(open + 1);
+  if (marker === 33) {
+    if (source.startsWith('!--', open + 1)) {
+      const end = source.indexOf('-->', open + 4);
+      return { name: '', attrs: null, next: end < 0 ? source.length : end + 3 };
+    }
+    return { name: '', attrs: null, next: skipToTagEnd(source, open + 2) };
+  }
+  if (marker === 47) return { name: '', attrs: null, next: skipToTagEnd(source, open + 2) };
+
+  let cursor = open + 1;
+  const nameStart = cursor;
+  while (cursor < source.length && cursor - nameStart < 32 && isNameChar(source.charCodeAt(cursor))) cursor += 1;
+  if (cursor === nameStart) return { name: '', attrs: null, next: open + 1 };
+  const name = source.slice(nameStart, cursor).toLowerCase();
+  if (name === 'script' || name === 'style' || name === 'noscript') {
+    const startEnd = skipToTagEnd(source, cursor);
+    return { name, attrs: null, next: skipElement(source, startEnd, name) };
+  }
+  const interesting = name === 'img' || name === 'source' || name === 'meta' || name === 'a';
+  if (!interesting) return { name, attrs: null, next: skipToTagEnd(source, cursor) };
+
+  let attrs: Record<string, string> | null = null;
+  const keep = (attrName: string, raw: string) => {
+    if (!raw || !KEPT_ATTRS.has(attrName)) return;
+    attrs ??= {};
+    attrs[attrName] = decodeAttribute(raw);
+  };
+  while (cursor < source.length) {
+    while (cursor < source.length && isSpace(source.charCodeAt(cursor))) cursor += 1;
+    if (cursor >= source.length) break;
+    const code = source.charCodeAt(cursor);
+    if (code === 62) return { name, attrs, next: cursor + 1 };
+    if (code === 60) return { name, attrs, next: cursor };
+    if (code === 47 && source.charCodeAt(cursor + 1) === 62) return { name, attrs, next: cursor + 2 };
+
+    const attrStart = cursor;
+    while (cursor < source.length && isAttrChar(source.charCodeAt(cursor))) cursor += 1;
+    if (cursor === attrStart) {
+      cursor += 1;
+      continue;
+    }
+    const attrName = source.slice(attrStart, cursor).toLowerCase();
+    while (cursor < source.length && isSpace(source.charCodeAt(cursor))) cursor += 1;
+    if (source.charCodeAt(cursor) !== 61) continue;
+    cursor += 1;
+    while (cursor < source.length && isSpace(source.charCodeAt(cursor))) cursor += 1;
+    const quoted = source.charCodeAt(cursor);
+    if (quoted === 34 || quoted === 39) {
+      const start = cursor + 1;
+      const end = source.indexOf(quoted === 34 ? '"' : "'", start);
+      if (end < 0) {
+        keep(attrName, source.slice(start, start + MAX_ATTR_CHARS));
+        return { name, attrs, next: source.length };
+      }
+      keep(attrName, source.slice(start, Math.min(end, start + MAX_ATTR_CHARS)));
+      cursor = end + 1;
+    } else {
+      const start = cursor;
+      while (cursor < source.length) {
+        const valueCode = source.charCodeAt(cursor);
+        if (isSpace(valueCode) || valueCode === 62 || valueCode === 60) break;
+        cursor += 1;
+      }
+      keep(attrName, source.slice(start, Math.min(cursor, start + MAX_ATTR_CHARS)));
+    }
+  }
+  return { name, attrs, next: cursor };
+}
+
+function skipElement(source: string, from: number, name: string) {
+  const lower = source.indexOf(`</${name}`, from);
+  const upper = source.indexOf(`</${name.toUpperCase()}`, from);
+  const at = lower < 0 ? upper : upper < 0 ? lower : Math.min(lower, upper);
+  if (at < 0) return source.length;
+  return skipToTagEnd(source, at + name.length + 2);
+}
+
+function skipToTagEnd(source: string, from: number) {
+  let cursor = from;
+  while (cursor < source.length) {
+    const code = source.charCodeAt(cursor);
+    if (code === 62) return cursor + 1;
+    if (code === 60) return cursor;
+    if (code === 34 || code === 39) {
+      const end = source.indexOf(code === 34 ? '"' : "'", cursor + 1);
+      if (end < 0) return source.length;
+      cursor = end + 1;
+      continue;
+    }
+    cursor += 1;
+  }
+  return source.length;
+}
+
+function isTrackingPixel(attrs: Record<string, string>) {
+  const width = statedDimension(attrs.width);
+  const height = statedDimension(attrs.height);
+  if (width !== undefined && width <= 2) return true;
+  if (height !== undefined && height <= 2) return true;
+  return false;
+}
+
+function statedDimension(value: string | undefined) {
+  if (!value) return undefined;
+  let number = 0;
+  let seen = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 48 && code <= 57) {
+      seen = true;
+      number = number * 10 + (code - 48);
+      if (number > 10_000) return number;
+      continue;
+    }
+    if (seen) break;
+    if (code !== 32) return undefined;
+  }
+  return seen ? number : undefined;
+}
+
+function preferredImageUrl(src: string, srcset: string) {
+  if (src && !src.startsWith('data:') && isDisplayableListingPhoto(src)) return src;
+  return firstDisplayableSrcsetUrl(srcset);
+}
+
+function firstDisplayableSrcsetUrl(srcset: string) {
+  let index = 0;
+  while (index < srcset.length) {
+    while (index < srcset.length && (isSpace(srcset.charCodeAt(index)) || srcset.charCodeAt(index) === 44)) index += 1;
+    const start = index;
+    while (index < srcset.length && !isSpace(srcset.charCodeAt(index)) && srcset.charCodeAt(index) !== 44) index += 1;
+    const candidate = srcset.slice(start, index);
+    if (candidate && isDisplayableListingPhoto(candidate)) return candidate;
+    while (index < srcset.length && srcset.charCodeAt(index) !== 44) index += 1;
+  }
+  return '';
+}
+
+/**
+ * Bounded JSON-LD walk matching listing-parser's `jsonLdObjects` scan:
+ * indexOf the marker, require a nearby script tag, cap the body, then parse.
+ */
+function jsonLdImageUrls(raw: string) {
+  const urls: string[] = [];
+  const lower = raw.toLowerCase();
+  let from = 0;
+  let blocks = 0;
+  while (blocks < MAX_JSON_LD_BLOCKS && from < raw.length && urls.length < MAX_PHOTOS) {
+    const marker = lower.indexOf('application/ld+json', from);
+    if (marker < 0) break;
+    const start = lower.lastIndexOf('<script', marker);
+    const tagEnd = raw.indexOf('>', marker);
+    if (start < 0 || tagEnd < 0 || marker - start > 500 || tagEnd - start > 500) {
+      from = marker + 20;
+      continue;
+    }
+    const close = lower.indexOf('</script>', tagEnd);
+    if (close < 0) break;
+    const body = raw.slice(tagEnd + 1, close);
+    from = close + 9;
+    blocks += 1;
+    if (!body || body.length > MAX_JSON_LD_BODY) continue;
+    try {
+      collectJsonImages(JSON.parse(decodeAttribute(body)) as unknown, urls, 0);
+    } catch {
+      // Invalid third-party JSON-LD must not break photo extraction.
+    }
+  }
+  return urls;
+}
+
+function collectJsonImages(value: unknown, urls: string[], depth: number) {
+  if (depth > 8 || urls.length >= 24 || value == null || typeof value === 'string') return;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === 'string') urls.push(item);
+      else collectJsonImages(item, urls, depth + 1);
+    }
+    return;
+  }
+  if (typeof value !== 'object') return;
+  const object = value as Record<string, unknown>;
+  const type = object['@type'];
+  const types = Array.isArray(type) ? type : [type];
+  const imageObject = types.some((item) => typeof item === 'string' && item.toLowerCase() === 'imageobject');
+  if (imageObject) {
+    if (typeof object.contentUrl === 'string') urls.push(object.contentUrl);
+    else if (typeof object.url === 'string') urls.push(object.url);
+  }
+  if (typeof object.thumbnailUrl === 'string') urls.push(object.thumbnailUrl);
+  if (typeof object.image === 'string') urls.push(object.image);
+  else if (object.image) collectJsonImages(object.image, urls, depth + 1);
+  for (const [key, child] of Object.entries(object)) {
+    if (key === 'image' || key === 'thumbnailUrl' || key === 'contentUrl' || key === 'url' || key === '@type') continue;
+    if (child && typeof child === 'object') collectJsonImages(child, urls, depth + 1);
+  }
+}
+
+function decodeAttribute(value: string) {
+  if (!value.includes('&')) return value;
+  let out = '';
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) !== 38) {
+      out += value[index];
+      continue;
+    }
+    const semi = value.indexOf(';', index + 1);
+    if (semi < 0 || semi - index > 12) {
+      out += '&';
+      continue;
+    }
+    const code = value.slice(index + 1, semi);
+    if (code.startsWith('#')) {
+      const hex = code[1] === 'x' || code[1] === 'X';
+      const point = Number.parseInt(code.slice(hex ? 2 : 1), hex ? 16 : 10);
+      out += Number.isFinite(point) && point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : value.slice(index, semi + 1);
+    } else {
+      out += ENTITIES[code] ?? ENTITIES[code.toLowerCase()] ?? value.slice(index, semi + 1);
+    }
+    index = semi;
+  }
+  return out;
+}
+
+function isSpace(code: number) {
+  return code === 32 || code === 9 || code === 10 || code === 13 || code === 12;
+}
+
+function isNameChar(code: number) {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isAttrChar(code: number) {
+  return isNameChar(code) || (code >= 48 && code <= 57) || code === 45 || code === 58 || code === 95;
+}

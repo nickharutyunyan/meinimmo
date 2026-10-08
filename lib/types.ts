@@ -52,6 +52,8 @@ export type Facts = {
     parkMentioned?: boolean;
     dailyNeedsMentioned?: boolean;
   };
+  /** Absolute https image URLs from the listing page. Bytes are never stored. */
+  photoUrls?: string[];
 };
 
 export type ScoreBreakdown = {

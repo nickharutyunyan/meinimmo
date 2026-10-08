@@ -2,6 +2,8 @@
 
 An AI-assisted German residential-property report app. It validates listing links and Exposé PDFs before analysis, creates a concise buyer-focused report, and provides persistent share and comparison links.
 
+Listing photos on a report are remote thumbnail URLs only. The app never downloads or stores image bytes. Hosts the browser may load are `LISTING_IMAGE_HOSTS` in `lib/listing-image-hosts.ts`, and that same list is the only listing-photo addition to the Content-Security-Policy `img-src` directive. Adding photos from another portal requires an update to that allowlist. If a portal blocks hotlinking, the thumbnail strip hides.
+
 ## Local Cloudflare development
 
 1. Copy `.dev.vars.example` to `.dev.vars`.
