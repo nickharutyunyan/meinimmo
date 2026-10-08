@@ -3,6 +3,56 @@ import { score as formatLocaleScore } from './format.ts';
 import { copy, type Locale } from './i18n.ts';
 import { berlinPriceCheck } from './price-check.ts';
 
+/** GEG demand bands. A+ is under 30 kWh/(m²·a); H is 250 or more. */
+const ENERGY_CLASS_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+
+export function energyClassFromDemand(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  if (value < 30) return 'A+';
+  if (value < 50) return 'A';
+  if (value < 75) return 'B';
+  if (value < 100) return 'C';
+  if (value < 130) return 'D';
+  if (value < 160) return 'E';
+  if (value < 200) return 'F';
+  if (value < 250) return 'G';
+  return 'H';
+}
+
+function energyClassIndex(value: string) {
+  const key = value.trim().toUpperCase().replace(/\s+/g, '');
+  return ENERGY_CLASS_ORDER.indexOf(key as typeof ENERGY_CLASS_ORDER[number]);
+}
+
+/** Steps between the stated class and the class implied by demand. Null when either is missing. */
+export function energyClassGap(report: { facts: { energy?: string; energyDemand?: number } }): number | null {
+  const stated = report.facts.energy;
+  const demand = report.facts.energyDemand;
+  if (!stated || !known(stated) || !demand) return null;
+  const statedIndex = energyClassIndex(stated);
+  const demandIndex = energyClassIndex(energyClassFromDemand(demand));
+  if (statedIndex < 0 || demandIndex < 0) return null;
+  return Math.abs(statedIndex - demandIndex);
+}
+
+/** The worse of the stated class and the class implied by demand. */
+export function lowerEnergyClass(stated: string, demand: number) {
+  const fromDemand = energyClassFromDemand(demand);
+  const statedIndex = energyClassIndex(stated);
+  const demandIndex = energyClassIndex(fromDemand);
+  if (statedIndex < 0) return fromDemand;
+  if (demandIndex < 0) return stated.trim().toUpperCase();
+  return ENERGY_CLASS_ORDER[Math.max(statedIndex, demandIndex)];
+}
+
+/** Whole heating-oil terms. Substrings such as Rollläden, Solar and Holz do not match. */
+const OIL_HEATING = /(?<![\p{L}\p{N}])(?:heizöl|heizoel|ölheizung|oelheizung|heating oil|oil heating|öl|oel|oil)(?![\p{L}\p{N}])/iu;
+
+export const LEASEHOLD_PENALTY = 1.5;
+export const RENTED_OCCUPIER_PENALTY = 0.8;
+
+export type ScoreAdjustment = { id: 'leasehold' | 'rented'; points: number };
+
 const UNKNOWN = /not stated|unknown/i;
 const clamp = (value: number, minimum = 0, maximum = 10) => Math.min(maximum, Math.max(minimum, value));
 const round = (value: number, places = 2) => Number(value.toFixed(places));
@@ -86,24 +136,53 @@ function yearScore(value: string) {
   return 6.2;
 }
 
+/**
+ * Listing condition, on the same 0–10 scale as the other parts.
+ * Canonical English labels and the German words they come from share a score.
+ * A condition we do not recognise is left out, so it is not silently 5.5.
+ */
+const CONDITION_POINTS: Array<[RegExp, number]> = [
+  [/\b(?:abbruchreif|abrissreif|bauf[aä]llig|unbewohnbar|zum\s+abriss|demolition)\b/i, 1],
+  [/\b(?:renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|needs\s+renovation|renovation\s+required)\b/i, 3],
+  [/\b(?:modernisierungsbed[uü]rftig|verbesserungsbed[uü]rftig|needs\s+moderni[sz]ation)\b/i, 4],
+  [/\b(?:erstbezug\s+nach|kernsaniert|vollst[aä]ndig\s+saniert|fully\s+renovated)\b/i, 8.5],
+  [/\b(?:neuwertig|like\s+new|as-new|neubau|new\s+build|erstbezug|first\s+occupancy)\b/i, 9.3],
+  [/\b(?:renoviert|renovated|modernisiert|saniert)\b/i, 8],
+  [/\b(?:gepflegt|well\s+maintained)\b/i, 7],
+  [/\b(?:sehr\s+gut|excellent)\b/i, 7.5],
+  [/\b(?:gut|good)\b/i, 6.5],
+  [/\b(?:teilsaniert|teilmodernisiert|altersgerecht)\b/i, 6],
+  [/\b(?:im\s+bau|under\s+construction|projektiert|rohbau)\b/i, 6],
+  [/\b(?:durchschnittlich|normalzustand|normal|gebraucht|average)\b/i, 5.5],
+];
+
+export function conditionPoints(condition: string) {
+  for (const [pattern, points] of CONDITION_POINTS) {
+    if (pattern.test(condition)) return points;
+  }
+  return undefined;
+}
+
 function buildingScore(report: Report) {
   const condition = report.facts.condition || '';
   const age = yearScore(report.facts.year);
   if (!known(condition)) return age;
-  const conditionScore = /neubau|erstbezug|new|kernsaniert|vollst[aä]ndig saniert|excellent/i.test(condition) ? 9.3
-    : /renoviert|modernisiert|saniert|gepflegt|good/i.test(condition) ? 7.8
-      : /renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|fixer|poor/i.test(condition) ? 2.8
-        : 5.5;
-  return clamp(conditionScore * 0.7 + age * 0.3);
+  const points = conditionPoints(condition);
+  if (points === undefined) return age;
+  return clamp(points * 0.7 + age * 0.3);
 }
 
 function energyScore(report: Report) {
   const { energy, energyDemand, energySource, heating } = report.facts;
   const classes: Record<string, number> = { 'A+': 10, A: 9.4, B: 8.4, C: 7.3, D: 6.1, E: 4.7, F: 3.3, G: 2.1, H: 1 };
-  let score = known(energy) ? classes[energy.toUpperCase()] ?? 5 : 0;
+  const gap = energyClassGap(report);
+  const scoredClass = known(energy) && energyDemand && gap !== null && gap >= 1
+    ? lowerEnergyClass(energy, energyDemand)
+    : known(energy) ? energy.toUpperCase() : '';
+  let score = scoredClass ? classes[scoredClass] ?? 5 : 0;
   if (!score && energyDemand) score = band(energyDemand, [[30, 9.8], [50, 9], [75, 8], [100, 6.8], [130, 5.5], [160, 4], [200, 2.5]], 1.5);
   const system = `${energySource || ''} ${heating || ''}`;
-  const efficientSystem = /w[aä]rmepumpe|umweltw[aä]rme|erdw[aä]rme|geotherm|solar/i.test(system);
+  const efficientSystem = /w[aä]rmepumpe|umweltw[aä]rme|erdw[aä]rme|geotherm|solartherm|solar/i.test(system);
   const recentYear = Number(report.facts.year.match(/\b20\d{2}\b/)?.[0] || 0);
   const newConstruction = recentYear >= 2020
     && /erstbezug|neubau|new build|new construction|under construction/i.test(report.facts.condition || '');
@@ -116,8 +195,8 @@ function energyScore(report: Report) {
     : newConstruction ? 7.8
       : efficientSystem ? 7
         : 4.5;
-  if (hasMeasuredPerformance && /w[aä]rmepumpe|fernw[aä]rme|solar/i.test(system)) score += 0.4;
-  if (/[oö]l|coal|kohle/i.test(system)) score -= 0.7;
+  if (hasMeasuredPerformance && /w[aä]rmepumpe|fernw[aä]rme|solartherm|(?<![\p{L}\p{N}])solar(?![\p{L}\p{N}])/iu.test(system)) score += 0.4;
+  if (OIL_HEATING.test(system) || /(?<![\p{L}\p{N}])(?:coal|kohle)(?![\p{L}\p{N}])/iu.test(system)) score -= 0.7;
   return clamp(score);
 }
 
@@ -228,10 +307,48 @@ function keyFactBlocked(report: Report, fact: KeyFact) {
   return (report.redFlags || []).some((flag) => flag.severity === 'caution' && ids.includes(flag.id));
 }
 
+function hasLeasehold(report: Pick<Report, 'facts' | 'redFlags'>) {
+  if (report.facts.groundLease) return true;
+  return (report.redFlags || []).some((flag) => flag.id === 'leasehold' || flag.id === 'pacht');
+}
+
+function isTenanted(report: Pick<Report, 'facts' | 'propertyType'>) {
+  return report.facts.tenancy === 'Rented' && report.propertyType !== 'land';
+}
+
+/** Outside Berlin there is no official sales table, so price is not a checked fact. */
+export function lacksLocalPriceReference(report: Pick<Report, 'country' | 'facts'>) {
+  if (report.country === 'AM') return false;
+  const city = `${report.facts.city || ''} ${report.facts.district || ''}`;
+  if (/\bberlin\b/i.test(city)) return false;
+  return berlinPriceCheck(report as Report) == null;
+}
+
+export function scoreAdjustments(report: Report): ScoreAdjustment[] {
+  const adjustments: ScoreAdjustment[] = [];
+  if (hasLeasehold(report)) adjustments.push({ id: 'leasehold', points: -LEASEHOLD_PENALTY });
+  if (isTenanted(report)) adjustments.push({ id: 'rented', points: -RENTED_OCCUPIER_PENALTY });
+  return adjustments;
+}
+
+function capConfidence(level: ScoreConfidence['level'], cap: ScoreConfidence['level']) {
+  const rank = { low: 0, medium: 1, high: 2 };
+  return rank[level] <= rank[cap] ? level : cap;
+}
+
+function dropConfidence(level: ScoreConfidence['level']): ScoreConfidence['level'] {
+  if (level === 'high') return 'medium';
+  return 'low';
+}
+
 /** Eight key facts. Houses count floor and Hausgeld as present. A caution on a field keeps it out. */
 export function scoreConfidence(report: Report): ScoreConfidence {
   const present = KEY_FACTS.filter((fact) => keyFactStated(report, fact) && !keyFactBlocked(report, fact)).length;
-  const level = present >= 7 ? 'high' : present >= 5 ? 'medium' : 'low';
+  let level: ScoreConfidence['level'] = present >= 7 ? 'high' : present >= 5 ? 'medium' : 'low';
+  // Leasehold, a sitting tenant, or no local price table: Medium at best. They do not stack.
+  if (hasLeasehold(report) || isTenanted(report) || lacksLocalPriceReference(report)) level = capConfidence(level, 'medium');
+  // One energy class off the stated demand lowers confidence by one further step.
+  if (energyClassGap(report) === 1) level = dropConfidence(level);
   return { present, total: 8, level };
 }
 
@@ -252,7 +369,20 @@ export function scoreConfidenceLabel(confidence: ScoreConfidence, locale: Locale
     .replace('{total}', String(confidence.total));
 }
 
-/** Read-time rubric. Score changes must not bump EXTRACTION_VERSION or re-parse archived HTML. */
+export function scoreAdjustmentLine(adjustment: ScoreAdjustment, locale: Locale) {
+  const points = formatLocaleScore(Math.abs(adjustment.points), locale);
+  return copy[locale].report.scoreAdjustment[adjustment.id].replace('{points}', points);
+}
+
+export function priceNotCheckedLine(report: Report, locale: Locale) {
+  return lacksLocalPriceReference(report) ? copy[locale].report.priceNotChecked : '';
+}
+
+/**
+ * Read-time rubric over facts already on the report. Viewing a page does not
+ * re-parse the listing. Leasehold and a sitting tenant are subtracted after
+ * the weighted total so the penalty stays visible at the weights above.
+ */
 export function calculatePropertyScore(report: Report) {
   const price = priceScore(report);
   const breakdown: ScoreBreakdown = {
@@ -266,9 +396,12 @@ export function calculatePropertyScore(report: Report) {
     source: round(sourceScore(report), 1),
   };
   const weights = activeScoreWeights(breakdown);
-  const total = round((Object.keys(weights) as Array<keyof ScoreBreakdown>).reduce((sum, key) => {
+  const weighted = (Object.keys(weights) as Array<keyof ScoreBreakdown>).reduce((sum, key) => {
     const value = breakdown[key];
     return sum + (value ?? 0) * (weights[key] ?? 0);
-  }, 0));
-  return { total, breakdown };
+  }, 0);
+  const adjustments = scoreAdjustments(report);
+  const penalty = adjustments.reduce((sum, item) => sum + item.points, 0);
+  const total = round(clamp(weighted + penalty));
+  return { total, breakdown, adjustments };
 }

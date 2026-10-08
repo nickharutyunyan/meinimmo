@@ -144,11 +144,11 @@ test('Prenzlauer Berg examples use the rounded percent and the published range',
   assert.equal(en.kind, 'matched');
   assert.equal(en.glanceLabel, 'vs. area average');
   assert.equal(en.glanceValue, '+2%');
-  assert.equal(en.lead, 'Asking €6,429/m² is about the same as the 2025 average sales price for flats in Prenzlauer Berg (€6,300/m², 663 sales; typical range €3,911–€8,656/m²).');
+  assert.equal(en.lead, 'Asking €6,429/m² is about the same as the 2025 average sales price for flats in Prenzlauer Berg: €6,300/m², 663 sales; typical range €3,911–€8,656/m².');
   assert.equal(en.positionNote, '');
   assert.equal(de.glanceLabel, 'ggü. Gebietsmittel');
   assert.equal(de.glanceValue, '+2 %');
-  assert.equal(de.lead, 'Der Angebotspreis von 6.429 €/m² liegt etwa auf dem Niveau des durchschnittlichen Kaufpreises 2025 für Eigentumswohnungen in Prenzlauer Berg (6.300 €/m², 663 Verkäufe; übliche Spanne 3.911–8.656 €/m²).');
+  assert.equal(de.lead, 'Der Angebotspreis von 6.429 €/m² liegt etwa auf dem Niveau des durchschnittlichen Kaufpreises 2025 für Eigentumswohnungen in Prenzlauer Berg: 6.300 €/m², 663 Verkäufe; übliche Spanne 3.911–8.656 €/m².');
 
   const within = berlinPriceCheck(report({ facts: { price: 500_000, area: 60 } }));
   assert.equal(Math.round(within.askingPerSqm), 8333);
@@ -253,6 +253,8 @@ test('the Berlin-Tegel listing fixture compares with Reinickendorf', () => {
   assert.equal(en.kind, 'matched');
   assert.equal(de.kind, 'matched');
   assert.match(en.lead, /in Reinickendorf \(official price area, includes Tegel\)/);
+  assert.doesNotMatch(en.lead, /\)\s*\(/);
+  assert.doesNotMatch(de.lead, /\)\s*\(/);
   assert.match(de.lead, /in Reinickendorf \(amtliches Preisgebiet, umfasst Tegel\)/);
   assert.match(en.lead, /typical range €2,262–€5,528\/m²/);
   assert.match(de.lead, /übliche Spanne 2\.262–5\.528 €\/m²/);
@@ -280,7 +282,7 @@ test('price-check copy avoids deal language and portal names, and the score read
   assert.match(steglitzDe.lead, /in Steglitz \(amtliches Preisgebiet, umfasst Lichterfelde\)/);
   assert.match(steglitzDe.lead, /übliche Spanne 2\.435–6\.428 €\/m²/);
   const sameArea = priceCheckPresentation(report({ facts: { district: 'Steglitz', price: 300_000, area: 70 } }), 'en');
-  assert.match(sameArea.lead, /in Steglitz \(/);
+  assert.match(sameArea.lead, /in Steglitz:/);
   assert.doesNotMatch(sameArea.lead, /official price area/);
   const sample = priceCheckLead(berlinPriceCheck(report()), 'en') + priceCheckLead(berlinPriceCheck(report()), 'de');
   assert.doesNotMatch(sample, /\b(deal|bargain|undervalued|schnäppchen|unterbewertet)\b/i);
