@@ -1,0 +1,68 @@
+{
+  "id": "bf62c0f3bed8b491",
+  "title": "3-room flat · Finckensteinallee 97",
+  "address": "Finckensteinallee 97, 12205 Berlin",
+  "location": "Lichterfelde",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/502452/",
+  "createdAt": "2026-10-08T16:00:02.061Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 399000,
+    "area": 72,
+    "rooms": "3",
+    "year": "2020",
+    "floor": "2. OG",
+    "energy": "D",
+    "heating": "Zentralheizung",
+    "energySource": "Fernwärme",
+    "energyDemand": 124.8,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 428310,
+    "buyerCosts": 29311,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 373,
+    "parkingPrice": 12500,
+    "tenancy": "Not rented",
+    "condition": "Like new",
+    "features": [
+      "Einbauküche",
+      "Keller"
+    ],
+    "postalCode": "12205",
+    "city": "Berlin",
+    "district": "Lichterfelde",
+    "street": "Finckensteinallee 97",
+    "locationPrecision": "address",
+    "transitStop": "Berner Straße",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The listing separately quotes €12,500 for parking. Confirm whether this is additional and required; it is not included in the stated total."
+  ],
+  "redFlags": [
+    {
+      "id": "listedBuilding",
+      "severity": "caution",
+      "evidence": "Denkmalschutzobjekt Ja"
+    }
+  ],
+  "score": 6.37,
+  "scoreBreakdown": {
+    "price": 3,
+    "neighborhood": 6.1,
+    "space": 9.3,
+    "building": 9.2,
+    "energy": 6.5,
+    "light": 5.7,
+    "costs": 5.9,
+    "source": 10
+  }
+}

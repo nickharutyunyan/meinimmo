@@ -26,6 +26,14 @@ export type Facts = {
   /** Verbatim fragment such as "Ende November 2026". */
   rentedUntilText?: string;
   availabilityDate?: string;
+  /** Year the current tenancy started, when the listing states it. */
+  tenancySinceYear?: number;
+  /** The listing states an active Sperrfrist or eviction ban. */
+  evictionBan?: boolean;
+  /** Whole building, or marketed as a Kapitalanlage. No move-in deduction. */
+  investmentUse?: boolean;
+  /** Gross yield from the stated net cold rent, in percent. */
+  grossYield?: number;
   plotArea?: number;
   soldAsIs?: boolean;
   /** Timber-frame construction, when the listing states it for this building. */

@@ -123,23 +123,27 @@ function berlin(facts) {
 test('price bands follow the Berlin delta, including every boundary', () => {
   assert.equal(scorePriceFromDelta(-15), 8.5);
   assert.equal(scorePriceFromDelta(-15.01), 8.5);
-  assert.equal(scorePriceFromDelta(-14.99), 7.5);
+  assert.equal(scorePriceFromDelta(-14.99), 8.49);
+  assert.equal(scorePriceFromDelta(-10), 7.5);
   assert.equal(scorePriceFromDelta(-5), 7.5);
-  assert.equal(scorePriceFromDelta(-4.99), 6);
+  assert.equal(scorePriceFromDelta(-4.99), 7.49);
   assert.equal(scorePriceFromDelta(0), 6);
-  assert.equal(scorePriceFromDelta(4.99), 6);
+  assert.equal(scorePriceFromDelta(4.99), 4.51);
   assert.equal(scorePriceFromDelta(5), 4.5);
-  assert.equal(scorePriceFromDelta(14.99), 4.5);
+  assert.equal(scorePriceFromDelta(10), 4.5);
+  assert.equal(scorePriceFromDelta(14.99), 3);
   assert.equal(scorePriceFromDelta(15), 3);
-  assert.equal(scorePriceFromDelta(20), 3);
-  assert.equal(scorePriceFromDelta(20, 'low'), 4.5);
+  assert.equal(scorePriceFromDelta(20), 2.71);
+  assert.equal(scorePriceFromDelta(41), 1.51);
+  assert.ok(scorePriceFromDelta(41) < scorePriceFromDelta(15));
+  assert.equal(scorePriceFromDelta(20, 'low'), 4.36);
   assert.equal(scorePriceFromDelta(-11, 'low'), 6.75);
   assert.equal(scorePriceFromDelta(-20, 'low'), 7.25);
   assert.equal(scorePriceFromDelta(0, 'low'), 6);
 
   const above = calculatePropertyScore(berlin({ price: 450_600, area: 100, totalCost: 450_600 }));
   const below = calculatePropertyScore(berlin({ price: 334_195, area: 100, totalCost: 334_195 }));
-  assert.equal(above.breakdown.price, 3);
+  assert.equal(above.breakdown.price, 2.7);
   assert.equal(below.breakdown.price, 7.5);
 
   const thin = calculatePropertyScore(berlin({
@@ -323,7 +327,7 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
   assert.equal(check.deltaPct, 26);
   assert.equal(check.askingPerSqm, 442_512 / 80);
   const score = calculatePropertyScore(lichterfelde);
-  assert.equal(score.breakdown.price, 3);
+  assert.equal(score.breakdown.price, 2.4);
   assert.equal(scoreAvailable(lichterfelde), true);
   assert.ok(['high', 'medium'].includes(scoreConfidence(lichterfelde).level));
   assert.equal(reportConflicts(lichterfelde).some(problem => /separately quotes/i.test(problem)), false);
@@ -331,7 +335,7 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
 });
 
 test('saved fixtures score price only for the Berlin flat', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100804);
+  assert.equal(EXTRACTION_VERSION, 2026100805);
   const parsed = (id) => parseListing(
     readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8'),
     `https://example.test/${id}`,
@@ -343,7 +347,7 @@ test('saved fixtures score price only for the Berlin flat', () => {
   const erfdeScore = calculatePropertyScore(erfde);
   const osnabruckScore = calculatePropertyScore(osnabruck);
 
-  assert.equal(berlinScore.breakdown.price, 3);
+  assert.equal(berlinScore.breakdown.price, 2.2);
   assert.equal(scoreConfidence(berlinFlat).present, 8);
   assert.equal(scoreConfidence(berlinFlat).level, 'high');
   assert.equal(scoreAvailable(berlinFlat), true);

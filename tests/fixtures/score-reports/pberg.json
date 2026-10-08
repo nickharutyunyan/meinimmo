@@ -1,0 +1,69 @@
+{
+  "id": "fefc0acce8c09d7e",
+  "title": "3-room flat · Wichertstr. 69",
+  "address": "Wichertstr. 69, 10439 Berlin",
+  "location": "Prenzlauer Berg",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/395580/",
+  "createdAt": "2026-10-08T13:46:44.645Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 749000,
+    "area": 111.43,
+    "usableArea": 5,
+    "rooms": "3",
+    "year": "1911",
+    "floor": "4. OG",
+    "energy": "D",
+    "heating": "Zentralheizung",
+    "energySource": "Gas",
+    "energyDemand": 115.1,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 803106,
+    "buyerCosts": 54107,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 353,
+    "tenancy": "Rented",
+    "condition": "Well maintained",
+    "features": [
+      "Balkon",
+      "Einbauküche",
+      "Keller",
+      "Garten"
+    ],
+    "postalCode": "10439",
+    "city": "Berlin",
+    "district": "Prenzlauer Berg",
+    "street": "Wichertstr. 69",
+    "locationPrecision": "address",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": true,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "Süd-/Südwest",
+  "qualityWarnings": [
+    "The unit is rented but no verified yield was extracted."
+  ],
+  "redFlags": [
+    {
+      "id": "rentedOccupied",
+      "severity": "caution",
+      "evidence": "Eine umwandlungsbedingte Sperrfrist nach § 577a BGB besteht nicht mehr."
+    }
+  ],
+  "score": 5.89,
+  "scoreBreakdown": {
+    "price": 4.5,
+    "neighborhood": 6.4,
+    "space": 8.2,
+    "building": 6.8,
+    "energy": 6.1,
+    "light": 8.7,
+    "costs": 8.7,
+    "source": 10
+  }
+}
