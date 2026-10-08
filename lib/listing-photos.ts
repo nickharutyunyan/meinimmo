@@ -31,53 +31,86 @@ export function isDisplayableListingPhoto(value: string) {
 }
 
 /**
- * Drop signed `sig` / `exp` query pairs. The listing image CDN serves the same
- * JPEG without them, so the stored URL does not expire with the page's signature.
+ * Unix-second `exp` on a stored photo URL. The query string is left unchanged.
+ * A missing or non-numeric `exp` means the URL has no expiry of its own.
  */
-export function stableListingPhotoUrl(value: string) {
-  const trimmed = value.trim();
-  if (!isDisplayableListingPhoto(trimmed)) return '';
-  const url = new URL(trimmed);
-  const query = url.search.startsWith('?') ? url.search.slice(1) : '';
-  const kept: string[] = [];
-  for (const part of query ? query.split('&') : []) {
-    if (!part) continue;
-    const eq = part.indexOf('=');
-    const rawKey = eq < 0 ? part : part.slice(0, eq);
-    let key = rawKey;
-    try { key = decodeURIComponent(rawKey.replaceAll('+', ' ')); } catch { /* keep the raw key */ }
-    const name = key.toLowerCase();
-    if (name === 'sig' || name === 'signature' || name === 'exp') continue;
-    kept.push(part);
+export function listingPhotoExpirySeconds(value: string) {
+  const queryStart = value.indexOf('?');
+  if (queryStart < 0) return undefined;
+  let cursor = queryStart + 1;
+  const hash = value.indexOf('#', cursor);
+  const stop = hash < 0 ? value.length : hash;
+  while (cursor < stop) {
+    const amp = value.indexOf('&', cursor);
+    const partEnd = amp < 0 || amp > stop ? stop : amp;
+    const eq = value.indexOf('=', cursor);
+    if (eq > cursor && eq < partEnd && value.slice(cursor, eq) === 'exp') return unixSeconds(value.slice(eq + 1, partEnd));
+    cursor = partEnd + 1;
   }
-  return `${url.origin}${url.pathname}${kept.length ? `?${kept.join('&')}` : ''}`;
+  return undefined;
 }
 
-/** Render-time allowlist. Stored strings that are not absolute https on a listing CDN are dropped. */
+function unixSeconds(raw: string) {
+  if (!raw) return undefined;
+  let value = 0;
+  for (let index = 0; index < raw.length; index += 1) {
+    const code = raw.charCodeAt(index);
+    if (code < 48 || code > 57) return undefined;
+    value = value * 10 + (code - 48);
+    if (!Number.isSafeInteger(value)) return undefined;
+  }
+  return value;
+}
+
+/** Earliest `exp` across the stored photo URLs, as an ISO timestamp. */
+export function listingPhotosExpireAt(urls: readonly string[] | undefined) {
+  let earliest: number | undefined;
+  for (const url of urls || []) {
+    if (typeof url !== 'string') continue;
+    const exp = listingPhotoExpirySeconds(url);
+    if (exp === undefined) continue;
+    if (earliest === undefined || exp < earliest) earliest = exp;
+  }
+  return earliest === undefined ? undefined : new Date(earliest * 1000).toISOString();
+}
+
+/**
+ * Allowlist and full-URL dedupe. `sig` and `exp` stay on the URL. Signed links
+ * are the host's access control and are not rewritten here.
+ */
 export function displayableListingPhotos(urls: readonly string[] | undefined) {
   if (!urls?.length) return [];
   const seen = new Set<string>();
   const kept: string[] = [];
   for (const value of urls) {
     if (typeof value !== 'string') continue;
-    const stable = stableListingPhotoUrl(value);
-    if (!stable || seen.has(stable)) continue;
-    seen.add(stable);
-    kept.push(stable);
+    const url = value.trim();
+    if (!isDisplayableListingPhoto(url) || seen.has(url)) continue;
+    seen.add(url);
+    kept.push(url);
     if (kept.length === MAX_PHOTOS) break;
   }
   return kept;
 }
 
-/** Photos still shown after image-load failures. An empty list hides the strip. */
-export function listingPhotosToShow(urls: readonly string[] | undefined, failed: ReadonlySet<string>) {
-  return displayableListingPhotos(urls).filter((url) => !failed.has(url));
+/**
+ * Photos still shown. A URL whose own `exp` unix time has passed is omitted.
+ * URLs without `exp` stay. An empty list hides the strip. Links are replaced
+ * only when the listing is imported again.
+ */
+export function listingPhotosToShow(urls: readonly string[] | undefined, failed: ReadonlySet<string>, now = Date.now()) {
+  return displayableListingPhotos(urls).filter((url) => {
+    if (failed.has(url)) return false;
+    const exp = listingPhotoExpirySeconds(url);
+    return exp === undefined || now < exp * 1000;
+  });
 }
 
 /**
  * Up to 8 absolute https image URLs from og:image, JSON-LD images, gallery
- * <img>/srcset, and lightbox anchors. One forward pass: no regex over the
- * document and no nested quantifiers. Tracking pixels and data: URLs are dropped.
+ * <img>/srcset, and lightbox anchors. Query strings are kept verbatim. One
+ * forward pass: no regex over the document and no nested quantifiers.
+ * Tracking pixels and data: URLs are dropped.
  */
 export function extractListingPhotoUrls(html: string) {
   if (!html || !html.includes('<')) return [];

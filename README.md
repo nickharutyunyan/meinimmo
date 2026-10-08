@@ -2,7 +2,7 @@
 
 An AI-assisted German residential-property report app. It validates listing links and Exposé PDFs before analysis, creates a concise buyer-focused report, and provides persistent share and comparison links.
 
-Listing photos on a report are remote thumbnail URLs only. The app never downloads or stores image bytes. Hosts the browser may load are `LISTING_IMAGE_HOSTS` in `lib/listing-image-hosts.ts`, and that same list is the only listing-photo addition to the Content-Security-Policy `img-src` directive. Adding photos from another portal requires an update to that allowlist. If a portal blocks hotlinking, the thumbnail strip hides. Signed `sig` and `exp` query parameters are removed before storage; the current image CDN returns the same file without them.
+Listing photos on a report are remote thumbnail URLs only. The app never downloads or stores image bytes. Hosts the browser may load are `LISTING_IMAGE_HOSTS` in `lib/listing-image-hosts.ts`, and that same list is the only listing-photo addition to the Content-Security-Policy `img-src` directive. Adding photos from another portal requires an update to that allowlist. If a portal blocks hotlinking, the thumbnail strip hides. Photo URLs are stored and rendered exactly as the listing publishes them, including `sig` and `exp`. The app does not strip those parameters or refresh the links in the background; a new import is what replaces them. At view time, a photo whose own `exp` (unix seconds) has passed is omitted, and the strip hides when none remain. URLs without `exp` are shown as stored. `facts.photosExpireAt` is the earliest of those expiry times, as an ISO timestamp.
 
 ## Local Cloudflare development
 

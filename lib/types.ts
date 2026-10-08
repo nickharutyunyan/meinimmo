@@ -52,8 +52,10 @@ export type Facts = {
     parkMentioned?: boolean;
     dailyNeedsMentioned?: boolean;
   };
-  /** Absolute https image URLs from the listing page. Bytes are never stored. */
+  /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
   photoUrls?: string[];
+  /** Earliest `exp` unix time among `photoUrls`, as an ISO timestamp. */
+  photosExpireAt?: string;
 };
 
 export type ScoreBreakdown = {

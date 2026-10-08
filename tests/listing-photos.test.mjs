@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import esbuild from 'esbuild';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
 import { LISTING_IMAGE_HOSTS } from '../lib/listing-image-hosts.ts';
-import { displayableListingPhotos, extractListingPhotoUrls, listingPhotosToShow, stableListingPhotoUrl } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotosExpireAt, listingPhotosToShow } from '../lib/listing-photos.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { copy } from '../lib/i18n.ts';
 
@@ -55,17 +55,20 @@ test('Berlin 502729 yields a stable set of absolute https gallery URLs', () => {
       assert.match(url, /^https:\/\/media\.ohne-makler\.net\//);
       assert.equal(url.includes('data:'), false);
       assert.equal(url.includes('&amp;'), false);
-      assert.equal(/[?&](?:sig|signature|exp)=/i.test(url), false);
-      assert.equal(url.includes('?'), false);
+      assert.match(url, /[?&]sig=/);
+      assert.match(url, /[?&]exp=\d+$/);
     }
     assert.equal(new Set(urls).size, urls.length);
     if (!first) first = urls;
     else assert.deepEqual(urls, first);
   }
+  assert.equal(first[0], `${CDN}/rs:fit:1920:1080/q:90/czM6Ly9vbS1saXN0aW5ncy91cGxvYWQvcGljdHVyZXMvT00vNTAyNzI5L3d5NmsyNXR3?sig=xTNubJdvln1aqwY4N-nBaIiHxMr5ksFE-XHGB3j-nuA&exp=1791507718`);
   const report = parseListing(berlin, source);
   assert.deepEqual(report.facts.photoUrls, first);
   assert.equal(report.facts.photoUrls.length, 8);
+  assert.equal(report.facts.photosExpireAt, new Date(1791507718 * 1000).toISOString());
   assert.equal(parseListing(berlin, 'Pasted listing').facts.photoUrls, undefined);
+  assert.equal(parseListing(berlin, 'Pasted listing').facts.photosExpireAt, undefined);
   assert.equal(parseListing(berlin, 'Exposé.pdf').facts.photoUrls, undefined);
 });
 
@@ -86,7 +89,7 @@ test('photo extraction ignores tracking pixels, data URIs and off-allowlist host
     `${CDN}/og.jpg`,
     `${CDN}/ld.jpg`,
     `${CDN}/set.jpg`,
-    `${CDN}/light.jpg`,
+    `${CDN}/light.jpg?sig=1&exp=9`,
   ]);
   assert.deepEqual(displayableListingPhotos([
     'data:image/png;base64,xx',
@@ -98,18 +101,30 @@ test('photo extraction ignores tracking pixels, data URIs and off-allowlist host
   assert.deepEqual(listingPhotosToShow([`${CDN}/a.jpg`, `${CDN}/b.jpg`], new Set([`${CDN}/a.jpg`, `${CDN}/b.jpg`])), []);
 });
 
-test('signed exp and sig query parameters are stored as a stable URL', () => {
-  const signed = `${CDN}/rs:fit:1920:1080/q:90/path?sig=abc&exp=1`;
-  const stable = `${CDN}/rs:fit:1920:1080/q:90/path`;
-  assert.equal(stableListingPhotoUrl(signed), stable);
-  assert.equal(stableListingPhotoUrl(`${CDN}/room.jpg?w=400&signature=zzz&exp=9`), `${CDN}/room.jpg?w=400`);
-  assert.equal(stableListingPhotoUrl(`${CDN}/room.jpg?Exp=9&SIG=abc&fmt=jpg`), `${CDN}/room.jpg?fmt=jpg`);
-  assert.deepEqual(displayableListingPhotos([
-    signed,
-    stable,
-    `${CDN}/room.jpg?w=400&sig=1&exp=2`,
-  ]), [stable, `${CDN}/room.jpg?w=400`]);
-  assert.equal(stableListingPhotoUrl('https://evil.example/a.jpg?sig=1'), '');
+test('signed photo URLs are kept verbatim and expired ones are hidden', () => {
+  const signed = `${CDN}/room.jpg?sig=abc&exp=2000000000`;
+  const expired = `${CDN}/old.jpg?sig=zzz&exp=1`;
+  const plain = `${CDN}/plain.jpg`;
+  const html = `
+    <a href="${CDN}/room.jpg?sig=abc&amp;exp=2000000000" data-glightbox="type: image;description: Zimmer"></a>
+    <a href="${CDN}/old.jpg?sig=zzz&amp;exp=1" data-glightbox="type: image;description: Flur"></a>
+    <img src="${plain}">
+    <img src="${plain}">
+  `;
+  assert.deepEqual(extractListingPhotoUrls(html), [signed, expired, plain]);
+  assert.equal(listingPhotoExpirySeconds(signed), 2000000000);
+  assert.equal(listingPhotoExpirySeconds(plain), undefined);
+  assert.equal(listingPhotoExpirySeconds(`${CDN}/room.jpg?w=400&exp=soon`), undefined);
+  assert.equal(listingPhotosExpireAt([signed, expired, plain]), new Date(1000).toISOString());
+  assert.equal(listingPhotosExpireAt([plain]), undefined);
+  const now = Date.parse('2026-10-08T00:00:00.000Z');
+  assert.deepEqual(listingPhotosToShow([expired], new Set(), now), []);
+  assert.deepEqual(listingPhotosToShow([signed, expired, plain], new Set(), now), [signed, plain]);
+  assert.deepEqual(listingPhotosToShow([plain, plain, `${plain}?sig=other`], new Set(), now), [plain, `${plain}?sig=other`]);
+  assert.deepEqual(listingPhotosToShow([`${CDN}/room.jpg?w=400`], new Set(), now), [`${CDN}/room.jpg?w=400`]);
+  const edge = `${CDN}/edge.jpg?exp=1700000000`;
+  assert.deepEqual(listingPhotosToShow([edge], new Set(), 1_700_000_000_000 - 1), [edge]);
+  assert.deepEqual(listingPhotosToShow([edge], new Set(), 1_700_000_000_000), []);
 });
 
 test('listing photo hosts in CSP img-src are exactly the shared allowlist', async () => {
@@ -163,8 +178,9 @@ test('report overview renders EN and DE captions and print and compare omit phot
     assert.match(html, /<img src="https:\/\/media\.ohne-makler\.net\/a\.jpg" alt="" width="160" height="120" loading="lazy" referrerpolicy="no-referrer" decoding="async"/i);
     assert.equal([...html.matchAll(/<img /g)].length, 1);
 
+    const signed = `${CDN}/b.jpg?sig=1&exp=9999999999`;
     const pair = renderToStaticMarkup(createElement(ListingPhotos, {
-      urls: [`${CDN}/a.jpg`, `${CDN}/b.jpg?sig=1&exp=2`],
+      urls: [`${CDN}/a.jpg`, signed],
       listingUrl,
       locale,
     }));
@@ -173,10 +189,27 @@ test('report overview renders EN and DE captions and print and compare omit phot
       ? 'Foto 2 von 2, öffnet das Originalangebot in einem neuen Tab'
       : 'Photo 2 of 2, opens the original listing in a new tab');
     assert.equal(pair.includes(`aria-label="${second}"`), true);
-    assert.match(pair, /src="https:\/\/media\.ohne-makler\.net\/b\.jpg"/);
-    assert.equal(pair.includes('sig='), false);
-    assert.equal(pair.includes('exp='), false);
+    assert.ok(pair.includes(signed) || pair.includes(signed.replaceAll('&', '&amp;')));
   }
+  const expired = `${CDN}/old.jpg?sig=zzz&exp=1`;
+  const future = `${CDN}/fresh.jpg?sig=abc&exp=9999999999`;
+  const plain = `${CDN}/plain.jpg`;
+  const mixed = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: [expired, future, plain],
+    listingUrl,
+    locale: 'en',
+  }));
+  assert.equal(mixed.includes('old.jpg'), false);
+  assert.ok(mixed.includes(future) || mixed.includes(future.replaceAll('&', '&amp;')));
+  assert.equal(mixed.includes(plain), true);
+  assert.equal(mixed.includes('Photo 1 of 2'), true);
+  assert.equal(mixed.includes('Photo 2 of 2'), true);
+  assert.equal(mixed.includes('Photo 3 of'), false);
+  assert.equal(renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: [expired, `${CDN}/also-old.jpg?exp=2`],
+    listingUrl,
+    locale: 'de',
+  })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');
 
