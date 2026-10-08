@@ -1,12 +1,13 @@
 import type { Report } from './types';
-import { calculatePropertyScore } from './property-score.ts';
+import { energyClassFromDemand, energyClassGap, isHeatPumpPhrase } from './property-score.ts';
+export { energyClassFromDemand };
 import { reportTitle } from './display.ts';
 import { extractAvailabilityDate } from './availability.ts';
 import { canonicalCondition } from './property-condition.ts';
 import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, splitSentences } from './red-flags.ts';
 import { money } from './format.ts';
 import { localizedConsiderations, localizedSummary } from './report-copy.ts';
-import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
+import { EXTRACTION_VERSION, attachCalculatedScore, evidenceForFacts, reportConflicts } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
@@ -57,7 +58,7 @@ const characteristicRules: Record<CharacteristicKind, { prefix: RegExp; expected
     // "sart:" is the exact residue produced when the shorter label
     // "Heizung" was previously matched inside "Heizungsart".
     prefix: /^(?:heizungsart|heizung|heating\s+type|sart)\s*[:\-]\s*/i,
-    expected: /(?:heiz|w[aä]rmepumpe|fernw[aä]rme|gas|[oö]l|pellet|solartherm|geotherm|erdw[aä]rme|blockheiz|nachtspeicher|elektr|ofen|kamin|district\s+heat|central\s+heat|underfloor\s+heat|heat\s+pump|boiler|furnace)/i,
+    expected: /(?:heiz|w[aä]rmepumpe|luft\s*[-/]\s*wasser|wasserw[aä]rme|l\s*\/\s*w\s*-?\s*wp|fernw[aä]rme|nahw[aä]rme|(?<![\p{L}\p{N}])gas(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:öl|oel|heizöl|heizoel)(?![\p{L}\p{N}])|pellet|solartherm|geotherm|erdw[aä]rme|umweltw[aä]rme|blockheiz|nachtspeicher|elektr|ofen|kamin|district\s+heat|central\s+heat|underfloor|heat\s+pump|boiler|furnace)/iu,
   },
   energySource: {
     prefix: /^(?:wesentliche[rs]?\s+energietr[aä]ger|energietr[aä]ger|main\s+energy\s+source)\s*[:\-]\s*/i,
@@ -96,10 +97,26 @@ export function checkedCharacteristic(value: string | undefined, kind: Character
   if (clean.length < 2 || clean.length > 100) return '';
   if (/[:?]|https?:\/\/|www\.|@|★|☆/iu.test(clean)) return '';
   if (/^(?:wichtiges\s+auf\s+einen\s+blick|auf\s+einen\s+blick|ausstattung|objektdetails|services?\s+f[uü]r\s+dich|jetzt\s+\w+)/iu.test(clean)) return '';
-  return rule.expected.test(clean) ? clean : '';
+  const phrase = kind === 'heating' ? heatingPhrase(clean) : clean;
+  if (!phrase) return '';
+  return rule.expected.test(phrase) ? phrase : '';
 }
 
-const SUN_ORIENTATION = /\b(?:(?:Nord|Süd|Sued|Ost|West)-\/(?:Nord|Süd|Sued|Ost|West)(?:west|ost)?|(?:Nord|Süd|Sued|Ost|West)-(?:Nord|Süd|Sued|Ost|West)|(?:Süd|Sued|Nord)(?:west|ost)-?(?=balkon|terrasse)|nach\s+(?:Norden|Süden|Sueden|Osten|Westen)\s+ausgerichtet(?:e|en|er|es)?)/iu;
+/** Drop shutters and other fittings that share a line with the heating system. */
+function heatingPhrase(value: string) {
+  const stripped = value
+    .replace(/\s*(?:,|&|\+|und|mit|sowie|plus|inkl\.?|including)\s+(?:rolll[aä]den|rolladen|rollos?|fensterl[aä]den|fenster|markisen?|jalousien|einbauk[uü]che)\b.*$/i, '')
+    .replace(/^(?:und|mit|sowie|plus)\s+/i, '')
+    .trim();
+  if (/^(?:rolll[aä]den|rolladen|rollos?|fenster|markisen?)$/i.test(stripped)) return '';
+  return stripped;
+}
+
+const COMPASS = String.raw`(?:Nord|Süd|Sued|Ost|West)`;
+const SUN_ORIENTATION = new RegExp(
+  String.raw`\b(?:${COMPASS}\s*-\s*und\s+${COMPASS}\s*-?\s*Ausrichtung|${COMPASS}-/${COMPASS}(?:west|ost)?|${COMPASS}-${COMPASS}|nach\s+(?:Norden|Süden|Sueden|Osten|Westen|Südwesten|Nordwesten|Südosten|Nordosten)\s+ausgerichtet(?:e[nrms]?)?|(?:${COMPASS})(?:west|ost)?\s*-?\s*(?=balkon|terrasse))`,
+  'iu',
+);
 
 /** Compound balcony directions such as "Süd-/Südwestbalkone". One linear pass, capped lines. */
 export function findSunOrientation(lines: string[]) {
@@ -363,13 +380,13 @@ function jsonAddress(raw: string) {
   };
 }
 
-const STREET_NAME = String.raw`[A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
-const STREET_SUFFIX = String.raw`(?:straße|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
+const STREET_NAME = String.raw`[A-ZÄÖÜ][\p{L}äöüß.' -]{1,55}(?:straße|strasse|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
+const STREET_SUFFIX = String.raw`(?:straße|strasse|str\.|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)(?![\p{L}])`;
 const HEADER_WORD = String.raw`[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}`;
 const HEADER_MINOR = String.raw`(?:der|die|den|dem|des|am|an|auf|im|zum|zur|von|van|und|de|la|le)`;
 const HEADER_HEAD = String.raw`(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder|${HEADER_WORD})`;
 const HEADER_STREET = String.raw`${HEADER_HEAD}(?:\s+(?:${HEADER_MINOR}|${HEADER_WORD})){0,5}`;
-const HOUSE_NO = String.raw`\d{1,4}[a-z]?(?:\s*[-–/]\s*\d{1,4}[a-z]?)?`;
+const HOUSE_NO = String.raw`\d{1,4}(?:\s{0,2}[a-z](?![a-z]))?(?:\s*[-–/]\s*\d{1,4}(?:\s{0,2}[a-z](?![a-z]))?)?`;
 const HEADER_AREA = String.raw`[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}(?:\s+[A-ZÄÖÜ][\p{L}äöüß.'-]{1,40}){0,2}`;
 const HEADER_CITY = String.raw`[A-ZÄÖÜ][\p{L}äöüß.-]+(?:\s+(?:am|an|im|auf)\s+[A-ZÄÖÜ][\p{L}äöüß.-]+)?`;
 const BUNDESLAND = String.raw`Schleswig-Holstein|Niedersachsen|Nordrhein-Westfalen|Bayern|Baden-W[uü]rttemberg|Hessen|Rheinland-Pfalz|Sachsen-Anhalt|Sachsen|Th[uü]ringen|Brandenburg|Mecklenburg-Vorpommern|Saarland|Berlin|Hamburg|Bremen`;
@@ -383,12 +400,12 @@ const HEADER_TOWN_EXPRESSION = new RegExp(
   `^(?:(\\d{3,5})\\s+)?(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(${BUNDESLAND}))?(?![\\p{L}\\d])`,
   'u',
 );
-const STREET_AREA_EXPRESSION = new RegExp(`\\b(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*([A-ZÄÖÜ][\\p{L}äöüß -]{1,45})\\s*,\\s*(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
-const VISIBLE_ADDRESS_EXPRESSION = new RegExp(`\\b(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?(?:\\s*[-–/]\\s*\\d{1,4}[a-z]?)?)?)\\s*,?\\s+(?:[A-ZÄÖÜ][\\p{L}äöüß -]{1,45},\\s*)?(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
-const LABELED_STREET_EXPRESSION = new RegExp(`^\\s*(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)\\s*[.,]?$`, 'iu');
-const PROPERTY_STREET_EXPRESSION = new RegExp(`\\b(?:Wohnung|Haus|Immobilie|Objekt)\\s+(?:liegt|befindet\\s+sich)\\s+(?:direkt\\s+)?(?:in\\s+der|an\\s+der)\\s+(${STREET_NAME}(?:\\s+\\d{1,4}[a-z]?)?)`, 'iu');
-const LOCATION_LINE_EXPRESSION = new RegExp(`^\\s*(${STREET_NAME})(?:\\s+\\d{1,4}[a-z]?)?\\s*(?:-\\s*)?,\\s*(?:[^,]{2,50},\\s*)?\\d{5}\\s+[A-ZÄÖÜ]`, 'iu');
-const STREET_SUFFIX_TOKENS = ['straße', 'str.', 'allee', 'weg', 'platz', 'gasse', 'damm', 'ufer', 'chaussee', 'ring', 'steig'];
+const STREET_AREA_EXPRESSION = new RegExp(`\\b(${STREET_NAME})(?:\\s+${HOUSE_NO})?\\s*(?:-\\s*)?,\\s*([A-ZÄÖÜ][\\p{L}äöüß -]{1,45})\\s*,\\s*(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
+const VISIBLE_ADDRESS_EXPRESSION = new RegExp(`\\b(${STREET_NAME}(?:\\s+${HOUSE_NO})?)\\s*,?\\s+(?:[A-ZÄÖÜ][\\p{L}äöüß -]{1,45},\\s*)?(\\d{5})\\s+([A-ZÄÖÜ][\\p{L}äöüß.-]+)`, 'iu');
+const LABELED_STREET_EXPRESSION = new RegExp(`^\\s*(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*(${STREET_NAME}(?:\\s+${HOUSE_NO})?)\\s*[.,]?$`, 'iu');
+const PROPERTY_STREET_EXPRESSION = new RegExp(`\\b(?:Wohnung|Haus|Immobilie|Objekt)\\s+(?:liegt|befindet\\s+sich)\\s+(?:direkt\\s+)?(?:in\\s+der|an\\s+der)\\s+(${STREET_NAME}(?:\\s+${HOUSE_NO})?)`, 'iu');
+const LOCATION_LINE_EXPRESSION = new RegExp(`^\\s*(${STREET_NAME})(?:\\s+${HOUSE_NO})?\\s*(?:-\\s*)?,\\s*(?:[^,]{2,50},\\s*)?\\d{5}\\s+[A-ZÄÖÜ]`, 'iu');
+const STREET_SUFFIX_TOKENS = ['straße', 'strasse', 'str.', 'allee', 'weg', 'platz', 'gasse', 'damm', 'ufer', 'chaussee', 'ring', 'steig'];
 
 /**
  * Street patterns are polynomial when the name class can swallow the suffix.
@@ -448,11 +465,12 @@ function matchAddressHeader(value: string): AddressHeader | undefined {
     const postalCode = streetMatch[4];
     const city = tidy(streetMatch[5]);
     const parenthetical = tidy(streetMatch[6] || '');
+    const splitCity = splitHyphenCity(city, parenthetical || area);
     const hasSuffix = STREET_SUFFIX_EXPRESSION.test(name);
-    const street = tidy(number ? `${name} ${number}` : name);
+    const street = spellStreet(tidy(number ? `${name} ${number}` : name));
     const barePreposition = /^(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder)$/iu.test(name);
-    if ((number || hasSuffix) && !barePreposition && validStreet(street) && city) {
-      return { street, postalCode, city, district: parenthetical || area, found: true };
+    if ((number || hasSuffix) && !barePreposition && validStreet(street) && splitCity.city) {
+      return { street, postalCode, city: splitCity.city, district: splitCity.district, found: true };
     }
   }
   const townMatch = value.match(HEADER_TOWN_EXPRESSION);
@@ -461,13 +479,14 @@ function matchAddressHeader(value: string): AddressHeader | undefined {
   const city = tidy(townMatch[2]);
   const district = tidy(townMatch[3] || '');
   const state = townMatch[4] || '';
-  if (!acceptTown(postal, city, district, state)) return undefined;
+  const named = splitHyphenCity(city, district);
+  if (!acceptTown(postal, named.city, named.district, state)) return undefined;
   const validPostal = /^\d{5}$/.test(postal);
   return {
     postalCode: validPostal ? postal : undefined,
     malformedPostal: postal && !validPostal ? postal : undefined,
-    city,
-    district,
+    city: named.city,
+    district: named.district,
     found: true,
   };
 }
@@ -550,6 +569,22 @@ function streetFromAddress(value: string) {
     .replace(/\s+0\s*$/u, ''));
 }
 
+/** "Strasse" and "Straße" are the same street. Keep the ß spelling. */
+function spellStreet(value: string) {
+  return value.replace(/Strasse/g, 'Straße').replace(/strasse/g, 'straße');
+}
+
+const HYPHEN_CITY = ['Frankfurt am Main', 'Berlin', 'Hamburg', 'München', 'Köln', 'Düsseldorf', 'Nürnberg', 'Bochum', 'Osnabrück', 'Saarbrücken'];
+
+function splitHyphenCity(city: string, district: string) {
+  if (district || !city.includes('-') && !city.includes('–')) return { city, district };
+  for (const name of HYPHEN_CITY) {
+    const rest = city.match(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*(.+)$`, 'i'));
+    if (rest?.[1]) return { city: name, district: tidy(rest[1]) };
+  }
+  return { city, district };
+}
+
 function namedTransitStop(lines: string[]) {
   const relevant = lines.filter((line) => /\b(?:U-?Bahnhof|S-?Bahnhof|Bahnhof|Tramhaltestelle|Straßenbahnhaltestelle|Haltestelle)\b/i.test(line)).slice(0, 40);
   const patterns = [
@@ -604,17 +639,18 @@ export function normalizedFloor(value: string) {
   return Number(numbered) === 0 ? 'EG' : `${Number(numbered)}. OG`;
 }
 
-export function energyClassFromDemand(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '';
-  if (value < 30) return 'A+';
-  if (value < 50) return 'A';
-  if (value < 75) return 'B';
-  if (value < 100) return 'C';
-  if (value < 130) return 'D';
-  if (value < 160) return 'E';
-  if (value < 200) return 'F';
-  if (value < 250) return 'G';
-  return 'H';
+function completionYearNote(year: string, lines: string[]) {
+  const built = Number(year.match(/\b(18|19|20)\d{2}\b/)?.[0]);
+  if (!built) return '';
+  let completion = 0;
+  for (const line of lines.slice(0, 240)) {
+    const match = line.match(/Fertigstellung(?:[^0-9]{0,30}(?:\d{1,2}\s*[./]\s*)?)(20\d{2})/i);
+    if (!match) continue;
+    completion = Number(match[1]);
+    break;
+  }
+  if (!completion || Math.abs(completion - built) < 2) return '';
+  return `The year built is ${built}, but the listing also says completion in ${completion}. Check which date applies.`;
 }
 
 function summaryFor(report: Report) {
@@ -625,19 +661,83 @@ function considerationsFor(report: Report) {
   return localizedConsiderations(report, 'en');
 }
 
+const WALK_WORDS: Record<string, number> = {
+  ein: 1, eine: 1, einer: 1, zwei: 2, drei: 3, vier: 4, funf: 5, fünf: 5,
+  sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10,
+};
+
+function walkingFragments(line: string) {
+  const protectedLine = line
+    .replace(/\b(ca|bzw|ggf|usw|z|nr|str)\.\s+/gi, '$1 ')
+    .replace(/(\d),(\d)/g, '$1\u0001$2');
+  return protectedLine.split(/[,;|•]|\.\s+/).map((part) => part.replaceAll('\u0001', ','));
+}
+
+function walkingMinutesIn(fragment: string) {
+  if (/\b(?:auto|fahrrad|rad|bus|pkw|bahn)minuten\b/i.test(fragment) && !/\bgehminuten\b/i.test(fragment)) {
+    // A car or cycle time in the same fragment is not a walk, unless a walking time is also written.
+  }
+  const values: number[] = [];
+  const numeric = /(?:(?:ca|rund|etwa|gut|circa|approx)\s+)?(\d{1,2})\s*(?:gehminuten|gehmin|minuten|min|minutes)(?![\p{L}])/giu;
+  for (const match of fragment.matchAll(numeric)) {
+    const before = fragment.slice(Math.max(0, (match.index ?? 0) - 16), match.index ?? 0);
+    if (/\b(?:auto|fahrrad|rad|bus|pkw)\s*$/i.test(before)) continue;
+    if (/autominuten|fahrradminuten|busminuten/i.test(match[0])) continue;
+    const value = Number(match[1]);
+    if (value > 0 && value <= 90) values.push(value);
+  }
+  const words = /(?:(?:ca|rund|etwa|gut)\s+)?(ein(?:e|er)?|zwei|drei|vier|f[uü]nf|sechs|sieben|acht|neun|zehn)\s+(?:gehminuten|gehmin|minuten)(?![\p{L}])/giu;
+  for (const match of fragment.matchAll(words)) {
+    const before = fragment.slice(Math.max(0, (match.index ?? 0) - 16), match.index ?? 0);
+    if (/\b(?:auto|fahrrad|rad|bus|pkw)\s*$/i.test(before)) continue;
+    const key = match[1].toLocaleLowerCase('de-DE').replace('ü', 'u').replace(/^eine?r?$/, 'ein');
+    const normalized = match[1].toLocaleLowerCase('de-DE');
+    const value = WALK_WORDS[normalized] ?? WALK_WORDS[key];
+    if (value) values.push(value);
+  }
+  return values;
+}
+
+/** Metres and kilometres, when the listing gives a distance instead of a walking time. About 80 m is one minute. */
+function distanceMinutes(fragment: string) {
+  const values: number[] = [];
+  for (const match of fragment.matchAll(/\b(\d{2,4})\s*(?:m|meter)\b/gi)) {
+    const value = Math.max(1, Math.round(Number(match[1]) / 80));
+    if (value <= 90) values.push(value);
+  }
+  for (const match of fragment.matchAll(/(\d+(?:[.,]\d+)?)\s*km\b/gi)) {
+    const km = Number(match[1].replace(',', '.'));
+    if (!(km > 0) || km > 8) continue;
+    const value = Math.max(1, Math.round((km * 1000) / 80));
+    if (value <= 90) values.push(value);
+  }
+  return values;
+}
+
 function proximityEvidence(lines: string[], subject: RegExp) {
-  const candidates = lines
-    .flatMap(line => line.split(/[,;|•]|\.\s+/))
-    .filter(fragment => subject.test(fragment))
-    .slice(0, 20);
-  const minutes = candidates.flatMap(line => {
-    const subjectIndex = line.match(subject)?.index ?? 0;
-    const values = [...line.matchAll(/\b(\d{1,2})\s*(?:gehmin(?:uten)?|min(?:\.|uten)?|minutes?)\b/gi)].map(match => ({ value: Number(match[1]), index: match.index }));
-    const metres = [...line.matchAll(/\b(\d{2,4})\s*(?:m|meter)\b/gi)].map(match => ({ value: Math.max(1, Math.round(Number(match[1]) / 80)), index: match.index }));
-    return [...values, ...metres].sort((a, b) => Math.abs(a.index - subjectIndex) - Math.abs(b.index - subjectIndex)).slice(0, 1).map(item => item.value);
-  }).filter(value => value > 0 && value <= 90);
+  const windows: string[] = [];
+  for (let index = 0; index < lines.length && windows.length < 20; index += 1) {
+    const parts = walkingFragments(lines[index]);
+    for (let part = 0; part < parts.length && windows.length < 20; part += 1) {
+      if (!subject.test(parts[part])) continue;
+      if (walkingMinutesIn(parts[part]).length) {
+        windows.push(parts[part]);
+        continue;
+      }
+      // A line break in the middle of a sentence can separate the stop from its
+      // walking time. A finished sentence does not lend its minutes to the next line.
+      const sameLine = parts[part + 1] || '';
+      const unfinished = !/[.!?]\s*$/.test(lines[index].trim()) && lines[index].trim().length >= 40;
+      const nextLine = unfinished ? (walkingFragments(lines[index + 1] || '')[0] || '') : '';
+      const nextPart = sameLine || nextLine;
+      windows.push(nextPart && !subject.test(nextPart) ? `${parts[part]} ${nextPart}` : parts[part]);
+    }
+  }
+  const walked = windows.flatMap(walkingMinutesIn).filter(value => value > 0 && value <= 90);
+  const distances = walked.length ? [] : windows.flatMap(distanceMinutes).filter(value => value > 0 && value <= 90);
+  const minutes = walked.length ? walked : distances;
   return {
-    mentioned: candidates.length > 0,
+    mentioned: windows.length > 0,
     minutes: minutes.length ? Math.min(...minutes) : undefined,
   };
 }
@@ -730,16 +830,62 @@ function formatStreetAddress(street: string, postalCode: string, city: string) {
 }
 
 function publishScore(report: Report) {
-  const calculation = calculatePropertyScore(report);
   delete report.scoreTitle;
-  if (!scoreAvailable(report)) {
-    report.score = null;
-    report.scoreBreakdown = undefined;
-    return report;
-  }
-  report.score = calculation.total;
-  report.scoreBreakdown = calculation.breakdown;
+  const scored = attachCalculatedScore(report);
+  report.score = scored.score;
+  report.scoreBreakdown = scored.scoreBreakdown;
   return report;
+}
+
+function amountOnLine(line: string) {
+  const match = line.match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{2})?)\s*(?:€|EUR)/i);
+  const amount = match ? number(match[1]) : 0;
+  return amount > 0 && amount < 10_000_000 ? amount : 0;
+}
+
+/** Nettokaltmiete × 12, or Jahresnettokaltmiete when the listing states the year. */
+function annualColdRent(lines: string[]) {
+  let annual = 0;
+  let monthly = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const next = lines[index + 1] || '';
+    if (/Jahresnettokaltmiete/i.test(line)) annual = annual || amountOnLine(line) || amountOnLine(next);
+    else if (/(?<!Jahres)Nettokaltmiete/i.test(line)) monthly = monthly || amountOnLine(line) || amountOnLine(next);
+  }
+  if (annual > 0) return annual;
+  return monthly > 0 ? Math.round(monthly * 12 * 100) / 100 : 0;
+}
+
+function findTenancySinceYear(lines: string[], asOfYear: number) {
+  const blob = lines.slice(0, 250).join('\n');
+  const since = blob.match(/\bseit\s+(?:dem\s+Jahr\s+|dem\s+)?(19\d{2}|20\d{2})\b/i);
+  if (since) {
+    const year = Number(since[1]);
+    if (year >= 1950 && year <= asOfYear) return year;
+  }
+  const duration = blob.match(/\b(?:seit|vor)\s+(\d{1,2})\s+Jahren\b/i);
+  if (duration) {
+    const years = Number(duration[1]);
+    if (years >= 1 && years <= 80) return asOfYear - years;
+  }
+  return undefined;
+}
+
+function findEvictionBan(lines: string[]) {
+  const blob = lines.slice(0, 300).join('\n');
+  if (/\b(?:Kündigungsverbot|Räumungsverbot)\b/i.test(blob)) return true;
+  if (!/Sperrfrist|§\s*577a/i.test(blob)) return false;
+  if (/Sperrfrist[^\n]{0,140}(?:nicht mehr|abgelaufen|entf[aä]llt|entfallen)|(?:nicht mehr|abgelaufen|entfallen|entf[aä]llt)[^\n]{0,80}Sperrfrist|keine[^\n]{0,40}Sperrfrist/i.test(blob)) return false;
+  return true;
+}
+
+function findInvestmentUse(title: string, lines: string[]) {
+  const head = `${title}\n${lines.slice(0, 40).join('\n')}`;
+  if (/\bKapitalanlage\b/i.test(head)) return true;
+  if (/\b(?:Wohnung|Apartment|Eigentumswohnung)\b/i.test(title) && /\bMehrfamilienhaus\b/i.test(title)) return false;
+  if (/\bMehrfamilienhaus\b/i.test(title)) return true;
+  return lines.slice(0, 30).some((line) => /^(?:Objektart|Objekttyp)\b/i.test(line) && /\bMehrfamilienhaus\b/i.test(line));
 }
 
 export function parseListing(raw: string, source: string): Report {
@@ -773,10 +919,11 @@ export function parseListing(raw: string, source: string): Report {
   const labelledFloorRaw = firstMatch(lines, /\b(?:Etage|Geschoss|Stockwerk)\s*[:\-]?\s+((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))/i)
     || aroundLabel(lines, /^(?:Etage|Geschoss|Stockwerk)$/i, /^((?:\d{1,2}\.?\s*(?:OG|Obergeschoss|Etage|Geschoss)?|EG|Erdgeschoss|DG|Dachgeschoss|Souterrain))$/i, 0, 3);
   const proseFloorRaw = firstMatch(lines, /\b((?:\d{1,2}\.?\s*OG|Erdgeschoss|Dachgeschoss|Souterrain))\b/i);
-  const heating = checkedCharacteristic(firstMatch(lines, /\b(?:Heizungsart|Heizung|Heating type)\b\s*[:\-]?\s*([^|;]{3,70})$/i)
+  const heatingLabel = checkedCharacteristic(firstMatch(lines, /\b(?:Heizungsart|Heizung|Heating type)\b\s*[:\-]?\s*([^|;]{3,70})$/i)
     || aroundLabel(lines, /^(?:Heizungsart|Heizung|Heating type)$/i, /^(.{3,70})$/, 0, 2), 'heating') || UNKNOWN;
   const energySource = checkedCharacteristic(firstMatch(lines, /\b(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)\b\s*[:\-]?\s*([^|;]{2,45})$/i)
     || aroundLabel(lines, /^(?:Wesentliche(?:r)?\s+Energietr[aä]ger|Energietr[aä]ger|Main energy source)$/i, /^(.{2,45})$/, 0, 2), 'energySource') || undefined;
+  const heating = heatingLabel !== UNKNOWN ? heatingLabel : (energySource && isHeatPumpPhrase(energySource) ? energySource : UNKNOWN);
   const energyDemand = number(firstMatch(lines, /\b(?:Endenergie(?:bedarf|verbrauch)|Energieverbrauchskennwert|Final energy demand)\s*[:\-]?\s*(\d[\d.,]*)\s*kWh/i)
     || aroundLabel(lines, /^(?:Endenergie(?:bedarf|verbrauch)|Energieverbrauchskennwert|Final energy demand)$/i, /(\d[\d.,]*)\s*kWh/i, 0, 2));
   const energy = aroundLabel(lines, /^(?:Energieeffizienzklasse|Energy efficiency class)$/i, /^([A-H](?:\+)?)$/i, 0, 3)
@@ -809,6 +956,11 @@ export function parseListing(raw: string, source: string): Report {
   const lease = findGroundLease(lines);
   const heatingInstall = findHeatingInstallYear(lines);
   const advertisedYield = number(firstMatch([title, ...lines], /([\d,.]+)\s*%\s*(?:Rendite|return)/i) || firstMatch(lines, /(?:Rendite|return)\s*(?:von|:)?\s*([\d,.]+)\s*%/i));
+  const annualRent = annualColdRent(lines);
+  const grossYield = price > 0 && annualRent > 0 ? Math.round((annualRent / price) * 10000) / 100 : undefined;
+  const investmentUse = findInvestmentUse(title, lines) || undefined;
+  const tenancySinceYear = findTenancySinceYear(lines, new Date().getUTCFullYear());
+  const evictionBan = findEvictionBan(lines) || undefined;
   const housegeldCandidates = lines.flatMap(line => {
     if (!/\b(?:Hausgeld(?:höhe)?|Community fees)\b/i.test(line)) return [];
     const rest = line.slice(line.search(/\b(?:Hausgeld(?:höhe)?|Community fees)\b/i));
@@ -847,8 +999,8 @@ export function parseListing(raw: string, source: string): Report {
       : visibleAddress(lines, city, postalCode)
         || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`) : '');
   const placeOnly = tidy([postalCode, city].filter(Boolean).join(' '));
-  const address = statedAddress || placeOnly || 'Address not stated';
-  const street = jsonLocation.street || headerLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet);
+  const address = spellStreet(statedAddress || placeOnly || 'Address not stated');
+  const street = spellStreet(jsonLocation.street || headerLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet));
   const exactStreet = hasHouseNumber(street);
 
   const { propertyType, typeSource } = resolvePropertyType(raw, lines, title, propertyLines);
@@ -880,7 +1032,7 @@ export function parseListing(raw: string, source: string): Report {
   const daylight = /bodentiefe Fenster[^.]{0,100}(?:viel|reichlich)\s+Tageslicht/i.test(text)
     ? 'Floor-to-ceiling windows; abundant daylight claimed'
     : firstMatch(lines, /((?:viel|reichlich)\s+Tageslicht[^.]{0,80})/i) || undefined;
-  const transit = proximityEvidence(lines, /\b(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|public transport)\b/i);
+  const transit = proximityEvidence(lines, /(?<![\p{L}\p{N}])(?:U-?Bahn|S-?Bahn|Bahnhof|Straßenbahn|Tram|ÖPNV|Nahverkehr|öffentliche[nr]?\s+Verkehrsmittel|Bushaltestelle|Haltestelle|Bus|public transport)(?![\p{L}\p{N}])/iu);
   const transitStop = namedTransitStop(lines);
   const park = proximityEvidence(lines, /\b(?:Park(?!ett|platz|möglichkeiten|en)|Grünanlage|Grünfläche|Spielfläche|Spielplatz|Volkspark|Stadtpark|green space)\w*/i);
   const dailyNeeds = proximityEvidence(lines, /\b(?:Supermarkt|Einkauf|Nahversorgung|Bäcker|Apotheke|Schule|Grundschule|Kita|Kindertagesstätte|daily needs|grocer)\w*/i);
@@ -892,7 +1044,8 @@ export function parseListing(raw: string, source: string): Report {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
     buyerCosts: buyerCosts || undefined, brokerFee, buyerCommission: buyerCommission || undefined, housegeld: housegeld || undefined, housegeldYear, parkingPrice,
-    tenancy, tenancyConflict: tenancyConflict || undefined, rentedUntilText: rentalText?.untilText, availabilityDate, advertisedYield: advertisedYield || undefined, condition, features,
+    tenancy, tenancyConflict: tenancyConflict || undefined, rentedUntilText: rentalText?.untilText, availabilityDate, advertisedYield: advertisedYield || undefined,
+    grossYield, investmentUse, tenancySinceYear, evictionBan, condition, features,
     privateGarden: statesPrivateGarden(propertyLines) || undefined,
     plotArea: plotArea >= 20 ? plotArea : undefined,
     soldAsIs: findSoldAsIs(lines) ? true : undefined,
@@ -922,13 +1075,18 @@ export function parseListing(raw: string, source: string): Report {
     parkingPrice ? `The listing separately quotes ${money(parkingPrice, 'en')} for parking. Confirm whether this is additional and required; it is not included in the stated total.` : '',
     housegeldYear ? `The Hausgeld amount refers to ${housegeldYear}; confirm the current economic plan before budgeting.` : '',
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',
-    energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy ? 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.' : '',
+    energy !== UNKNOWN && energyDemand && energyClassFromDemand(energyDemand) !== energy
+      ? (energyClassGap({ facts: { energy, energyDemand } }) === 1
+        ? 'The stated energy class is one step off the stated demand. The score uses the lower class.'
+        : 'The stated energy class and consumption figure differ from the standard class bands. Check the actual certificate.')
+      : '',
+    completionYearNote(year, lines),
     occupancyConflict ? 'The portal says not rented, but the description says occupants remain. Confirm their legal status and vacant handover before proceeding.' : '',
     headerLocation.malformedPostal ? `The listing prints "${headerLocation.malformedPostal}" as the postcode, which is not a valid 5-digit code. The town is still used.` : '',
     !street ? 'Exact street address is not disclosed in the listing.' : '',
     floor === UNKNOWN && propertyType !== 'house' ? 'The listing does not disclose an exact floor.' : '',
     !explicitTotal ? 'The listing does not provide a complete acquisition total; the financing card uses a rough buyer-cost estimate.' : '',
-    tenancy === 'Rented' && !advertisedYield
+    tenancy === 'Rented' && !advertisedYield && !grossYield
       ? (propertyType === 'house' ? 'The house is rented but no verified yield was extracted.' : 'The unit is rented but no verified yield was extracted.')
       : '',
   ].filter(Boolean);

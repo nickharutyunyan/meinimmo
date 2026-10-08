@@ -1,0 +1,65 @@
+{
+  "id": "d3027860f829d3aa",
+  "title": "1-room flat · Dörpfeldstraße 5",
+  "address": "Dörpfeldstraße 5, 12489 Berlin",
+  "location": "Adlershof",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/471956/",
+  "createdAt": "2026-10-03T20:01:20.316Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 172000,
+    "area": 30,
+    "usableArea": 32.2,
+    "rooms": "1",
+    "year": "2017",
+    "floor": "4. OG",
+    "energy": "C",
+    "heating": "Zentralheizung",
+    "energySource": "Fernwärme",
+    "energyDemand": 86.9,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 185104,
+    "buyerCosts": 13105,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 197,
+    "housegeldYear": "2025",
+    "tenancy": "Not rented",
+    "availabilityDate": "2026-11-01",
+    "condition": "Renovated",
+    "features": [
+      "Möbliert",
+      "Balkon",
+      "Einbauküche",
+      "Aufzug"
+    ],
+    "postalCode": "12489",
+    "city": "Berlin",
+    "district": "Adlershof",
+    "street": "Dörpfeldstraße 5",
+    "locationPrecision": "address",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": true,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The Hausgeld amount refers to 2025; confirm the current economic plan before budgeting."
+  ],
+  "redFlags": [],
+  "score": 6.27,
+  "scoreBreakdown": {
+    "price": 3,
+    "neighborhood": 6.4,
+    "space": 7.7,
+    "building": 8.3,
+    "energy": 7.7,
+    "light": 6.5,
+    "costs": 5.9,
+    "source": 10
+  }
+}

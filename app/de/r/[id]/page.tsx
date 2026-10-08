@@ -18,5 +18,5 @@ export default async function GermanReport({ params }: { params: Promise<{ id: s
   if (!item) notFound();
   if (item.country === 'AM') redirect(`/r/${item.id}`);
   const mortgageRate = await cachedMortgageRate();
-  return <ReportView report={item} locale="de" mortgageRate={mortgageRate} />;
+  return <ReportView report={item} locale="de" mortgageRate={mortgageRate} renderedAt={Date.now()} />;
 }

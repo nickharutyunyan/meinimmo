@@ -7,6 +7,7 @@ import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 import { reportConflicts } from './report-integrity.ts';
 import { buyerCostDivergenceNote } from './buyer-costs.ts';
+import { energyClassGap } from './property-score.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -198,6 +199,11 @@ export function terraceGardenConsideration(facts: Pick<Report['facts'], 'feature
 
 export function localizedWarnings(report: Report, locale: Locale) {
   const warnings = (report.qualityWarnings || []).map((warning) => {
+    if (/energy class and consumption|one step off the stated demand/.test(warning) && energyClassGap(report) === 1) {
+      return locale === 'de'
+        ? 'Die Energieklasse weicht eine Stufe vom angegebenen Bedarf ab. Der Score nutzt die schlechtere Klasse.'
+        : 'The stated energy class is one step off the stated demand. The score uses the lower class.';
+    }
     if (/separately quotes/.test(warning)) return parkingWarning(report, locale);
     if (locale === 'en') return warning;
     if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
@@ -208,7 +214,20 @@ export function localizedWarnings(report: Report, locale: Locale) {
       return year ? `Die Hausgeldangabe bezieht sich auf ${year}. Prüfe den aktuellen Wirtschaftsplan.` : '';
     }
     if (/conflicting room counts/.test(warning)) return 'Das Angebot enthält widersprüchliche Zimmerzahlen. Prüfe den Grundriss; der Titel nennt deshalb keine Zimmerzahl.';
-    if (/energy class and consumption/.test(warning)) return 'Die angegebene Energieklasse und der Verbrauch passen nicht zu den üblichen Klassengrenzen. Prüfe den Energieausweis.';
+    if (/one step off the stated demand/.test(warning)) return locale === 'de'
+      ? 'Die Energieklasse weicht eine Stufe vom angegebenen Bedarf ab. Der Score nutzt die schlechtere Klasse.'
+      : 'The stated energy class is one step off the stated demand. The score uses the lower class.';
+    if (/energy class and consumption/.test(warning)) {
+      if (locale === 'de') return 'Die angegebene Energieklasse und der Verbrauch passen nicht zu den üblichen Klassengrenzen. Prüfe den Energieausweis.';
+      return warning;
+    }
+    if (/completion in \d{4}/.test(warning)) {
+      const built = warning.match(/year built is (\d{4})/)?.[1] || '';
+      const completion = warning.match(/completion in (\d{4})/)?.[1] || '';
+      return locale === 'de'
+        ? `Als Baujahr steht ${built}, als Fertigstellung ${completion}. Prüfe, welches Datum gilt.`
+        : warning;
+    }
     if (/key-facts table says it is not rented/.test(warning)) return tenancyConflictSentence(report.facts, 'de');
     if (/portal says not rented/.test(warning)) return 'Das Portal meldet nicht vermietet, aber laut Beschreibung wohnen noch Menschen in der Wohnung. Kläre ihren rechtlichen Status und die freie Übergabe.';
     if (/not a valid 5-digit code/i.test(warning)) {
@@ -278,13 +297,14 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
     shown(facts.energy) ? known(facts.energy) : '',
     demand ? `${demand} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : '',
   ].filter(Boolean).join(' · ');
-  const heating = [
+  const heatingParts = [
     shown(facts.heating) ? known(facts.heating) : '',
     facts.energySource && shown(facts.energySource) ? known(facts.energySource) : '',
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean);
+  const heating = [...new Set(heatingParts)].join(' · ');
   const rows: Array<[string, string]> = [];
   if (facts.price) rows.push([text.asking, money(facts.price, locale)]);
-  if (facts.price && facts.area) rows.push([text.perSqm, money(facts.price / facts.area, locale)]);
+  if (facts.price && facts.area) rows.push([text.perSqm, moneyPerSqm(facts.price / facts.area, locale)]);
   if (facts.area) rows.push([text.living, area(facts.area, locale)]);
   if (facts.plotArea) rows.push([text.plot, area(facts.plotArea, locale)]);
   if (facts.usableArea) rows.push([text.usable, area(facts.usableArea, locale)]);
@@ -296,6 +316,7 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
   if (facts.buyerCommission) rows.push([text.commission, known(facts.buyerCommission)]);
   if (facts.housegeld) rows.push(['Hausgeld', `${money(facts.housegeld, locale)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`]);
   if (facts.advertisedYield) rows.push([text.return, percent(facts.advertisedYield, locale)]);
+  else if (facts.grossYield && (facts.tenancy === 'Rented' || facts.investmentUse)) rows.push([locale === 'de' ? 'Bruttorendite' : 'Gross yield', percent(facts.grossYield, locale)]);
   if (shown(report.sunOrientation)) rows.push([text.sun, known(report.sunOrientation)]);
   if (report.daylight) rows.push([text.daylight, known(report.daylight)]);
   if (energy) rows.push([text.energy, energy]);

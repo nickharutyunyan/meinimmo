@@ -76,13 +76,19 @@ export function cacheFileToAssetPath(cacheRelativePath) {
 }
 
 /**
+ * Cookie names this app sets, and a CSRF field name if one is rendered.
+ * A bare "csrf" substring is not a session: signed photo URLs contain it.
+ */
+const PRIVATE_HTML = /(?:^|[^A-Za-z0-9_])(?:rah_session|rah_google_oauth)(?![A-Za-z0-9_])|name=(?:"csrf"|'csrf'|csrf(?=[\s>/]))/i;
+
+/**
  * Report HTML is safe to share across viewers when it has no session marker
  * and no signed-in account menu. Notes and the sign-in label are filled in
  * the browser after the document loads.
  */
 export function reportHtmlIsShared(html) {
   if (typeof html !== 'string' || html.length === 0) return false;
-  if (/rah_session|rah_google_oauth|csrf/i.test(html)) return false;
+  if (PRIVATE_HTML.test(html)) return false;
   if (html.includes('class="account-menu"') || html.includes('class="account-status"')) return false;
   return true;
 }

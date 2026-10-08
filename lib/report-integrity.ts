@@ -1,22 +1,28 @@
-import type { Report } from './types';
+import type { Report, ScoreBreakdown } from './types';
 import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
-import { missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
+import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100803;
+export const EXTRACTION_VERSION = 2026100805;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
+/** A rollback must not treat a newer saved extraction as stale or re-score it. */
+export function storedVersionIsNewer(version: number | null | undefined) {
+  return typeof version === 'number' && Number.isFinite(version) && version > EXTRACTION_VERSION;
+}
+
 /**
- * Old or missing extraction versions stay readable. A report saved before
- * extractionVersion existed omits the field and is stale: the score is
- * withheld and the backfill can select it. Armenian reports use their own rubric.
+ * Only a strictly older extraction is stale. A missing version is older.
+ * A newer version is fresh: its stored score stays, and backfill must not select it.
+ * Armenian reports use their own rubric.
  */
 export function reportIsStale(report: Pick<Report, 'country' | 'extractionVersion' | 'sourceUnavailable'>) {
+  if (storedVersionIsNewer(report.extractionVersion)) return false;
   if (report.sourceUnavailable) return true;
   if (report.country === 'AM') return false;
-  if (report.extractionVersion == null) return true;
-  return report.extractionVersion !== EXTRACTION_VERSION;
+  if (typeof report.extractionVersion !== 'number' || !Number.isFinite(report.extractionVersion)) return true;
+  return report.extractionVersion < EXTRACTION_VERSION;
 }
 
 /** Attach the stale warning for this response. Does not read archived HTML or write D1. */
@@ -37,19 +43,87 @@ export function reportConflicts(report: Report) {
   if (/^New build$/i.test(f.condition || '') && Number(f.year) < Number(report.createdAt.slice(0, 4)) - 5) problems.push('Construction year and new-build condition conflict. Confirm the actual condition.');
   // A separately priced garage stays a data note. It is not a conflict and must not withhold the score.
   // A table-vs-text tenancy that R3 already resolved to one status is not a contradiction either.
-  problems.push(...(report.qualityWarnings || []).filter(w => CONFLICT_NOTE.test(w) && !/separately quotes/i.test(w)));
+  // An energy class one step off the stated demand is a data note. Two or more classes apart still conflict.
+  const adjacentEnergy = energyClassGap(report) === 1;
+  problems.push(...(report.qualityWarnings || []).filter(w => {
+    if (!CONFLICT_NOTE.test(w) || /separately quotes/i.test(w)) return false;
+    if (adjacentEnergy && /class and consumption|one step off the stated demand/i.test(w)) return false;
+    return true;
+  }));
   return [...new Set(problems)];
 }
 
 export function scoreAvailable(report: Report) {
+  // A newer extraction already decided the score. This code must not withhold it.
+  if (storedVersionIsNewer(report.extractionVersion)) return typeof report.score === 'number' && Number.isFinite(report.score);
   // Armenian reports use a separate rubric and must keep the previous rule.
   if (report.country === 'AM') return Boolean(report.facts.price > 0 && report.facts.area > 0 && (report.facts.city || report.location) && !reportConflicts(report).length);
   if (!(report.facts.price > 0 && report.facts.area > 0)) return false;
   if (!report.facts.city) return false;
   if (report.typeSource === 'fallback') return false;
   // Missing walking times and sun orientation never withhold. Only a real conflict, or 4 or fewer key facts, does.
+  // A confidence cap (leasehold, tenancy, no local prices) does not withhold by itself.
+  // Low confidence means four or fewer key facts, and that withholds the score. An energy class one step off demand never does.
   if (reportConflicts(report).length > 0) return false;
-  return scoreConfidence(report).level !== 'low';
+  return scoreConfidence(report).present >= 5;
+}
+
+/**
+ * The number the API returns. Current reports use this rubric, which fills a
+ * null score after a refresh that did not write one. A newer extraction keeps
+ * the score already stored on the row.
+ */
+export function attachCalculatedScore<T extends Report>(report: T): T {
+  if (report.country === 'AM' || storedVersionIsNewer(report.extractionVersion)) return report;
+  if (!scoreAvailable(report)) {
+    if (report.score == null && report.scoreBreakdown == null) return report;
+    return { ...report, score: null, scoreBreakdown: undefined };
+  }
+  const calculation = calculatePropertyScore(report);
+  if (report.score === calculation.total && sameBreakdown(report.scoreBreakdown, calculation.breakdown)) return report;
+  return { ...report, score: calculation.total, scoreBreakdown: calculation.breakdown };
+}
+
+/**
+ * Read path for one saved report. A newer extraction is returned unchanged,
+ * including its score and any fields this code does not know. Older and current
+ * reports still receive the stale warning and the current rubric.
+ */
+export function renderStoredReport<T extends Report>(report: T): T {
+  if (storedVersionIsNewer(report.extractionVersion)) return report;
+  return attachCalculatedScore(presentStoredReport(report));
+}
+
+function finiteScore(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function storedBreakdown(value: Report['scoreBreakdown'] | undefined): ScoreBreakdown {
+  const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const part = (key: keyof ScoreBreakdown) => finiteScore(record[key]) ?? 0;
+  const price = record.price;
+  return {
+    price: price === null ? null : finiteScore(price) ?? null,
+    neighborhood: part('neighborhood'),
+    space: part('space'),
+    building: part('building'),
+    energy: part('energy'),
+    light: part('light'),
+    costs: part('costs'),
+    source: part('source'),
+  };
+}
+
+/** The score a page shows. Newer saved reports keep the stored total and breakdown. */
+export function displayedPropertyScore(report: Report): ReturnType<typeof calculatePropertyScore> {
+  if (!storedVersionIsNewer(report.extractionVersion)) return calculatePropertyScore(report);
+  return { total: finiteScore(report.score) ?? 0, breakdown: storedBreakdown(report.scoreBreakdown), adjustments: [] };
+}
+
+function sameBreakdown(stored: Report['scoreBreakdown'], next: Report['scoreBreakdown']) {
+  if (!stored || !next) return false;
+  const keys = ['price', 'neighborhood', 'space', 'building', 'energy', 'light', 'costs', 'source'] as const;
+  return keys.every((key) => stored[key] === next[key]);
 }
 
 type ConflictTopic = 'rental' | 'rooms' | 'energy' | 'price' | 'year' | 'address' | 'source';

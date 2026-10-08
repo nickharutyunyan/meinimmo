@@ -17,6 +17,7 @@ test('document GETs of public pages are cacheable and router data is not', () =>
   assert.equal(isCacheableDocument('HEAD', '/de/guide/berlin-with-children/', headers([]), params('')), true);
   assert.equal(isCacheableDocument('POST', '/', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/api/auth/me', headers([]), params('')), false);
+  assert.equal(isCacheableDocument('GET', '/api/session', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/downloads/reviewahouse-helper.zip', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/', headers([['RSC', '1']]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/', headers([['Next-Router-Prefetch', '1']]), params('')), false);
@@ -153,7 +154,9 @@ test('cached report HTML is the anonymous document', () => {
   assert.equal(reportHtmlIsShared(shared), true);
   assert.equal(reportHtmlIsShared(shared.replace('Sign in', 'Sign out') + ' class="account-menu"'), false);
   assert.equal(reportHtmlIsShared('<html>rah_session=abc</html>'), false);
+  assert.equal(reportHtmlIsShared('<html>rah_google_oauth=abc</html>'), false);
   assert.equal(reportHtmlIsShared('<input name="csrf" value="t">'), false);
+  assert.equal(reportHtmlIsShared('<img src="https://media.example/a.jpg?sig=YcsrfoeC&amp;exp=1790000000">'), true);
   assert.equal(reportHtmlIsShared(''), false);
 });
 

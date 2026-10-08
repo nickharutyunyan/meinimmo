@@ -200,7 +200,11 @@ test('Osnabrück shows the ground lease and the rented-until conflict, never vac
   assert.match(report.summary, /until the end of November 2026/);
   assert.match(report.summary, /free from 1 December 2026/);
   assert.match(report.summary, /The land is leased \(Pachtgrundstück\)/);
-  assert.match(report.summary, /Annual rent is about €997 a year/);
+  assert.match(report.summary, /The rent is about €997 a year/);
+  assert.match(report.summary, /€83 a month/);
+  assert.doesNotMatch(report.summary, /€83\.00/);
+  assert.match(localizedSummary(report, 'de').replace(/\u00a0/g, ' '), /83 € im Monat/);
+  assert.doesNotMatch(report.summary, /Annual rent is about/);
   assert.doesNotMatch(report.summary, /Erbbaurecht|ground rent/i);
   assert.doesNotMatch(corpus, /\bvacant\b/i);
   assert.doesNotMatch(corpus, /Berlin/);

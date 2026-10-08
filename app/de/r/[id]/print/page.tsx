@@ -12,7 +12,7 @@ const getReport = cache(report);
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const item = await getReport((await params).id);
-  return { title: item ? printDocumentTitle(item, 'de') : 'Immobilien-Bericht · ReviewAHouse', robots: { index: false, follow: false } };
+  return { title: item ? printDocumentTitle(item, 'de') : 'Immobilien-Bericht · Review a House', robots: { index: false, follow: false } };
 }
 
 export default async function GermanPrintableReport({ params, searchParams }: {

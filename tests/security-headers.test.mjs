@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { LISTING_IMAGE_HOSTS } from '../lib/listing-image-hosts.ts';
+import { LISTING_IMAGE_HOSTS, LISTING_THUMBNAIL_HOSTS } from '../lib/listing-image-hosts.ts';
 import { applySecurityHeaders, DIRECT_ASSET_PATHS, securityHeaders, staticAssetHeadersFile } from '../lib/security-headers.ts';
 import { writeStaticAssetHeaders } from '../scripts/publish-static-pages.mjs';
 
@@ -34,7 +34,7 @@ test('asset and report-cache responses carry the same security headers Next sets
   assert.match(csp, /script-src[^;]*'unsafe-inline'/);
   assert.match(csp, /https:\/\/www\.googletagmanager\.com/);
   assert.doesNotMatch(csp, /nonce-/);
-  for (const host of LISTING_IMAGE_HOSTS) assert.ok(csp.includes(host), host);
+  for (const host of [...LISTING_IMAGE_HOSTS, ...LISTING_THUMBNAIL_HOSTS]) assert.ok(csp.includes(host), host);
   assert.equal(asset.get('strict-transport-security'), 'max-age=31536000');
   assert.equal(asset.get('x-frame-options'), 'DENY');
   assert.equal(asset.get('referrer-policy'), 'strict-origin-when-cross-origin');

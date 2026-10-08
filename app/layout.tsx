@@ -12,21 +12,21 @@ import './print-report.css';
 import './countries.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),
-  applicationName: 'ReviewAHouse',
-  title: 'ReviewAHouse — German Property Reports & Comparisons',
+  applicationName: 'Review a House',
+  title: 'Review a House — German Property Reports & Comparisons',
   description: 'Analyse German real estate listings with clear property reports, location and energy facts, side-by-side comparisons, and an editable mortgage calculator.',
   alternates: { canonical: '/', languages: { en: '/', de: '/de' } },
   openGraph: {
     type: 'website',
     url: '/',
-    siteName: 'ReviewAHouse',
+    siteName: 'Review a House',
     locale: 'en_GB',
-    title: 'ReviewAHouse — German Property Reports & Comparisons',
+    title: 'Review a House — German Property Reports & Comparisons',
     description: 'Analyse German real estate listings with clear reports, comparisons, location and energy facts, and an editable mortgage calculator.',
   },
   twitter: {
     card: 'summary',
-    title: 'ReviewAHouse — German Property Reports & Comparisons',
+    title: 'Review a House — German Property Reports & Comparisons',
     description: 'Analyse German real estate listings with clear reports, comparisons, location and energy facts, and an editable mortgage calculator.',
   },
 };

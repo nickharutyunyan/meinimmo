@@ -1,0 +1,52 @@
+{
+  "id": "340db75fabe49533",
+  "title": "3-room flat · Neu-Hohenschönhausen",
+  "address": "13058 Berlin",
+  "location": "Neu-Hohenschönhausen",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/496161/",
+  "createdAt": "2026-10-03T20:00:45.116Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 192700,
+    "area": 62,
+    "rooms": "3",
+    "year": "1987",
+    "floor": "5. OG",
+    "energy": "B",
+    "heating": "Zentralheizung",
+    "energySource": "Fernwärme",
+    "energyDemand": 71,
+    "totalCost": 207242,
+    "buyerCosts": 14543,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 265,
+    "tenancy": "Occupancy unclear",
+    "condition": "Needs modernization",
+    "features": [
+      "Balkon",
+      "Einbauküche",
+      "Keller"
+    ],
+    "postalCode": "13058",
+    "city": "Berlin",
+    "district": "Neu-Hohenschönhausen",
+    "locationPrecision": "neighborhood",
+    "transitStop": "Hohenschönhausen",
+    "neighborhood": {
+      "transitMinutes": 20,
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The portal says not rented, but the description says occupants remain. Confirm their legal status and vacant handover before proceeding.",
+    "Exact street address is not disclosed in the listing."
+  ],
+  "redFlags": [],
+  "score": null
+}

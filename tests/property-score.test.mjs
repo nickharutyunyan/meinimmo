@@ -123,23 +123,27 @@ function berlin(facts) {
 test('price bands follow the Berlin delta, including every boundary', () => {
   assert.equal(scorePriceFromDelta(-15), 8.5);
   assert.equal(scorePriceFromDelta(-15.01), 8.5);
-  assert.equal(scorePriceFromDelta(-14.99), 7.5);
+  assert.equal(scorePriceFromDelta(-14.99), 8.49);
+  assert.equal(scorePriceFromDelta(-10), 7.5);
   assert.equal(scorePriceFromDelta(-5), 7.5);
-  assert.equal(scorePriceFromDelta(-4.99), 6);
+  assert.equal(scorePriceFromDelta(-4.99), 7.49);
   assert.equal(scorePriceFromDelta(0), 6);
-  assert.equal(scorePriceFromDelta(4.99), 6);
+  assert.equal(scorePriceFromDelta(4.99), 4.51);
   assert.equal(scorePriceFromDelta(5), 4.5);
-  assert.equal(scorePriceFromDelta(14.99), 4.5);
+  assert.equal(scorePriceFromDelta(10), 4.5);
+  assert.equal(scorePriceFromDelta(14.99), 3);
   assert.equal(scorePriceFromDelta(15), 3);
-  assert.equal(scorePriceFromDelta(20), 3);
-  assert.equal(scorePriceFromDelta(20, 'low'), 4.5);
+  assert.equal(scorePriceFromDelta(20), 2.71);
+  assert.equal(scorePriceFromDelta(41), 1.51);
+  assert.ok(scorePriceFromDelta(41) < scorePriceFromDelta(15));
+  assert.equal(scorePriceFromDelta(20, 'low'), 4.36);
   assert.equal(scorePriceFromDelta(-11, 'low'), 6.75);
   assert.equal(scorePriceFromDelta(-20, 'low'), 7.25);
   assert.equal(scorePriceFromDelta(0, 'low'), 6);
 
   const above = calculatePropertyScore(berlin({ price: 450_600, area: 100, totalCost: 450_600 }));
   const below = calculatePropertyScore(berlin({ price: 334_195, area: 100, totalCost: 334_195 }));
-  assert.equal(above.breakdown.price, 3);
+  assert.equal(above.breakdown.price, 2.7);
   assert.equal(below.breakdown.price, 7.5);
 
   const thin = calculatePropertyScore(berlin({
@@ -148,7 +152,7 @@ test('price bands follow the Berlin delta, including every boundary', () => {
     totalCost: 202_320,
     district: 'Marzahn',
   }));
-  assert.equal(thin.breakdown.price, 4.5);
+  assert.equal(thin.breakdown.price, 4.4);
 });
 
 test('yield and buyer-cost adjustments apply only when price is scored', () => {
@@ -182,7 +186,11 @@ test('a null price is dropped and the remaining weights sum to 1', () => {
 
 test('confidence counts eight facts, with floor and Hausgeld present for houses', () => {
   const omitted = { floor: 'not stated', housegeld: undefined, locationPrecision: 'street' };
-  const house = scoreConfidence(shell({ propertyType: 'house', facts: omitted }));
+  const house = scoreConfidence(shell({
+    address: 'Buddestraße 7, 13507 Berlin',
+    propertyType: 'house',
+    facts: { ...omitted, city: 'Berlin', district: 'Reinickendorf' },
+  }));
   const flat = scoreConfidence(shell({ propertyType: 'flat', facts: omitted }));
   assert.equal(house.present, flat.present + 2);
   assert.equal(house.level, 'high');
@@ -223,7 +231,11 @@ test('four of eight key facts withholds the score in English and German', () => 
   assert.equal(scoreConfidence(five).present, 5);
   assert.equal(scoreAvailable(five), true);
 
-  const conflicted = shell({ qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'] });
+  const conflicted = shell({
+    address: 'Buddestraße 7, 13507 Berlin',
+    facts: { city: 'Berlin', district: 'Reinickendorf' },
+    qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'],
+  });
   assert.equal(scoreConfidence(conflicted).level, 'high');
   assert.equal(scoreAvailable(conflicted), false);
   assert.equal(scoreExplanation(conflicted, 'en'), 'Score withheld: the listing contradicts itself on the room count.');
@@ -248,15 +260,19 @@ test('German withhold reasons use the right preposition for each fact', () => {
 });
 
 test('a withheld score replaces the confidence line with the reason', () => {
-  const conflicted = shell({ qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'] });
+  const conflicted = shell({
+    address: 'Buddestraße 7, 13507 Berlin',
+    facts: { city: 'Berlin', district: 'Reinickendorf' },
+    qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'],
+  });
   assert.equal(scoreConfidence(conflicted).level, 'high');
   assert.equal(scoreAvailable(conflicted), false);
   assert.equal(scoreBasisLine(conflicted, 'en'), 'Score withheld: the listing contradicts itself on the room count.');
   assert.equal(scoreBasisLine(conflicted, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Zimmerzahl.');
   assert.doesNotMatch(scoreBasisLine(conflicted, 'en'), /Confidence/);
   assert.doesNotMatch(scoreBasisLine(conflicted, 'de'), /Verlässlichkeit/);
-  assert.match(scoreBasisLine(shell(), 'en'), /^Confidence: High · 8 of 8 key facts$/);
-  assert.match(scoreBasisLine(shell(), 'de'), /^Verlässlichkeit: Hoch · 8 von 8 Kernangaben$/);
+  assert.match(scoreBasisLine(shell(), 'en'), /^Confidence: Medium · 8 of 8 key facts$/);
+  assert.match(scoreBasisLine(shell(), 'de'), /^Verlässlichkeit: Mittel · 8 von 8 Kernangaben$/);
 
   const staleAndConflict = shell({
     extractionVersion: 1,
@@ -279,9 +295,10 @@ test('a withheld score replaces the confidence line with the reason', () => {
 
 test('missing walking time and sun orientation do not withhold the score', () => {
   const sparse = shell({
+    address: 'Buddestraße 7, 13507 Berlin',
     sunOrientation: 'not stated',
     daylight: undefined,
-    facts: { neighborhood: { transitMentioned: false, parkMentioned: false, dailyNeedsMentioned: false } },
+    facts: { city: 'Berlin', district: 'Reinickendorf', neighborhood: { transitMentioned: false, parkMentioned: false, dailyNeedsMentioned: false } },
   });
   assert.equal(scoreConfidence(sparse).level, 'high');
   assert.equal(scoreAvailable(sparse), true);
@@ -310,15 +327,15 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
   assert.equal(check.deltaPct, 26);
   assert.equal(check.askingPerSqm, 442_512 / 80);
   const score = calculatePropertyScore(lichterfelde);
-  assert.equal(score.breakdown.price, 3);
+  assert.equal(score.breakdown.price, 2.4);
   assert.equal(scoreAvailable(lichterfelde), true);
   assert.ok(['high', 'medium'].includes(scoreConfidence(lichterfelde).level));
   assert.equal(reportConflicts(lichterfelde).some(problem => /separately quotes/i.test(problem)), false);
   assert.match(lichterfelde.qualityWarnings.join(' '), /separately quotes/);
 });
 
-test('saved fixtures score price only for the Berlin flat, without a new extraction version', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100803);
+test('saved fixtures score price only for the Berlin flat', () => {
+  assert.equal(EXTRACTION_VERSION, 2026100805);
   const parsed = (id) => parseListing(
     readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8'),
     `https://example.test/${id}`,
@@ -330,7 +347,7 @@ test('saved fixtures score price only for the Berlin flat, without a new extract
   const erfdeScore = calculatePropertyScore(erfde);
   const osnabruckScore = calculatePropertyScore(osnabruck);
 
-  assert.equal(berlinScore.breakdown.price, 3);
+  assert.equal(berlinScore.breakdown.price, 2.2);
   assert.equal(scoreConfidence(berlinFlat).present, 8);
   assert.equal(scoreConfidence(berlinFlat).level, 'high');
   assert.equal(scoreAvailable(berlinFlat), true);
@@ -338,12 +355,12 @@ test('saved fixtures score price only for the Berlin flat, without a new extract
 
   assert.equal(erfdeScore.breakdown.price, null);
   assert.equal(scoreConfidence(erfde).present, 7);
-  assert.equal(scoreConfidence(erfde).level, 'high');
+  assert.equal(scoreConfidence(erfde).level, 'medium');
   assert.equal(scoreAvailable(erfde), true);
 
   assert.equal(osnabruckScore.breakdown.price, null);
   assert.equal(scoreConfidence(osnabruck).present, 8);
-  assert.equal(scoreConfidence(osnabruck).level, 'high');
+  assert.equal(scoreConfidence(osnabruck).level, 'medium');
   assert.equal(osnabruck.facts.tenancyConflict, true);
   assert.equal(reportConflicts(osnabruck).length, 0);
   assert.equal(scoreAvailable(osnabruck), true);
