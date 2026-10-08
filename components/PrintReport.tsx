@@ -8,6 +8,7 @@ import { acquisitionCosts, financingScenario } from '@/lib/finance';
 import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
+import { priceCheckPresentation } from '@/lib/price-check-copy';
 
 const euros = (value: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
 
@@ -52,6 +53,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   };
   const returnUrl = `${de ? '/de' : ''}/r/${report.id}`;
   const mapsUrl = location.mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery)}` : '';
+  const priceView = priceCheckPresentation(report, locale);
 
   return <main className="print-report-page" lang={locale}>
     <PrintControls returnUrl={returnUrl} locale={locale} autoPrint={autoPrint} />
@@ -71,6 +73,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
       <section className="print-section">
         <h3>{labels.overview}</h3>
         <div className="print-facts">{facts.map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+        {priceView.kind === 'matched' ? <p className="print-price-check">{priceView.lead} <a href={priceView.sourceUrl}>{priceView.sourceLabel}</a></p> : priceView.kind === 'unmatched' ? <p className="print-price-check">{priceView.message}</p> : null}
       </section>
 
       <section className="print-split print-section">

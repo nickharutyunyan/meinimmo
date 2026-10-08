@@ -12,6 +12,7 @@ import { GlossaryText } from './GlossaryText';
 import { ComparisonShareButton } from './ComparisonShareButton';
 import { visibleComparisonRows } from '@/lib/comparison';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
+import { priceCheckCompare } from '@/lib/price-check-copy';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -56,6 +57,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', first.facts.parkingPrice ? money(first.facts.parkingPrice) : '—', second.facts.parkingPrice ? money(second.facts.parkingPrice) : '—'],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
     [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
+    [priceCheckCompare(first, locale).label, priceCheckCompare(first, locale).value, priceCheckCompare(second, locale).value],
     [text.living, first.facts.area ? `${first.facts.area} m²` : '—', second.facts.area ? `${second.facts.area} m²` : '—'],
     [text.usable, first.facts.usableArea ? `${first.facts.usableArea} m²` : '—', second.facts.usableArea ? `${second.facts.usableArea} m²` : '—'],
     [text.rooms, known(first.facts.rooms), known(second.facts.rooms)],

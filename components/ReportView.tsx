@@ -23,6 +23,8 @@ import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
 import { ReportPrintButton } from './ReportPrintButton';
 import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxonomy';
+import { PriceCheckCard } from './PriceCheckCard';
+import { priceCheckPresentation } from '@/lib/price-check-copy';
 
 const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
@@ -81,9 +83,11 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const subtitle = reportSubtitle(report);
   const known = (value?: string) => localizedValue(value, locale);
   const stated = (value?: string) => known(value) !== text.notDisclosed;
+  const priceView = priceCheckPresentation(report, locale);
   const glance: Array<[string, string]> = [
     ...(facts.price ? [[text.asking, euros(facts.price)] as [string, string]] : []),
     ...(facts.price && facts.area ? [[text.perSqm, euros(facts.price / facts.area)] as [string, string]] : []),
+    ...(priceView.kind === 'matched' ? [[priceView.glanceLabel, priceView.glanceValue] as [string, string]] : []),
     ...(facts.area ? [[text.living, `${facts.area} m²`] as [string, string]] : []),
     ...(facts.usableArea ? [[text.usable, `${facts.usableArea} m²`] as [string, string]] : []),
     ...(stated(facts.rooms) ? [[text.rooms, known(facts.rooms)] as [string, string]] : []),
@@ -142,6 +146,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
+          <PriceCheckCard report={report} locale={locale} />
           {propertyCategories.length ? <section className="card property-profile"><p className="eyebrow">{text.profile}</p><div className="feature-list">{propertyCategories.map(category => <span key={category}>{category}</span>)}</div></section> : null}
           {features.length ? <section className="card listing-details"><p className="eyebrow">{text.details}</p><div className="feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}><GlossaryText locale={locale}>{feature}</GlossaryText></span>)}</div></section> : null}
           <section className="card"><p className="eyebrow">{text.matters}</p>{considerations.map((item, index) => <div className="signal" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p><GlossaryText locale={locale}>{item}</GlossaryText></p></div>)}</section>
