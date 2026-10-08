@@ -63,7 +63,8 @@ export type Facts = {
 };
 
 export type ScoreBreakdown = {
-  price: number;
+  /** Null outside areas with official local sales prices. Excluded from the total. */
+  price: number | null;
   neighborhood: number;
   space: number;
   building: number;
@@ -132,6 +133,7 @@ export type Report = {
   facts: Facts;
   /** Null when the page withholds the score, so the API cannot show a number the page hides. */
   score: number | null;
+  /** Legacy stored phrase. Never shown. New reports leave it unset. */
   scoreTitle?: string;
   scoreBreakdown?: ScoreBreakdown;
   summary: string;

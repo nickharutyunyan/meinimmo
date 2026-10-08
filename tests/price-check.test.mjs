@@ -262,7 +262,7 @@ test('the Berlin-Tegel listing fixture compares with Reinickendorf', () => {
   assert.match(de.lead, /4\.846 €\/m² liegt 29 % über/);
 });
 
-test('price-check copy avoids deal language and portal names, and the score does not consume it yet', () => {
+test('price-check copy avoids deal language and portal names, and the score reads the Berlin delta', () => {
   const files = [
     'lib/price-check.ts',
     'lib/price-check-copy.ts',
@@ -271,7 +271,7 @@ test('price-check copy avoids deal language and portal names, and the score does
   assert.doesNotMatch(files, /\b(deal|bargain|undervalued|schnäppchen|unterbewertet)\b/i);
   assert.doesNotMatch(files, /ImmoScout|Ohne-Makler|ohne-makler/i);
   const score = readFileSync(new URL('../lib/property-score.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(score, /berlinPriceCheck|price-check/);
+  assert.match(score, /berlinPriceCheck/);
   const steglitz = report({ facts: { district: 'Lichterfelde', price: 300_000, area: 70 } });
   const steglitzEn = priceCheckPresentation(steglitz, 'en');
   const steglitzDe = priceCheckPresentation(steglitz, 'de');

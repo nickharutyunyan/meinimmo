@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { scoreAvailable, reportVerdict } from '@/lib/report-integrity';
+import Link from 'next/link';
+import { scoreAvailable, reportVerdict, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
-import { copy, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
+import { calculatePropertyScore, formatScore, scoreConfidence, scoreConfidenceLabel } from '@/lib/property-score';
+import { copy, localePath, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { AdSlot } from './AdSlot';
@@ -108,6 +109,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
     ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
   ];
   const propertyScore = calculatePropertyScore(report);
+  const verdict = reportVerdict(report, locale);
+  const verdictText = /[.!?]$/.test(verdict) ? verdict : `${verdict}.`;
   const breakdown = propertyScore.breakdown;
   const showScore = scoreAvailable(report);
   const summary = localizedSummary(report, locale);
@@ -146,8 +149,13 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
       <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} />
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? propertyScore.total.toFixed(1) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{showScore ? text.scoreExplainer : (locale === 'de' ? 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.' : 'No score while key facts are missing or conflicting.')}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{showScore ? breakdown[key as keyof typeof breakdown].toFixed(1) : '—'}</b></span>)}</div></div></details></div>
-        <div className="verdict-copy"><h2>{reportVerdict(report, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreConfidenceLabel(scoreConfidence(report), locale)}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{scoreExplanation(report, locale)}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => {
+          const value = breakdown[key as keyof typeof breakdown];
+          const unscored = value === null;
+          const figure = unscored || !showScore ? '—' : formatScore(value, locale);
+          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label} <b>{figure}</b>{unscored ? <em>{text.priceNotScored}</em> : null}</span>;
+        })}</div><Link className="score-method-link" href={localePath(locale, '/method')}>{text.howWeReview}</Link></div></details></div>
+        <div className="verdict-copy"><h2>{verdictText}</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
       {clarify.length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{clarify.map(w => <p key={w}>{w}</p>)}</section> : null}

@@ -1,8 +1,8 @@
-import { scoreAvailable, reportVerdict } from '@/lib/report-integrity';
+import { scoreAvailable, reportVerdict, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
-import { copy, financeFootnote, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, scoreConfidence, scoreConfidenceLabel } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -67,7 +67,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-hero">
         <div><p>{labels.document}</p><h1>{reportTitle(report, locale)}</h1>{subtitle ? <h2>{subtitle}</h2> : null}</div>
-        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? score.total.toFixed(1) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{reportVerdict(report, locale)}</em></div>
+        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{reportVerdict(report, locale)}</em><small className="print-confidence">{scoreConfidenceLabel(scoreConfidence(report), locale)}</small></div>
       </section>
 
       <section className="print-summary">{summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</section>
@@ -101,10 +101,15 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-split print-section print-bottom">
         <div><h3>{labels.location}</h3><p><strong>{mapsUrl ? <a href={mapsUrl}>{location.mapLabel || subtitle}<span aria-hidden="true">↗</span></a> : location.mapLabel || subtitle}</strong></p>{!location.exact ? <p>{labels.approximate}</p> : null}</div>
-        <div><h3>{labels.details}</h3><div className="print-score-grid">{Object.entries(reportText.components).map(([key, label]) => <span key={key}>{label}<b>{showScore ? score.breakdown[key as keyof typeof score.breakdown].toFixed(1) : '—'}</b></span>)}</div></div>
+        <div><h3>{labels.details}</h3><div className="print-score-grid">{Object.entries(reportText.components).map(([key, label]) => {
+          const value = score.breakdown[key as keyof typeof score.breakdown];
+          const unscored = value === null;
+          const figure = unscored || !showScore ? '—' : formatScore(value, locale);
+          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label}<b>{figure}</b>{unscored ? <em>{reportText.priceNotScored}</em> : null}</span>;
+        })}</div></div>
       </section>
 
-      <p className="print-section">{reportText.scoreExplainer}</p>
+      <p className="print-section">{scoreExplanation(report, locale)} <a href={localePath(locale, '/method')}>{reportText.howWeReview}</a></p>
       {warnings.length ? <section className="print-section print-warnings"><h3>{labels.notes}</h3><ul>{warnings.map(item => <li key={item}>{item}</li>)}</ul></section> : null}
 
       <footer className="print-footer">
