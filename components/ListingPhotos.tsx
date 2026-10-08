@@ -3,24 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { copy, type Locale } from '../lib/i18n.ts';
 import { plainNumber } from '../lib/format.ts';
-import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow } from '../lib/listing-photos.ts';
-import { listingPhotoSrc, nextActiveUrl, nextPhotoAttempt } from '../lib/photo-viewer.ts';
+import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
+import { nextActiveUrl, nextPhotoAttempt } from '../lib/photo-viewer.ts';
 import { PhotoViewer } from './PhotoViewer.tsx';
 
-export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; listingUrl: string; locale: Locale }) {
+export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?: string[]; listingUrl: string; locale: Locale; renderedAt?: number }) {
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
-  // The cached document is rendered once. Expiry is applied after mount so a
-  // stored page does not keep an image whose `exp` has since passed.
-  const [now, setNow] = useState<number | null>(null);
+  // Expiry is decided on the server. A cached document still drops a link
+  // whose `exp` passes after that render, once the browser has mounted.
+  const [now, setNow] = useState(() => renderedAt ?? Date.now());
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const activeRef = useRef<string | null>(null);
   useEffect(() => {
     setNow(Date.now());
   }, []);
-  const photos = now === null
-    ? displayableListingPhotos(urls).filter((url) => !failed.has(url))
-    : listingPhotosToShow(urls, failed, now);
+  const photos = listingPhotosToShow(urls, failed, now);
   const photosRef = useRef(photos);
   photosRef.current = photos;
   activeRef.current = activeUrl;
@@ -71,6 +69,8 @@ export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; l
     .replaceAll('{n}', plainNumber(position, locale))
     .replaceAll('{total}', plainNumber(total, locale));
   const activeIndex = activeUrl ? photos.indexOf(activeUrl) : -1;
+  const order = displayableListingPhotos(urls);
+  const thumbFor = (url: string) => listingThumbnailUrl(url, listingUrl, Math.max(0, order.indexOf(url)));
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
     <p id="listing-photos-caption" className="listing-photos-caption">{text.photosCaption}</p>
@@ -91,7 +91,7 @@ export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; l
         }}
       >
         <img
-          src={listingPhotoSrc(url, 'thumb')}
+          src={thumbFor(url)}
           alt=""
           width={160}
           height={120}
@@ -113,6 +113,7 @@ export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; l
     </div>
     {activeIndex >= 0 ? <PhotoViewer
       photos={photos}
+      thumbs={photos.map(thumbFor)}
       index={activeIndex}
       listingUrl={listingUrl}
       locale={locale}

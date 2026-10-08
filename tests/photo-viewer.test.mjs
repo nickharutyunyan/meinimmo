@@ -5,7 +5,6 @@ import { photoCount } from '../lib/format.ts';
 import { copy } from '../lib/i18n.ts';
 import {
   applyViewerKey,
-  listingPhotoSrc,
   nextActiveUrl,
   nextPhotoAttempt,
   photosWithoutFailures,
@@ -71,23 +70,6 @@ test('broken images are skipped, dropped from the count, and an empty set stays 
 
   assert.equal(nextPhotoAttempt('https://cdn.example/a.jpg', 'https://cdn.example/a.jpg?size=thumb'), 'https://cdn.example/a.jpg');
   assert.equal(nextPhotoAttempt('https://cdn.example/a.jpg', 'https://cdn.example/a.jpg'), null);
-});
-
-test('signed photo URLs stay verbatim and an unsigned fit can change size', () => {
-  const signed = 'https://media.ohne-makler.net/rs:fit:1920:1080/q:90/abc?sig=1&exp=2';
-  assert.equal(listingPhotoSrc(signed, 'thumb'), signed);
-  assert.equal(listingPhotoSrc(signed, 'large'), signed);
-  const expiring = 'https://media.ohne-makler.net/rs:fit:1920:1080/q:90/abc?exp=2';
-  assert.equal(listingPhotoSrc(expiring, 'thumb'), expiring);
-  const plain = 'https://media.ohne-makler.net/a.jpg';
-  assert.equal(listingPhotoSrc(plain, 'thumb'), plain);
-  assert.equal(listingPhotoSrc(plain, 'large'), plain);
-  const open = 'https://media.ohne-makler.net/rs:fit:1920:1080/q:90/abc';
-  assert.equal(listingPhotoSrc(open, 'thumb'), 'https://media.ohne-makler.net/rs:fit:320:240/q:90/abc');
-  assert.equal(listingPhotoSrc(open, 'large'), open);
-  const small = 'https://media.ohne-makler.net/rs:fit:320:240/q:90/abc';
-  assert.equal(listingPhotoSrc(small, 'thumb'), small);
-  assert.equal(listingPhotoSrc(small, 'large'), 'https://media.ohne-makler.net/rs:fit:1920:1080/q:90/abc');
 });
 
 test('viewer copy is the specified English and German text', async () => {

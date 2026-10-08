@@ -1,9 +1,9 @@
 import type { Report } from './types';
 import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
-import { missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
+import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100803;
+export const EXTRACTION_VERSION = 2026100804;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
@@ -37,7 +37,13 @@ export function reportConflicts(report: Report) {
   if (/^New build$/i.test(f.condition || '') && Number(f.year) < Number(report.createdAt.slice(0, 4)) - 5) problems.push('Construction year and new-build condition conflict. Confirm the actual condition.');
   // A separately priced garage stays a data note. It is not a conflict and must not withhold the score.
   // A table-vs-text tenancy that R3 already resolved to one status is not a contradiction either.
-  problems.push(...(report.qualityWarnings || []).filter(w => CONFLICT_NOTE.test(w) && !/separately quotes/i.test(w)));
+  // An energy class one step off the stated demand is a data note. Two or more classes apart still conflict.
+  const adjacentEnergy = energyClassGap(report) === 1;
+  problems.push(...(report.qualityWarnings || []).filter(w => {
+    if (!CONFLICT_NOTE.test(w) || /separately quotes/i.test(w)) return false;
+    if (adjacentEnergy && /class and consumption|one step off the stated demand/i.test(w)) return false;
+    return true;
+  }));
   return [...new Set(problems)];
 }
 
@@ -48,8 +54,30 @@ export function scoreAvailable(report: Report) {
   if (!report.facts.city) return false;
   if (report.typeSource === 'fallback') return false;
   // Missing walking times and sun orientation never withhold. Only a real conflict, or 4 or fewer key facts, does.
+  // A confidence cap (leasehold, tenancy, no local prices, one energy step) does not withhold by itself.
   if (reportConflicts(report).length > 0) return false;
-  return scoreConfidence(report).level !== 'low';
+  return scoreConfidence(report).present >= 5;
+}
+
+/**
+ * The number the API returns. Pages already recompute the rubric; this keeps
+ * a saved row from serving a null score after a refresh that did not write one.
+ */
+export function attachCalculatedScore<T extends Report>(report: T): T {
+  if (report.country === 'AM') return report;
+  if (!scoreAvailable(report)) {
+    if (report.score == null && report.scoreBreakdown == null) return report;
+    return { ...report, score: null, scoreBreakdown: undefined };
+  }
+  const calculation = calculatePropertyScore(report);
+  if (report.score === calculation.total && sameBreakdown(report.scoreBreakdown, calculation.breakdown)) return report;
+  return { ...report, score: calculation.total, scoreBreakdown: calculation.breakdown };
+}
+
+function sameBreakdown(stored: Report['scoreBreakdown'], next: Report['scoreBreakdown']) {
+  if (!stored || !next) return false;
+  const keys = ['price', 'neighborhood', 'space', 'building', 'energy', 'light', 'costs', 'source'] as const;
+  return keys.every((key) => stored[key] === next[key]);
 }
 
 type ConflictTopic = 'rental' | 'rooms' | 'energy' | 'price' | 'year' | 'address' | 'source';

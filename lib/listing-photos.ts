@@ -107,6 +107,30 @@ export function listingPhotosToShow(urls: readonly string[] | undefined, failed:
 }
 
 /**
+ * A 160px thumbnail should not download a 1920px frame.
+ * An unsigned imgproxy URL can be resized in place. A signed URL cannot:
+ * changing the size breaks the signature. When the listing URL names an
+ * `/immobilie/{id}/` page, the portal's own `picture/{n}/medium.jpg` is used
+ * instead. Anything else stays as stored.
+ */
+export function listingThumbnailUrl(photoUrl: string, listingUrl: string, index: number) {
+  let url: URL;
+  try {
+    url = new URL(photoUrl);
+  } catch {
+    return photoUrl;
+  }
+  if (!/\/rs:fit:\d+:\d+\//.test(url.pathname)) return photoUrl;
+  if (!url.searchParams.has('sig')) {
+    url.pathname = url.pathname.replace(/\/rs:fit:\d+:\d+\//, '/rs:fit:320:240/');
+    return url.toString();
+  }
+  const listingId = /\/immobilie\/(\d+)(?:\/|$|\?)/.exec(listingUrl)?.[1];
+  if (!listingId || !Number.isInteger(index) || index < 0 || index > 40) return photoUrl;
+  return `https://www.ohne-makler.net/immobilie/${listingId}/picture/${index}/medium.jpg`;
+}
+
+/**
  * Up to 8 absolute https image URLs from og:image, JSON-LD images, gallery
  * <img>/srcset, and lightbox anchors. Query strings are kept verbatim. One
  * forward pass: no regex over the document and no nested quantifiers.

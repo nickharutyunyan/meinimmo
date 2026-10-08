@@ -30,7 +30,7 @@ const glossary = [
 ] as const;
 
 const definitions = new Map(glossary.flatMap(entry => entry.terms.map(term => [term.toLocaleLowerCase('de-DE'), entry.explanation] as const)));
-const matcher = new RegExp(`(${[...definitions.keys()].sort((a, b) => b.length - a.length).map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'giu');
+const matcher = new RegExp(`(?<![\\p{L}\\p{N}])(${[...definitions.keys()].sort((a, b) => b.length - a.length).map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 
 export type GlossaryPiece = { text: string; explanation?: string };
 

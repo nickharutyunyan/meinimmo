@@ -5,10 +5,6 @@
 
 export type PhotoViewerCommand = 'previous' | 'next' | 'close';
 
-const THUMB_FIT = '320:240';
-const LARGE_FIT = '1920:1080';
-const FIT_PREFIX = '/rs:fit:';
-
 export function photoViewerCommand(key: string): PhotoViewerCommand | null {
   if (key === 'ArrowLeft') return 'previous';
   if (key === 'ArrowRight') return 'next';
@@ -67,42 +63,7 @@ export function trappedFocusIndex(current: number, count: number, backwards: boo
   return current === count - 1 ? 0 : current + 1;
 }
 
-function accessControlled(url: string) {
-  return url.includes('?sig=') || url.includes('&sig=') || url.includes('?exp=') || url.includes('&exp=');
-}
-
-function digits(value: string) {
-  if (!value) return false;
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    if (code < 48 || code > 57) return false;
-  }
-  return true;
-}
-
-/** A derived size failed. Try the stored URL once; null means that URL itself failed. */
+/** A derived thumbnail failed. Try the stored URL once; null means that URL itself failed. */
 export function nextPhotoAttempt(stored: string, attempted: string) {
   return attempted && attempted !== stored ? stored : null;
-}
-
-/**
- * Hotlink the stored URL. Signed and expiring links stay verbatim, because a
- * different imgproxy size would fail the signature. An unsigned `rs:fit` size
- * uses the small fit on the strip and the large fit in the viewer.
- */
-
-export function listingPhotoSrc(url: string, size: 'thumb' | 'large') {
-  if (accessControlled(url)) return url;
-  const at = url.indexOf(FIT_PREFIX);
-  if (at < 0) return url;
-  const sizeStart = at + FIT_PREFIX.length;
-  const slash = url.indexOf('/', sizeStart);
-  if (slash < 0) return url;
-  const dims = url.slice(sizeStart, slash);
-  const colon = dims.indexOf(':');
-  if (colon <= 0 || colon !== dims.lastIndexOf(':')) return url;
-  if (!digits(dims.slice(0, colon)) || !digits(dims.slice(colon + 1))) return url;
-  const replacement = size === 'thumb' ? THUMB_FIT : LARGE_FIT;
-  if (dims === replacement) return url;
-  return `${url.slice(0, sizeStart)}${replacement}${url.slice(slash)}`;
 }

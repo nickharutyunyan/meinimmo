@@ -2,7 +2,7 @@ import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from 
 import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -10,7 +10,7 @@ import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
-import { area, money, percent } from '@/lib/format';
+import { area, money, moneyPerSqm, percent } from '@/lib/format';
 
 type FinanceSettings = { equity: number; interest: number; repayment: number; includeHousegeld: boolean };
 
@@ -34,7 +34,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   const localized = (value?: string) => localizedValue(value, locale);
   const facts: Array<[string, string]> = [
     ...(report.facts.price ? [[reportText.asking, money(report.facts.price, locale)] as [string, string]] : []),
-    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, money(report.facts.price / report.facts.area, locale)] as [string, string]] : []),
+    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, moneyPerSqm(report.facts.price / report.facts.area, locale)] as [string, string]] : []),
     ...(report.facts.area ? [[reportText.living, area(report.facts.area, locale)] as [string, string]] : []),
     ...(report.facts.plotArea ? [[reportText.plot, area(report.facts.plotArea, locale)] as [string, string]] : []),
     ...(report.facts.usableArea ? [[reportText.usable, area(report.facts.usableArea, locale)] as [string, string]] : []),
@@ -68,7 +68,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-hero">
         <div><p>{labels.document}</p><h1>{reportTitle(report, locale)}</h1>{subtitle ? <h2>{subtitle}</h2> : null}</div>
-        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{verdict}</em>{basis !== verdict ? <small className="print-confidence">{basis}</small> : null}</div>
+        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{verdict}</em>{basis !== verdict ? <small className="print-confidence">{basis}</small> : null}{showScore && priceNotCheckedLine(report, locale) ? <small className="print-confidence">{priceNotCheckedLine(report, locale)}</small> : null}{showScore ? score.adjustments.map((item) => <small className="print-confidence" key={item.id}>{scoreAdjustmentLine(item, locale)}</small>) : null}</div>
       </section>
 
       <section className="print-summary">{summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</section>

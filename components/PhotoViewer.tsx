@@ -4,7 +4,7 @@ import { useEffect, useRef, type MouseEvent, type TouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { copy, type Locale } from '../lib/i18n.ts';
 import { photoCount, plainNumber } from '../lib/format.ts';
-import { applyViewerKey, listingPhotoSrc, nextPhotoAttempt, stepPhoto, swipeCommand, trappedFocusIndex } from '../lib/photo-viewer.ts';
+import { applyViewerKey, nextPhotoAttempt, stepPhoto, swipeCommand, trappedFocusIndex } from '../lib/photo-viewer.ts';
 
 const FOCUSABLE = 'button:not([disabled]), a[href]';
 
@@ -14,6 +14,7 @@ function focusable(dialog: HTMLElement) {
 
 export function PhotoViewer({
   photos,
+  thumbs,
   index,
   listingUrl,
   locale,
@@ -22,6 +23,7 @@ export function PhotoViewer({
   onFail,
 }: {
   photos: readonly string[];
+  thumbs: readonly string[];
   index: number;
   listingUrl: string;
   locale: Locale;
@@ -105,7 +107,7 @@ export function PhotoViewer({
         }
         failRef.current(url);
       };
-      img.src = listingPhotoSrc(url, 'large');
+      img.src = url;
       images.push(img);
     }
     return () => {
@@ -158,7 +160,7 @@ export function PhotoViewer({
       <div className="photo-viewer-frame" onMouseDown={backdrop}>
         <img
           key={current}
-          src={listingPhotoSrc(current, 'large')}
+          src={current}
           alt={alt(index + 1)}
           referrerPolicy="no-referrer"
           decoding="async"
@@ -186,7 +188,7 @@ export function PhotoViewer({
         onClick={() => onSelect(thumbIndex)}
       >
         <img
-          src={listingPhotoSrc(url, 'thumb')}
+          src={thumbs[thumbIndex] || url}
           alt=""
           width={72}
           height={54}

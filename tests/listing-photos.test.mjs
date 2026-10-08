@@ -9,8 +9,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import esbuild from 'esbuild';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
-import { LISTING_IMAGE_HOSTS } from '../lib/listing-image-hosts.ts';
-import { displayableListingPhotos, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotosExpireAt, listingPhotosToShow } from '../lib/listing-photos.ts';
+import { LISTING_IMAGE_HOSTS, LISTING_THUMBNAIL_HOSTS } from '../lib/listing-image-hosts.ts';
+import { displayableListingPhotos, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotosExpireAt, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { copy } from '../lib/i18n.ts';
 
@@ -137,7 +137,7 @@ test('listing photo hosts in CSP img-src are exactly the shared allowlist', asyn
     'https://*.analytics.google.com',
   ];
   const img = sources(CONTENT_SECURITY_POLICY, 'img-src');
-  assert.deepEqual(img.filter((item) => !baseline.includes(item)), [...LISTING_IMAGE_HOSTS]);
+  assert.deepEqual(img.filter((item) => !baseline.includes(item)), [...LISTING_IMAGE_HOSTS, ...LISTING_THUMBNAIL_HOSTS]);
   assert.equal(img.includes('https:'), false);
   assert.deepEqual(sources(CONTENT_SECURITY_POLICY, 'script-src'), [
     "'self'", "'unsafe-inline'", 'https://www.googletagmanager.com', 'https://cdnjs.cloudflare.com',
@@ -197,24 +197,36 @@ test('report overview renders EN and DE captions and print and compare omit phot
     listingUrl,
     locale: 'en',
   }));
-  assert.ok(mixed.includes('old.jpg'), 'the cached document keeps the signed URL');
+  assert.equal(mixed.includes('old.jpg'), false);
   assert.ok(mixed.includes(future) || mixed.includes(future.replaceAll('&', '&amp;')));
   assert.equal(mixed.includes(plain), true);
-  assert.equal(mixed.includes('Photo 1 of 3'), true);
-  assert.equal(mixed.includes('Photo 3 of 3'), true);
+  assert.equal(mixed.includes('Photo 1 of 2'), true);
+  assert.equal(mixed.includes('Photo 2 of 2'), true);
   const cachedExpired = renderToStaticMarkup(createElement(ListingPhotos, {
     urls: [expired, `${CDN}/also-old.jpg?exp=2`],
     listingUrl,
     locale: 'de',
+    renderedAt: Date.now(),
   }));
-  assert.equal(cachedExpired.includes('old.jpg'), true);
-  assert.equal(cachedExpired.includes('also-old.jpg'), true);
+  assert.equal(cachedExpired.includes('old.jpg'), false);
+  assert.equal(cachedExpired.includes('also-old.jpg'), false);
   const source = await readFile(new URL('../components/ListingPhotos.tsx', import.meta.url), 'utf8');
-  assert.match(source, /useState<number \| null>\(null\)/);
+  assert.match(source, /renderedAt \?\? Date\.now\(\)/);
   assert.match(source, /useEffect\(\(\) => \{\s*setNow\(Date\.now\(\)\);/);
   assert.match(source, /listingPhotosToShow\(urls, failed, now\)/);
   assert.deepEqual(listingPhotosToShow([expired, future, plain], new Set(), Date.now()), [future, plain]);
   assert.deepEqual(listingPhotosToShow([expired, `${CDN}/also-old.jpg?exp=2`], new Set(), Date.now()), []);
+  const thumbSigned = `${CDN}/rs:fit:1920:1080/q:90/plain/photo.jpg?sig=YcsrfoeC&exp=9999999999`;
+  const thumbExpired = `${CDN}/rs:fit:1920:1080/q:90/plain/old.jpg?sig=YcsrfoeC&exp=1`;
+  const thumbs = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: [thumbExpired, thumbSigned],
+    listingUrl,
+    locale: 'en',
+    renderedAt: Date.now(),
+  }));
+  assert.equal(thumbs.includes('old.jpg'), false);
+  assert.equal(thumbs.includes('rs:fit:1920'), false);
+  assert.match(thumbs, /picture\/1\/medium\.jpg/);
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');
 
@@ -224,6 +236,17 @@ test('report overview renders EN and DE captions and print and compare omit phot
   const compare = await readFile(new URL('../components/ComparisonView.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(print, /ListingPhotos|photoUrls|listing-photos|photosCaption/);
   assert.doesNotMatch(compare, /ListingPhotos|photoUrls|listing-photos|photosCaption/);
+});
+
+test('thumbnails use a smaller frame when the URL scheme allows it', () => {
+  const signed = `${CDN}/rs:fit:1920:1080/q:90/plain/photo.jpg?sig=YcsrfoeC&exp=9999999999`;
+  const listing = 'https://www.ohne-makler.net/immobilie/502729/';
+  assert.equal(listingThumbnailUrl(signed, listing, 2), 'https://www.ohne-makler.net/immobilie/502729/picture/2/medium.jpg');
+  assert.equal(listingThumbnailUrl(signed, 'https://example.test/paste', 2), signed);
+  const open = `${CDN}/rs:fit:1920:1080/q:90/plain/photo.jpg`;
+  assert.equal(listingThumbnailUrl(open, listing, 0), `${CDN}/rs:fit:320:240/q:90/plain/photo.jpg`);
+  const expired = `${CDN}/rs:fit:1920:1080/q:90/plain/old.jpg?sig=YcsrfoeC&exp=1`;
+  assert.deepEqual(listingPhotosToShow([expired], new Set(), Date.now()), []);
 });
 
 test('adversarial photo markup stays inside the parse budget', () => {
