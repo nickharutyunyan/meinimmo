@@ -93,6 +93,11 @@
 .print-facts small,
 .print-finance-grid small { display: block; margin-bottom: 2mm; color: #718079; font-size: 8.5px; }
 .print-facts strong { font-size: 11px; line-height: 1.35; }
+.print-facts sup { margin-left: .5px; font-size: 8px; }
+.print-sources { margin-top: 4mm; }
+.print-sources h3 { margin: 0 0 2mm; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.print-sources ol { margin: 0; padding-left: 5mm; }
+.print-sources li { margin: 0 0 1.5mm; color: #3e4e48; font-size: 10px; line-height: 1.4; }
 
 .print-split { gap: 10mm; }
 .print-split h3 { margin-bottom: 4mm; }
@@ -115,6 +120,11 @@
 .print-finance-grid small { color: #aebcb5; }
 .print-finance-grid strong { font-size: 10px; }
 .print-finance > p { grid-column: 1 / -1; margin: 0; padding-top: 3mm; border-top: 1px solid rgb(255 255 255 / 16%); color: #aebcb5; font-size: 7.5px; line-height: 1.45; }
+.print-buyer-costs { grid-column: 1 / -1; width: 100%; border-collapse: collapse; color: #f7f4ec; font-size: 8px; line-height: 1.35; }
+.print-buyer-costs caption { caption-side: top; margin: 0 0 2mm; padding-top: 3mm; border-top: 1px solid rgb(255 255 255 / 16%); text-align: left; font-weight: 700; }
+.print-buyer-costs th, .print-buyer-costs td { padding: 1.4mm 2mm 1.4mm 0; border-top: 1px solid rgb(255 255 255 / 12%); vertical-align: top; text-align: left; font-weight: 400; }
+.print-buyer-costs th { width: 38%; }
+.print-buyer-costs td:nth-child(2) { width: 24%; white-space: nowrap; }
 
 .print-bottom p { margin: 0 0 2mm; color: #65766f; font-size: 10px; line-height: 1.45; }
 .print-bottom p strong { color: var(--ink); }

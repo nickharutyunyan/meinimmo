@@ -13,6 +13,8 @@ import { comparisonPriceNotes, comparisonScoreText, visibleComparisonRows } from
 import { redFlagSummary } from '@/lib/red-flags';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
+import { acquisitionCosts } from '@/lib/finance';
+import { buyerCostComparisonValue } from '@/lib/buyer-costs';
 import { area, money, moneyPerSqm, percent } from '@/lib/format';
 
 function scoreCell(item: Report, locale: Locale) {
@@ -53,11 +55,19 @@ export function ComparisonView({ first, second, locale }: { first: Report; secon
   const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld, locale)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
   const amount = (value?: number) => value ? money(value, locale) : '—';
   const space = (value?: number) => value ? area(value, locale) : '—';
+  const acquisition = (item: Report) => {
+    const costs = acquisitionCosts(item);
+    if (!costs.price && !costs.buyerCosts) return '—';
+    const low = money(costs.total, locale);
+    const high = costs.totalHigh === undefined ? low : money(costs.totalHigh, locale);
+    return low === high ? low : `${low}–${high}`;
+  };
   const rows = visibleComparisonRows([
     [text.address, address(first), address(second)],
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
     [text.asking, amount(first.facts.price), amount(second.facts.price)],
-    [text.acquisition, amount(first.facts.totalCost), amount(second.facts.totalCost)],
+    [text.acquisition, acquisition(first), acquisition(second)],
+    [text.buyerCosts, buyerCostComparisonValue(first, locale), buyerCostComparisonValue(second, locale)],
     [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', amount(first.facts.parkingPrice), amount(second.facts.parkingPrice)],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
     [text.perSqm, first.facts.price && first.facts.area ? moneyPerSqm(first.facts.price / first.facts.area, locale) : '—', second.facts.price && second.facts.area ? moneyPerSqm(second.facts.price / second.facts.area, locale) : '—'],

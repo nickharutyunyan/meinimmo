@@ -204,19 +204,3 @@ export function reportVerdict(report: Report, locale: 'en' | 'de') {
   if (!scoreAvailable(report)) return withholdReason(report, locale);
   return locale === 'de' ? 'Einordnung der Angebotsangaben' : 'Assessment of the listing’s stated facts';
 }
-
-export function evidenceForFacts(lines: string[], facts: Report['facts']) {
-  const fields: Record<string, RegExp> = {
-    price: /Kaufpreis|purchase price|asking price/i, area: /Wohnfläche|living area/i,
-    rooms: /Zimmer|rooms/i, year: /Baujahr|built|errichtet|erbaut/i,
-    condition: /Zustand|gepflegt|renoviert|saniert|modernisierung|verbesserungsbedürftig/i,
-    occupancy: /vermietet|bewohnt|Bewohner|bezugsfrei|verfügbar|unvermietet/i,
-    buyerCosts: /Kaufnebenkosten|Gesamtkosten|Kaufpreis Garage|Kaufpreis Stellplatz/i, housegeld: /Hausgeld|Community fees/i,
-    location: /\b\d{5}\s+[A-ZÄÖÜ]|^(?:Adresse|Anschrift|Ort|Stadtteil)/u,
-    floor: /Etage|Stockwerk|Obergeschoss|Hochparterre/i,
-    energy: /Energieeffizienzklasse|Endenergie|Energieträger|Heizungsart|Heizung/i,
-  };
-  return Object.fromEntries(Object.entries(fields).map(([field, pattern]) => [field,
-    lines.flatMap((line, index) => pattern.test(line) && (field !== 'location' || (Boolean(facts.postalCode && line.includes(facts.postalCode)) && !/Gewerblich|Kontakt|GmbH|Ansprechpartner/i.test(line))) ? [`${line}${field !== 'location' && line.length < 35 ? ` ${lines[index + 1] || ''}` : ''}`.slice(0, 650)] : []).slice(0, 5),
-  ]));
-}

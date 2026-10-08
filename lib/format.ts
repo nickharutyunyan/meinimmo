@@ -36,6 +36,13 @@ export function money(value: unknown, locale: Locale) {
   return currency(amount, locale, currencyDigits(amount));
 }
 
+/** Whole euros, including zero: EN `€0`, DE `0 €`. */
+export function moneyEuros(value: unknown, locale: Locale) {
+  const amount = finite(value);
+  if (amount === undefined) return '';
+  return currency(Math.round(amount), locale, 0);
+}
+
 /** EN `€5,733/m²`. DE `5.733 €/m²`. */
 export function moneyPerSqm(value: unknown, locale: Locale) {
   const amount = finite(value);

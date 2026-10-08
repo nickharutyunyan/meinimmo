@@ -6,11 +6,15 @@ import { formatScore, grossYieldLine, priceNotCheckedLine, priceUnscoredLabel, s
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
+import { buyerCostView } from '@/lib/buyer-costs';
 import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
 import { area, money, moneyPerSqm, percent } from '@/lib/format';
+import { printSourceNotes } from '@/lib/fact-provenance';
+import { factSourceCopy } from '@/lib/fact-source-copy';
+import type { FeedbackField } from '@/lib/fact-provenance';
 
 type FinanceSettings = { equity: number; interest: number; repayment: number; includeHousegeld: boolean };
 
@@ -28,27 +32,39 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   const questions = questionsAreConcise(storedQuestions) ? storedQuestions : offerQuestionsFor(report, locale);
   const location = resolveLocation(report);
   const subtitle = reportSubtitle(report);
-  const costs = acquisitionCosts(report.facts);
+  const costs = acquisitionCosts(report);
+  const costView = buyerCostView(report, locale);
   const scenario = financingScenario({ total: costs.total, ...finance, housegeld: report.facts.housegeld });
+  const highScenario = financingScenario({ total: costs.totalHigh ?? costs.total, ...finance, housegeld: report.facts.housegeld });
+  const ranged = (low: number, high: number) => {
+    const start = money(low, locale);
+    const end = money(high, locale);
+    return start === end ? start : `${start}–${end}`;
+  };
   const known = (value?: string) => Boolean(value && !/not stated|unknown|not disclosed|could(?:n't| not) find/i.test(value));
   const localized = (value?: string) => localizedValue(value, locale);
-  const facts: Array<[string, string]> = [
-    ...(report.facts.price ? [[reportText.asking, money(report.facts.price, locale)] as [string, string]] : []),
-    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, moneyPerSqm(report.facts.price / report.facts.area, locale)] as [string, string]] : []),
-    ...(report.facts.area ? [[reportText.living, area(report.facts.area, locale)] as [string, string]] : []),
-    ...(report.facts.plotArea ? [[reportText.plot, area(report.facts.plotArea, locale)] as [string, string]] : []),
-    ...(report.facts.usableArea ? [[reportText.usable, area(report.facts.usableArea, locale)] as [string, string]] : []),
-    ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms)] as [string, string]] : []),
-    ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor)] as [string, string]] : []),
-    ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale)] as [string, string]] : []),
-    ...(known(report.facts.condition) ? [[reportText.condition, localized(report.facts.condition)] as [string, string]] : []),
-    ...(report.facts.soldAsIs ? [[de ? 'Verkauf' : 'Sale', de ? 'Ist-Zustand' : 'As-is'] as [string, string]] : []),
-    ...(report.facts.buyerCommission ? [[reportText.commission, localized(report.facts.buyerCommission)] as [string, string]] : []),
-    ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),
-    ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy)] as [string, string]] : []),
-    ...(known(report.facts.heating) || report.facts.energySource ? [[reportText.heating, `${known(report.facts.heating) ? localized(report.facts.heating) : ''}${report.facts.energySource ? `${known(report.facts.heating) ? ' · ' : ''}${localized(report.facts.energySource)}` : ''}`] as [string, string]] : []),
-    ...(report.facts.housegeld ? [['Hausgeld', `${money(report.facts.housegeld, locale)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`] as [string, string]] : []),
+  const facts: Array<[string, string, FeedbackField]> = [
+    ...(report.facts.price ? [[reportText.asking, money(report.facts.price, locale), 'price'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, moneyPerSqm(report.facts.price / report.facts.area, locale), 'perSqm'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.area ? [[reportText.living, area(report.facts.area, locale), 'area'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.plotArea ? [[reportText.plot, area(report.facts.plotArea, locale), 'plotArea'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.usableArea ? [[reportText.usable, area(report.facts.usableArea, locale), 'usableArea'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms), 'rooms'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor), 'floor'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale), 'tenancy'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.condition) ? [[reportText.condition, localized(report.facts.condition), 'condition'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.soldAsIs ? [[de ? 'Verkauf' : 'Sale', de ? 'Ist-Zustand' : 'As-is', 'condition'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.buyerCommission ? [[reportText.commission, localized(report.facts.buyerCommission), 'buyerCommission'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year), 'year'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy), 'energy'] as [string, string, FeedbackField]] : []),
+    ...(known(report.facts.heating) || report.facts.energySource ? [[reportText.heating, `${known(report.facts.heating) ? localized(report.facts.heating) : ''}${report.facts.energySource ? `${known(report.facts.heating) ? ' · ' : ''}${localized(report.facts.energySource)}` : ''}`, 'heating'] as [string, string, FeedbackField]] : []),
+    ...(report.facts.housegeld ? [['Hausgeld', `${money(report.facts.housegeld, locale)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`, 'housegeld'] as [string, string, FeedbackField]] : []),
   ];
+  const printedFields = new Set(facts.map(([, , field]) => field));
+  const sources = printSourceNotes(report, locale)
+    .filter(note => printedFields.has(note.field) || (note.field === 'energyDemand' && printedFields.has('energy')))
+    .map((note, index) => ({ ...note, n: index + 1 }));
+  const sourceMarks = (field: FeedbackField) => sources.filter(note => note.field === field || (field === 'energy' && note.field === 'energyDemand')).map(note => note.n);
   const labels = de ? {
     document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', originalListing: 'Original-Inserat', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Kalkulationszins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF', redFlags: 'Warnsignale', redFlagsEmpty: 'Im Angebotstext keine Warnsignale gefunden. Das ist keine Garantie, prüfe die Unterlagen.', serious: 'Ernst', check: 'Prüfen', fromListing: 'Aus dem Angebot:',
   } : {
@@ -75,7 +91,8 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-section">
         <h3>{labels.overview}</h3>
-        <div className="print-facts">{facts.map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+        <div className="print-facts">{facts.map(([label, value, field]) => <div key={`${field}-${label}`}><small>{label}</small><strong>{value}{sourceMarks(field).map(n => <sup key={n}>{n}</sup>)}</strong></div>)}</div>
+        {sources.length ? <div className="print-sources"><h3>{factSourceCopy[locale].sources}</h3><ol>{sources.map(note => <li key={note.field}><b>{note.label}.</b> {note.excerpt}</li>)}</ol></div> : null}
         {priceView.kind === 'matched' ? <p className="print-price-check">{priceView.lead} <a href={priceView.sourceUrl}>{priceView.sourceLabel}</a></p> : priceView.kind === 'unmatched' ? <p className="print-price-check">{priceView.message}</p> : null}
       </section>
 
@@ -90,13 +107,22 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
       </section>
 
       <section className="print-finance print-section">
-        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{money(scenario.knownOutlay, locale)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{money(scenario.loanPayment, locale)} {de ? 'Kredit' : 'loan'} + {money(report.facts.housegeld, locale)} Hausgeld</small> : null}</div>
+        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{ranged(scenario.knownOutlay, highScenario.knownOutlay)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{ranged(scenario.loanPayment, highScenario.loanPayment)} {de ? 'Kredit' : 'loan'} + {money(report.facts.housegeld, locale)} Hausgeld</small> : null}</div>
         <div className="print-finance-grid">
-          <div><small>{labels.loanPayment}</small><strong>{money(scenario.loanPayment, locale)}</strong></div>
+          <div><small>{labels.loanPayment}</small><strong>{ranged(scenario.loanPayment, highScenario.loanPayment)}</strong></div>
           <div><small>{labels.equity}</small><strong>{money(finance.equity, locale)}</strong></div>
           <div><small>{labels.terms}</small><strong>{percent(finance.interest, locale)} + {percent(finance.repayment, locale, 1)}</strong></div>
-          <div><small>{labels.total}</small><strong>{money(costs.total, locale)}</strong></div>
+          <div><small>{labels.total}</small><strong>{costView.totalAmount}</strong></div>
         </div>
+        <table className="print-buyer-costs">
+          <caption>{costView.title}{costView.estimated ? ` ${costView.estimatedMark}` : ''}</caption>
+          <tbody>
+            {costView.rows.map(row => <tr key={row.key}><th scope="row">{row.label}</th><td>{row.amount || '—'}</td><td>{[row.share, row.basis].filter(Boolean).join(' · ')}</td></tr>)}
+          </tbody>
+        </table>
+        {costView.statedNote ? <p>{costView.statedNote}</p> : null}
+        {costView.divergence ? <p>{costView.divergence}</p> : null}
+        <p>{costView.footnote}</p>
         <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>
 

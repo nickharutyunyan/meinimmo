@@ -243,23 +243,45 @@ test('one Nominatim response stores the pin and the neighbourhood for a postal-o
 });
 
 test('cross-origin and oversized geocode queries are rejected before any lookup', () => {
-  const cross = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=Berlin', 'https://evil.example');
+  const cross = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=Berlin', new Headers({ origin: 'https://evil.example' }));
   assert.equal(cross.ok, false);
   assert.equal(cross.status, 403);
 
-  const missing = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=Berlin', null);
+  const missing = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=Berlin', new Headers());
   assert.equal(missing.ok, false);
   assert.equal(missing.status, 403);
 
-  const oversized = rejectGeocodeRequest(`https://reviewahouse.com/api/geocode?q=${'a'.repeat(GEOCODE_QUERY_LIMIT + 1)}`, 'https://reviewahouse.com');
+  const oversized = rejectGeocodeRequest(`https://reviewahouse.com/api/geocode?q=${'a'.repeat(GEOCODE_QUERY_LIMIT + 1)}`, new Headers({ origin: 'https://reviewahouse.com' }));
   assert.equal(oversized.ok, false);
   assert.equal(oversized.status, 400);
 
-  const allowed = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=M%C3%BCllerstra%C3%9Fe%2012&report=abc12345&country=AM', 'https://reviewahouse.com');
+  const allowed = rejectGeocodeRequest('https://reviewahouse.com/api/geocode?q=M%C3%BCllerstra%C3%9Fe%2012&report=abc12345&country=AM', new Headers({ origin: 'https://reviewahouse.com' }));
   assert.equal(allowed.ok, true);
   assert.equal(allowed.query, 'Müllerstraße 12');
   assert.equal(allowed.country, 'am');
   assert.equal(allowed.reportId, 'abc12345');
+});
+
+test('geocode allows apex and www browsers, including a GET with no Origin header', () => {
+  const cases = [
+    ['apex origin', 'https://reviewahouse.com/api/geocode?q=Erfde', { origin: 'https://reviewahouse.com' }, true],
+    ['www origin', 'https://www.reviewahouse.com/api/geocode?q=Erfde', { origin: 'https://www.reviewahouse.com' }, true],
+    ['apex browser omits Origin', 'https://reviewahouse.com/api/geocode?q=Erfde', { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors', referer: 'https://reviewahouse.com/r/a03cb4571cd91409' }, true],
+    ['www browser omits Origin', 'https://www.reviewahouse.com/api/geocode?q=Erfde', { 'sec-fetch-site': 'same-origin', referer: 'https://www.reviewahouse.com/de/r/a03cb4571cd91409' }, true],
+    ['german path referer without Origin or Sec-Fetch-Site', 'https://reviewahouse.com/api/geocode?q=Erfde', { referer: 'https://reviewahouse.com/de/r/a03cb4571cd91409' }, true],
+    ['english path referer without Origin or Sec-Fetch-Site', 'https://www.reviewahouse.com/api/geocode?q=Erfde', { referer: 'https://www.reviewahouse.com/r/a03cb4571cd91409' }, true],
+    ['foreign origin', 'https://reviewahouse.com/api/geocode?q=Erfde', { origin: 'https://evil.example', 'sec-fetch-site': 'same-origin', referer: 'https://reviewahouse.com/r/a03cb4571cd91409' }, false],
+    ['cross-site fetch', 'https://reviewahouse.com/api/geocode?q=Erfde', { 'sec-fetch-site': 'cross-site', referer: 'https://reviewahouse.com/r/a03cb4571cd91409' }, false],
+    ['www origin on the apex host', 'https://reviewahouse.com/api/geocode?q=Erfde', { origin: 'https://www.reviewahouse.com' }, false],
+    ['foreign referer and no browser headers', 'https://reviewahouse.com/api/geocode?q=Erfde', { referer: 'https://evil.example/r/a03cb4571cd91409' }, false],
+    ['no origin, no sec-fetch-site, no referer', 'https://reviewahouse.com/api/geocode?q=Erfde', {}, false],
+  ];
+  for (const [name, url, headers, ok] of cases) {
+    const decision = rejectGeocodeRequest(url, new Headers(headers));
+    assert.equal(decision.ok, ok, name);
+    if (!ok) assert.equal(decision.status, 403, name);
+    if (ok) assert.equal(decision.query, 'Erfde', name);
+  }
 });
 
 test('D1 cache round-trips a result and the rate-limit row spaces live calls', async () => {
@@ -418,7 +440,10 @@ test('views use a stored pin, comparisons do not call Nominatim, and every map s
   const migration = await read('migrations/0004_geocode_cache.sql');
 
   assert.match(location, /if \(hasStoredGeocode\(geocode\)\)/);
-  assert.ok(location.indexOf('hasStoredGeocode(geocode)') < location.indexOf('fetch(`/api/geocode'));
+  assert.ok(location.indexOf('hasStoredGeocode(geocode)') < location.indexOf('/api/geocode?'));
+  assert.match(location, /requestJson<Place>\([\s\S]*5_000\)/);
+  assert.match(location, /placeFromGeocodeResponse/);
+  assert.match(location, /osmExploreHref\(place,/);
   assert.match(location, /© OpenStreetMap contributors|text\.credit/);
   assert.equal(copy.en.map.credit, OSM_ATTRIBUTION);
   assert.equal(copy.de.map.credit, OSM_ATTRIBUTION);
@@ -431,8 +456,8 @@ test('views use a stored pin, comparisons do not call Nominatim, and every map s
   assert.match(comparison, /reportNeighborhood\(first\)/);
   assert.match(assess, /attachReportGeocode/);
   assert.doesNotMatch(assess, /neighborhoodForPostalCode/);
-  assert.match(route, /requireSameOrigin\(request\)/);
-  assert.match(route, /rejectGeocodeRequest/);
+  assert.doesNotMatch(route, /requireSameOrigin\(request\)/);
+  assert.match(route, /rejectGeocodeRequest\(request\.url, request\.headers\)/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS geocode_cache/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS geocode_rate_limit/);
   assert.ok(GEOCODE_CACHE_TTL_MS >= 30 * 24 * 60 * 60 * 1000);
