@@ -36,7 +36,7 @@ Report pages, print pages, Open Graph metadata and the sitemap serve the facts a
 
 A visitor re-imports one listing through the normal import form. That is the only request path that parses a listing the visitor just submitted.
 
-To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call loads at most 5 archived listings, stops once 8 seconds have passed, and saves either the new extraction or a failure marker. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
+To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call re-extracts at most 2 archived listings (`BACKFILL_BATCH_SIZE` may set 1–5) and does not start another once 800 ms of parse work is recorded, so the call stays under the Worker CPU limit. The response includes `remaining`. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
 
 ```bash
 npx wrangler secret put BACKFILL_TOKEN
@@ -44,7 +44,7 @@ curl -sS -X POST https://reviewahouse.com/api/reports/backfill \
   -H "Authorization: Bearer $BACKFILL_TOKEN"
 ```
 
-Repeat until `processed` is an empty array. For local preview, put `BACKFILL_TOKEN` in `.dev.vars` (never commit the value) and POST to that origin. A 401 means the secret is missing, shorter than 24 characters, or the header does not match.
+Repeat until `remaining` is 0. For local preview, put `BACKFILL_TOKEN` in `.dev.vars` (never commit the value) and POST to that origin. A 401 means the secret is missing, shorter than 24 characters, or the header does not match.
 
 ## Static pages and cached reports
 
