@@ -98,6 +98,31 @@ test('removes repeated neighborhoods and street phrases from titles', () => {
   assert.equal(reportTitle(street), '3-room flat · Danziger Straße 89');
 });
 
+test('does not treat a town-only address as a street in English or German', () => {
+  const house = {
+    title: '', source: 'test', propertyType: 'house', address: 'Erfde', location: 'Erfde',
+    facts: { rooms: '4', area: 126, year: '1998', city: 'Erfde', street: ' erfde ' },
+  };
+  const location = resolveLocation(house);
+  assert.equal(location.basis, 'city');
+  assert.equal(location.mapQuery, 'Erfde, Germany');
+  assert.equal(location.mapLabel, 'Erfde');
+  assert.equal(reportTitle(house), '4-room house · Erfde');
+  assert.equal(reportTitle(house, 'de'), '4-Zimmer-Haus · Erfde');
+  assert.equal(reportSubtitle(house), 'Erfde');
+  assert.doesNotMatch(location.mapQuery, /Erfde\s+Erfde/i);
+  assert.doesNotMatch(location.mapLabel, /Erfde\s+Erfde/i);
+
+  const withDistrict = { ...house, facts: { ...house.facts, district: 'Bargen', street: 'Erfde' } };
+  const districtLocation = resolveLocation(withDistrict);
+  assert.equal(districtLocation.basis, 'neighborhood');
+  assert.equal(districtLocation.mapLabel, 'Bargen, Erfde');
+  assert.equal(reportTitle(withDistrict), '4-room house · Bargen');
+  assert.equal(reportTitle(withDistrict, 'de'), '4-Zimmer-Haus · Bargen');
+  assert.doesNotMatch(districtLocation.mapQuery, /Erfde\s+Erfde/i);
+  assert.doesNotMatch(districtLocation.mapLabel, /Erfde\s+Erfde/i);
+});
+
 test('uses only property type when both rooms and area are unavailable', () => {
   const report = { ...base, propertyType: 'house', facts: { ...base.facts, rooms: 'not stated', area: 0, year: '2024' } };
   assert.equal(reportTitle(report), 'House · Prenzlauer Berg');
