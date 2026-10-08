@@ -20,7 +20,7 @@ Never put the OpenRouter key in `.env.example`, `.dev.vars.example`, `wrangler.j
 
 ## Continuous deployment
 
-Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
+Connect the GitHub repository in Cloudflare Workers Builds. Use `npm run deploy` as the deploy command. That command builds the Worker, copies prerendered HTML into the asset directory, and then deploys. Configure build-time values in the Cloudflare dashboard; keep runtime credentials as Worker secrets.
 
 There is no GitHub Actions workflow in this repository. `wrangler.jsonc` attaches the Worker to `reviewahouse.com` and `www.reviewahouse.com`, so a successful deploy publishes production. Whether a push to `main` triggers that deploy is set in the Cloudflare dashboard, not in git.
 
@@ -43,6 +43,14 @@ curl -sS -X POST https://reviewahouse.com/api/reports/backfill \
 ```
 
 Repeat until `processed` is an empty array. For local preview, put `BACKFILL_TOKEN` in `.dev.vars` (never commit the value) and POST to that origin. A 401 means the secret is missing, shorter than 24 characters, or the header does not match.
+
+## Static pages and cached reports
+
+Ordinary document requests for the home page, guide, terms, account shell, country landings, sitemap, and robots.txt are the prerendered files copied into Worker assets. Router data, `/api`, comparisons, and print still run in Next.js. The header loads sign-in state in the browser from `/api/auth/me`.
+
+`/r/[id]` and `/de/r/[id]` store their HTML in the Workers cache for the colo that rendered them. The key is the origin, the locale path, and the report id. Saving or replacing the report deletes those entries in that colo. The browser is sent `private, no-store`, and a stored entry expires after one day, which covers a colo the delete did not reach. Print stays uncached because each print reads the current mortgage rate.
+
+With `npm run preview` or `npx wrangler dev --port 8787` already running, `node scripts/measure-routes.mjs` prints time to first byte per route. `wrangler dev` reports wall time. Workers CPU time appears in production tail logs.
 
 ## Accounts and billing
 
