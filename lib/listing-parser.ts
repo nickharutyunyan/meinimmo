@@ -6,7 +6,8 @@ import { canonicalCondition } from './property-condition.ts';
 import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, splitSentences } from './red-flags.ts';
 import { money } from './format.ts';
 import { localizedConsiderations, localizedSummary } from './report-copy.ts';
-import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable } from './report-integrity.ts';
+import { factEvidence, isContactLine } from './fact-evidence.ts';
+import { EXTRACTION_VERSION, reportConflicts, scoreAvailable } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
@@ -787,7 +788,7 @@ export function parseListing(raw: string, source: string): Report {
   const conditionRaw = checkedCharacteristic(firstMatch(lines, /\b(?:Objektzustand|Bauzustand|Zustand|Condition)\b\s*[:\-]?\s*([^|;]{3,60})$/i)
     || aroundLabel(lines, /^(?:Objektzustand|Bauzustand|Zustand|Condition)$/i, /^(.{3,60})$/, 0, 2), 'condition');
   const locationStart = lines.findIndex(line => /^(?:Lage|Lagebeschreibung|Location)$/i.test(line));
-  const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart);
+  const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart).filter(line => !isContactLine(line));
   const condition = normalizedCondition(conditionRaw, `${title} ${propertyLines.join(' ').slice(0, 12_000)}`);
   const tenancyRaw = checkedCharacteristic(firstMatch(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)\s*[:\-]?\s+(.{3,45})$/i) || aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2), 'tenancy');
   const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
@@ -935,7 +936,7 @@ export function parseListing(raw: string, source: string): Report {
 
   const report: Report = {
     extractionVersion: EXTRACTION_VERSION,
-    evidence: evidenceForFacts(lines, facts),
+    factEvidence: factEvidence(lines, facts, address),
     id: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
     title: '',
     address,

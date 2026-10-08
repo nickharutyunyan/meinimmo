@@ -18,7 +18,15 @@ export function guardEnrichment(original: Report, candidate: Report): Report {
   }
   const aiFactChecked = Boolean(candidate.aiFactChecked) && !disputed;
   const aiLocationChecked = Boolean(candidate.aiLocationChecked) && !disputed;
-  return { ...candidate, facts, evidence: original.evidence, verificationAttempted: true, aiFactChecked, aiLocationChecked };
+  return {
+    ...candidate,
+    facts,
+    evidence: original.evidence,
+    factEvidence: { ...(original.factEvidence || {}), ...(candidate.factEvidence || {}) },
+    verificationAttempted: true,
+    aiFactChecked,
+    aiLocationChecked,
+  };
 }
 
 function sameFact(left: unknown, right: unknown) {

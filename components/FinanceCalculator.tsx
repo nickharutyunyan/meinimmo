@@ -7,6 +7,8 @@ import { copy, financeFootnote, type Locale } from '@/lib/i18n';
 import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/finance';
 import { GlossaryText } from './GlossaryText';
 import { money, percent } from '@/lib/format';
+import { provenanceForField } from '@/lib/fact-provenance';
+import { FactSource } from './FactSource';
 
 export function FinanceCalculator({ report, locale }: { report: Report; locale: Locale }) {
   const { buyerCostsAreEstimated, buyerCosts, total } = acquisitionCosts(report.facts);
@@ -69,15 +71,15 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
     <div className="finance-meta">
       <span><GlossaryText locale={locale}>{text.loan}</GlossaryText> <b>{money(result.loan, locale)}</b></span>
       <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{report.facts.price ? money(report.facts.price, locale) : '—'}</b></span>
-      {buyerCosts ? <span><GlossaryText locale={locale}>{buyerCostsAreEstimated ? text.estimatedBuyerCosts : text.buyerCosts}</GlossaryText> <b>{money(buyerCosts, locale)}</b></span> : null}
-      <span><GlossaryText locale={locale}>{text.total}</GlossaryText> <b>{total ? money(total, locale) : '—'}</b></span>
+      {buyerCosts ? <span><GlossaryText locale={locale}>{buyerCostsAreEstimated ? text.estimatedBuyerCosts : text.buyerCosts}</GlossaryText> <FactSource reportId={report.id} locale={locale} label={buyerCostsAreEstimated ? text.estimatedBuyerCosts : text.buyerCosts} provenance={provenanceForField(report, 'buyerCosts', money(buyerCosts, locale), locale)} /> <b>{money(buyerCosts, locale)}</b></span> : null}
+      <span><GlossaryText locale={locale}>{text.total}</GlossaryText> <FactSource reportId={report.id} locale={locale} label={text.total} provenance={provenanceForField(report, 'totalCost', total ? money(total, locale) : '', locale)} /> <b>{total ? money(total, locale) : '—'}</b></span>
     </div>
     <label>
       <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.equity}</GlossaryText></span><b>{money(equity, locale) || '—'} · {total ? percent(Math.round(equity / total * 100), locale, 0) : '—'}</b></span>
       <input type="range" min="0" max={Math.max(total, 1)} step="1" aria-label={text.equity} value={equity} onChange={(event) => setEquity(Number(event.target.value))} />
     </label>
     <label>
-      <span><span className="finance-rate-heading"><GlossaryText locale={locale}>{text.rate}</GlossaryText><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
+      <span><span className="finance-rate-heading"><GlossaryText locale={locale}>{text.rate}</GlossaryText><FactSource reportId={report.id} locale={locale} label={text.rate} provenance={provenanceForField(report, 'mortgageRate', percent(interest, locale), locale)} /><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
       <input type="range" min="2" max="7" step="0.01" aria-label={text.rate} value={interest} onChange={(event) => { interestWasEdited.current = true; setInterest(Number(event.target.value)); }} />
     </label>
     <label>

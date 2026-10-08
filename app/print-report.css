@@ -93,6 +93,11 @@
 .print-facts small,
 .print-finance-grid small { display: block; margin-bottom: 2mm; color: #718079; font-size: 8.5px; }
 .print-facts strong { font-size: 11px; line-height: 1.35; }
+.print-facts sup { margin-left: .5px; font-size: 8px; }
+.print-sources { margin-top: 4mm; }
+.print-sources h3 { margin: 0 0 2mm; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.print-sources ol { margin: 0; padding-left: 5mm; }
+.print-sources li { margin: 0 0 1.5mm; color: #3e4e48; font-size: 10px; line-height: 1.4; }
 
 .print-split { gap: 10mm; }
 .print-split h3 { margin-bottom: 4mm; }

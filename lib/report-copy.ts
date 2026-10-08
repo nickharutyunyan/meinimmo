@@ -6,6 +6,7 @@ import { area, money, moneyPerSqm, percent, plainNumber } from './format.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 import { reportConflicts } from './report-integrity.ts';
+import type { FeedbackField } from './fact-provenance.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -266,7 +267,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
 }
 
 /** At-a-glance rows, formatted for the report locale. Price-check rows stay with that card. */
-export function glanceFacts(report: Report, locale: Locale): Array<[string, string]> {
+export function glanceFacts(report: Report, locale: Locale): Array<[string, string, FeedbackField]> {
   const facts = report.facts;
   const text = copy[locale].report;
   const known = (value?: string) => localizedValue(value, locale);
@@ -280,24 +281,24 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
     shown(facts.heating) ? known(facts.heating) : '',
     facts.energySource && shown(facts.energySource) ? known(facts.energySource) : '',
   ].filter(Boolean).join(' · ');
-  const rows: Array<[string, string]> = [];
-  if (facts.price) rows.push([text.asking, money(facts.price, locale)]);
-  if (facts.price && facts.area) rows.push([text.perSqm, money(facts.price / facts.area, locale)]);
-  if (facts.area) rows.push([text.living, area(facts.area, locale)]);
-  if (facts.plotArea) rows.push([text.plot, area(facts.plotArea, locale)]);
-  if (facts.usableArea) rows.push([text.usable, area(facts.usableArea, locale)]);
-  if (shown(facts.rooms)) rows.push([text.rooms, roomLabel(facts.rooms, locale) || known(facts.rooms)]);
-  if (shown(facts.floor)) rows.push([text.floor, known(facts.floor)]);
-  if (shown(facts.tenancy)) rows.push([text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)]);
-  if (shown(facts.condition)) rows.push([text.condition, known(facts.condition)]);
-  if (facts.soldAsIs) rows.push([locale === 'de' ? 'Verkauf' : 'Sale', locale === 'de' ? 'Ist-Zustand' : 'As-is']);
-  if (facts.buyerCommission) rows.push([text.commission, known(facts.buyerCommission)]);
-  if (facts.housegeld) rows.push(['Hausgeld', `${money(facts.housegeld, locale)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`]);
-  if (facts.advertisedYield) rows.push([text.return, percent(facts.advertisedYield, locale)]);
-  if (shown(report.sunOrientation)) rows.push([text.sun, known(report.sunOrientation)]);
-  if (report.daylight) rows.push([text.daylight, known(report.daylight)]);
-  if (energy) rows.push([text.energy, energy]);
-  if (heating) rows.push([text.heating, heating]);
-  if (shown(facts.year)) rows.push([text.built, known(facts.year)]);
+  const rows: Array<[string, string, FeedbackField]> = [];
+  if (facts.price) rows.push([text.asking, money(facts.price, locale), 'price']);
+  if (facts.price && facts.area) rows.push([text.perSqm, money(facts.price / facts.area, locale), 'perSqm']);
+  if (facts.area) rows.push([text.living, area(facts.area, locale), 'area']);
+  if (facts.plotArea) rows.push([text.plot, area(facts.plotArea, locale), 'plotArea']);
+  if (facts.usableArea) rows.push([text.usable, area(facts.usableArea, locale), 'usableArea']);
+  if (shown(facts.rooms)) rows.push([text.rooms, roomLabel(facts.rooms, locale) || known(facts.rooms), 'rooms']);
+  if (shown(facts.floor)) rows.push([text.floor, known(facts.floor), 'floor']);
+  if (shown(facts.tenancy)) rows.push([text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale), 'tenancy']);
+  if (shown(facts.condition)) rows.push([text.condition, known(facts.condition), 'condition']);
+  if (facts.soldAsIs) rows.push([locale === 'de' ? 'Verkauf' : 'Sale', locale === 'de' ? 'Ist-Zustand' : 'As-is', 'condition']);
+  if (facts.buyerCommission) rows.push([text.commission, known(facts.buyerCommission), 'buyerCommission']);
+  if (facts.housegeld) rows.push(['Hausgeld', `${money(facts.housegeld, locale)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`, 'housegeld']);
+  if (facts.advertisedYield) rows.push([text.return, percent(facts.advertisedYield, locale), 'advertisedYield']);
+  if (shown(report.sunOrientation)) rows.push([text.sun, known(report.sunOrientation), 'sunOrientation']);
+  if (report.daylight) rows.push([text.daylight, known(report.daylight), 'daylight']);
+  if (energy) rows.push([text.energy, energy, 'energy']);
+  if (heating) rows.push([text.heating, heating, 'heating']);
+  if (shown(facts.year)) rows.push([text.built, known(facts.year), 'year']);
   return rows.filter(([, value]) => Boolean(value));
 }
