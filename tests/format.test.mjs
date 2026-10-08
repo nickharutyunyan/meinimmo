@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { area, money, moneyPerSqm, percent, plainNumber, score } from '../lib/format.ts';
+import { area, money, moneyPerSqm, percent, photoCount, plainNumber, score } from '../lib/format.ts';
 
 const visible = (value) => value.replace(/\u00a0/g, ' ');
 
@@ -36,12 +36,17 @@ test('money per square metre, area, percent, score and plain numbers follow the 
   assert.equal(score(7.5, 'en'), '7.5');
   assert.equal(plainNumber(124.8, 'de', 1), '124,8');
   assert.equal(plainNumber(2.5, 'en', 1), '2.5');
+  assert.equal(photoCount(3, 8, 'en'), '3 / 8');
+  assert.equal(photoCount(3, 8, 'de'), '3 / 8');
+  assert.equal(photoCount(3, 8, 'de', '{n} / {total}'), '3 / 8');
+  assert.equal(photoCount(1000, 2000, 'en'), '1,000 / 2,000');
+  assert.equal(visible(photoCount(1000, 2000, 'de')), '1.000 / 2.000');
 });
 
 test('unknown numbers do not become zero, NaN or null', () => {
   for (const value of [undefined, null, Number.NaN, 'nope']) {
     for (const locale of ['en', 'de']) {
-      for (const formatted of [money(value, locale), moneyPerSqm(value, locale), area(value, locale), percent(value, locale), score(value, locale), plainNumber(value, locale, 2)]) {
+      for (const formatted of [money(value, locale), moneyPerSqm(value, locale), area(value, locale), percent(value, locale), score(value, locale), plainNumber(value, locale, 2), photoCount(value, 8, locale), photoCount(1, value, locale)]) {
         assert.equal(formatted, '');
         assert.doesNotMatch(formatted, /undefined|NaN|null|0 €|€0/);
       }

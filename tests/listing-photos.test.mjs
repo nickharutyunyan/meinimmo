@@ -169,13 +169,12 @@ test('report overview renders EN and DE captions and print and compare omit phot
     assert.equal(html.includes('https://evil.example/nope.jpg'), false);
     assert.equal(html.includes('data:image'), false);
     assert.match(html, /class="listing-photos"/);
-    const label = copy[locale].report.photoLink.replaceAll('{n}', '1').replaceAll('{total}', '1');
-    assert.equal(label, locale === 'de'
-      ? 'Foto 1 von 1, öffnet das Originalangebot in einem neuen Tab'
-      : 'Photo 1 of 1, opens the original listing in a new tab');
+    const label = copy[locale].report.photoAlt.replaceAll('{n}', '1').replaceAll('{total}', '1');
+    assert.equal(label, locale === 'de' ? 'Foto 1 von 1' : 'Photo 1 of 1');
     assert.doesNotMatch(label, /ohne-makler|immoscout|immowelt|kleinanzeigen/i);
     assert.equal(html.includes(`aria-label="${label}"`), true);
-    assert.match(html, new RegExp(`<a href="${listingUrl}" target="_blank" rel="noreferrer" aria-label="`));
+    assert.match(html, /<button type="button" aria-label="/);
+    assert.doesNotMatch(html, /target="_blank"/);
     assert.match(html, /<img src="https:\/\/media\.ohne-makler\.net\/a\.jpg" alt="" width="160" height="120" loading="lazy" referrerpolicy="no-referrer" decoding="async"/i);
     assert.equal([...html.matchAll(/<img /g)].length, 1);
 
@@ -185,10 +184,8 @@ test('report overview renders EN and DE captions and print and compare omit phot
       listingUrl,
       locale,
     }));
-    const second = copy[locale].report.photoLink.replaceAll('{n}', '2').replaceAll('{total}', '2');
-    assert.equal(second, locale === 'de'
-      ? 'Foto 2 von 2, öffnet das Originalangebot in einem neuen Tab'
-      : 'Photo 2 of 2, opens the original listing in a new tab');
+    const second = copy[locale].report.photoAlt.replaceAll('{n}', '2').replaceAll('{total}', '2');
+    assert.equal(second, locale === 'de' ? 'Foto 2 von 2' : 'Photo 2 of 2');
     assert.equal(pair.includes(`aria-label="${second}"`), true);
     assert.ok(pair.includes(signed) || pair.includes(signed.replaceAll('&', '&amp;')));
   }
