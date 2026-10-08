@@ -1,0 +1,59 @@
+{
+  "id": "6fe05eec1c186287",
+  "title": "1-room flat · Chodowieckistr.",
+  "address": "Chodowieckistr., 10405 Berlin",
+  "location": "Prenzlauer Berg",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/500988/",
+  "createdAt": "2026-10-03T21:18:48.033Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 329000,
+    "area": 42.42,
+    "usableArea": 42.4,
+    "rooms": "1",
+    "year": "1910",
+    "floor": "4. OG",
+    "energy": "D",
+    "heating": "Zentralheizung",
+    "energySource": "Gas",
+    "energyDemand": 107.3,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 353494,
+    "buyerCosts": 24494,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 187.92,
+    "tenancy": "Not rented",
+    "condition": "Like new",
+    "features": [
+      "Einbauküche",
+      "Keller"
+    ],
+    "postalCode": "10405",
+    "city": "Berlin",
+    "district": "Prenzlauer Berg",
+    "street": "Chodowieckistr.",
+    "locationPrecision": "street",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": true,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [],
+  "redFlags": [],
+  "score": 5.94,
+  "scoreBreakdown": {
+    "price": 3,
+    "neighborhood": 6.4,
+    "space": 6.3,
+    "building": 8.4,
+    "energy": 6.1,
+    "light": 5.7,
+    "costs": 7.9,
+    "source": 10
+  }
+}

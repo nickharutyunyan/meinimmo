@@ -47,6 +47,7 @@ export type SessionUser = {
   email: string | null;
   name: string | null;
   stripeCustomerId: string | null;
+  emailVerified: boolean;
 };
 
 export function publicUser(row: UserRow): SessionUser {
@@ -56,5 +57,7 @@ export function publicUser(row: UserRow): SessionUser {
     email: row.email,
     name: row.display_name,
     stripeCustomerId: row.stripe_customer_id,
+    // Password accounts stay unverified until email confirmation exists.
+    emailVerified: false,
   };
 }

@@ -2,11 +2,12 @@ import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Comparison, Report } from './types';
 import { canonicalCondition } from './property-condition.ts';
+import { alignHeatingFacts } from './property-score.ts';
 import { acquisitionCosts } from './finance.ts';
 import { checkedCharacteristic, refreshDerivedReport } from './listing-parser.ts';
 
 import { cleanReportAddress } from './location-validation.ts';
-import { EXTRACTION_VERSION, attachCalculatedScore, presentStoredReport } from './report-integrity.ts';
+import { EXTRACTION_VERSION, attachCalculatedScore, presentStoredReport, storedVersionIsNewer } from './report-integrity.ts';
 import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL } from './report-backfill.ts';
 import { withTimeout } from './io-timeout.ts';
 import { invalidateReportHtml } from './report-html-cache.ts';
@@ -24,6 +25,8 @@ function parse<T>(row: StoredRow | null) {
 }
 
 function normalizedReport(item: Report) {
+  // A newer extraction is rendered as stored. Do not clean, refresh, or re-score it.
+  if (storedVersionIsNewer(item.extractionVersion)) return item;
   if (item.country === 'AM') return attachCalculatedScore(presentStoredReport(item));
   const clean = cleanReportAddress(item);
   if (clean !== item) item = refreshDerivedReport(clean);
@@ -33,8 +36,9 @@ function normalizedReport(item: Report) {
     ? (item.facts.buyerCosts ? costs.total : 0)
     : item.facts.totalCost;
   const energy = item.facts.energy;
-  const heating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
   const energySource = checkedCharacteristic(item.facts.energySource, 'energySource') || undefined;
+  const checkedHeating = checkedCharacteristic(item.facts.heating, 'heating') || 'not stated';
+  const heating = alignHeatingFacts({ heating: checkedHeating, energySource }).heating || 'not stated';
   const energyCertificate = checkedCharacteristic(item.facts.energyCertificate, 'energyCertificate') || undefined;
   const summary = (condition === 'Renovated'
     ? item.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')

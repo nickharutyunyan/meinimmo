@@ -1,0 +1,61 @@
+{
+  "id": "1776965c190f7cf5",
+  "title": "3-room flat · Metzer Straße 25",
+  "address": "Metzer Straße 25, 10405 Berlin",
+  "location": "Prenzlauer Berg",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/496234/",
+  "createdAt": "2026-09-22T11:22:54.844Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 735000,
+    "area": 101.2,
+    "rooms": "3",
+    "year": "1910",
+    "floor": "3. OG",
+    "energy": "not stated",
+    "heating": "Etagenheizung",
+    "energySource": "Gas",
+    "energyDemand": 100,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 788266,
+    "buyerCosts": 53267,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 230,
+    "tenancy": "Not rented",
+    "condition": "Renovated",
+    "features": [
+      "Möbliert",
+      "Balkon",
+      "Einbauküche",
+      "Keller"
+    ],
+    "postalCode": "10405",
+    "city": "Berlin",
+    "district": "Prenzlauer Berg",
+    "street": "Metzer Straße 25",
+    "locationPrecision": "address",
+    "neighborhood": {
+      "transitMinutes": 4,
+      "transitMentioned": true,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [],
+  "redFlags": [],
+  "score": 6.55,
+  "scoreBreakdown": {
+    "price": 3,
+    "neighborhood": 7.5,
+    "space": 8.2,
+    "building": 7.5,
+    "energy": 6.8,
+    "light": 6.5,
+    "costs": 9.4,
+    "source": 10
+  }
+}

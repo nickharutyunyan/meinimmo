@@ -31,40 +31,40 @@ const en: MethodCopy = {
     {
       heading: 'What we read',
       paragraphs: [
-        'We read the listing you give us: a public link, an Exposé PDF, or text you paste. If a portal blocks the import, paste the text or upload the Exposé. Anything absent from the source stays out.',
+        'We read the listing you give us: a public link, an Exposé PDF, or text you paste. If a portal blocks the import, paste the text or upload the Exposé.',
       ],
     },
     {
       heading: 'How facts are extracted',
       paragraphs: [
-        'Rules read price, living area, rooms, year, floor, energy, Hausgeld and location first. AI only checks those facts against quotes from the same text. Anything missing stays not stated.',
+        'Rules read price, living area, rooms, year, floor, energy, Hausgeld and location. A check compares those facts with quotes from the same text. Anything missing stays not stated.',
       ],
     },
     {
       heading: 'The score',
       paragraphs: [
-        'Eight parts make a score from 0 to 10: price 25%, neighbourhood 20%, space 15%, building 12%, energy 10%, light 8%, running costs 5%, and how complete the listing is 5%. Price counts only in Berlin. 15% or more below the area average scores 8.5; 5% to just under 15% below scores 7.5; within 5% scores 6.0; 5% to just under 15% above scores 4.5; 15% or more above scores 3.0. Few sales pull that halfway towards 6.0. Outside Berlin the price part is left out, the other weights scale to 1, the header says the price was not checked, and confidence is Medium at most.',
-        'Building is 70% condition and 30% year: renovated (saniert, renoviert) scores 8, well maintained (gepflegt) 7, needs modernisation 4, needs renovation 3. An unknown condition is left out. Leasehold or leased land subtracts 1.5. A rented home subtracts 0.8 for a buyer who wants to move in. Either caps confidence at Medium. A listed building and a required garage are notes only. An energy class one step off demand uses the lower class and lowers confidence one step; the score stays. Two or more classes apart still withhold it.',
-        'Confidence uses eight key facts: price, living area, rooms, year, floor, energy, Hausgeld and a street. A house counts floor and Hausgeld as present. Seven or eight is high, five or six is medium, and four or fewer withholds the score and names the gaps. A real contradiction withholds it too. Walking time and sun orientation never do.',
+        'Eight parts make a score from 0 to 10: price 25%, neighbourhood 20%, space 15%, building 12%, energy 10%, light 8%, running costs 5%, completeness 5%. Price counts only in Berlin. The gap to the area average runs from 20% under to 50% over: near it about 6, 10% under about 7.5, 10% over about 4.5, and 40% over scores below 15% over. Few sales pull that halfway towards 6. Outside Berlin the price part is left out, the other weights scale to 1, the header says the price was not checked, and confidence is Medium at most.',
+        'Building is 70% condition and 30% year: renovated (saniert, renoviert) scores 8, well maintained (gepflegt) 7, needs modernisation 4, needs renovation 3. An unknown condition is left out. Leasehold or leased land subtracts 1.5 and caps confidence at Medium. Free within six months subtracts 0.2, with no confidence cap; a fixed end six to 24 months out subtracts 0.4; open-ended subtracts 0.8; 10 years or an active Sperrfrist (§ 577a) subtracts 1.0. Those three cap at Medium. An apartment building or a Kapitalanlage has no move-in deduction; the header shows the gross yield. One class off demand uses the lower class, and High falls only to Medium. Two or more classes apart still withhold the score.',
+        'Confidence uses eight key facts: price, living area, rooms, year, floor, energy, Hausgeld and a street. A house counts floor and Hausgeld as present. Seven or eight is High, five or six is Medium. Low means four or fewer key facts, and the score is withheld. A real contradiction withholds it too. Walking time and sun orientation never do.',
       ],
     },
     {
       heading: 'Data sources',
       paragraphs: [
         // TODO(F03): name the transfer-tax source and the date it was checked once those rates ship. Do not invent a checked-on date before then.
-        'Berlin flat prices come from the Gutachterausschuss für Grundstückswerte in Berlin, Immobilienmarktbericht 2025/2026, under the dl-de/zero-2.0 licence. Transfer tax uses the published rates of the federal states. The mortgage illustration starts from the FMH mortgage rate index. Maps use OpenStreetMap and Nominatim.',
+        'Berlin flat prices come from the Gutachterausschuss für Grundstückswerte in Berlin, Immobilienmarktbericht 2025/2026, under the dl-de/zero-2.0 licence. Transfer tax uses the published rates of the federal states. Mortgages use the FMH index. Maps use OpenStreetMap and Nominatim.',
       ],
     },
     {
       heading: 'What we can’t know',
       paragraphs: [
-        'We cannot know the real condition of the building, the WEG’s finances beyond the listing, legal burdens the listing does not mention, or the final sale price. The score is a screening rubric, not a valuation or a buying recommendation.',
+        'We cannot know the real condition, the WEG’s finances, legal burdens the listing omits, or the final sale price. The score is a screening rubric, not a valuation or a buying recommendation.',
       ],
     },
     {
       heading: 'Independence',
       paragraphs: [
-        'We do not take money from sellers or agents in exchange for a ranking. No one can pay for a higher score.',
+        'We do not take money from sellers or agents for a ranking. No one can pay for a higher score.',
       ],
     },
   ],
@@ -87,22 +87,22 @@ const de: MethodCopy = {
     {
       heading: 'Wie die Angaben entstehen',
       paragraphs: [
-        'Regeln lesen zuerst Preis, Wohnfläche, Zimmer, Baujahr, Etage, Energie, Hausgeld und Lage. Eine KI prüft diese Angaben nur gegen Zitate aus demselben Text. Was fehlt, bleibt „nicht angegeben“.',
+        'Regeln lesen Preis, Wohnfläche, Zimmer, Baujahr, Etage, Energie, Hausgeld und Lage. Ein Abgleich prüft sie gegen Zitate aus demselben Text. Was fehlt, bleibt „nicht angegeben“.',
       ],
     },
     {
       heading: 'Der Score',
       paragraphs: [
-        'Acht Teile ergeben einen Score von 0 bis 10: Preis 25 %, Lage 20 %, Platz 15 %, Gebäude 12 %, Energie 10 %, Licht 8 %, laufende Kosten 5 % und die Vollständigkeit 5 %. Der Preis zählt nur in Berlin. Mindestens 15 % unter dem Gebietsmittel ergibt 8,5; mindestens 5 % und weniger als 15 % darunter ergibt 7,5; weniger als 5 % Abweichung ergibt 6,0; mindestens 5 % und weniger als 15 % darüber ergibt 4,5; 15 % oder mehr darüber ergibt 3,0. Wenige Verkäufe ziehen den Preisteil zur Hälfte in Richtung 6,0. Außerhalb Berlins entfällt der Preis, die übrigen Gewichte werden auf 1 gestreckt, der Kopf sagt, dass der Preis nicht geprüft wurde, und die Verlässlichkeit ist höchstens mittel.',
-        'Das Gebäude ist zu 70 % Zustand und zu 30 % Baujahr: renoviert oder saniert ergibt 8, gepflegt 7, modernisierungsbedürftig 4, renovierungsbedürftig 3. Einen unbekannten Zustand lassen wir weg. Erbbaurecht oder ein Pachtgrundstück zieht 1,5 ab. Eine vermietete Wohnung zieht 0,8 ab, für Käufer, die selbst einziehen wollen. Beides deckelt die Verlässlichkeit bei mittel. Denkmalschutz und ein Pflichtkauf von Garage oder Stellplatz sind nur Hinweise. Weicht die Energieklasse eine Stufe vom Bedarf ab, zählt die schlechtere Klasse und die Verlässlichkeit sinkt um eine Stufe; der Score bleibt. Zwei oder mehr Stufen verhindern ihn weiter.',
-        'Die Verlässlichkeit nutzt acht Kernangaben: Preis, Wohnfläche, Zimmer, Baujahr, Etage, Energie, Hausgeld und eine Straße. Bei einem Haus zählen Etage und Hausgeld als vorhanden. Sieben oder acht sind hoch, fünf oder sechs mittel, vier oder weniger verhindern den Score. Ein echter Widerspruch verhindert ihn ebenfalls. Gehzeit und Sonnenlage verhindern ihn nie.',
+        'Acht Teile ergeben einen Score von 0 bis 10: Preis 25 %, Lage 20 %, Platz 15 %, Gebäude 12 %, Energie 10 %, Licht 8 %, laufende Kosten 5 %, Vollständigkeit 5 %. Der Preis zählt nur in Berlin. Der Abstand zum Gebietsmittel läuft von 20 % darunter bis 50 % darüber: nah dran etwa 6, 10 % darunter etwa 7,5, 10 % darüber etwa 4,5, und 40 % darüber liegt unter 15 % darüber. Wenige Verkäufe ziehen den Preisteil zur Hälfte in Richtung 6. Außerhalb Berlins entfällt der Preis, die übrigen Gewichte werden auf 1 gestreckt, der Kopf sagt, dass der Preis nicht geprüft wurde, und die Verlässlichkeit ist höchstens mittel.',
+        'Das Gebäude ist zu 70 % Zustand und zu 30 % Baujahr: renoviert oder saniert ergibt 8, gepflegt 7, modernisierungsbedürftig 4, renovierungsbedürftig 3. Erbbaurecht oder ein Pachtgrundstück zieht 1,5 ab und deckelt bei mittel. Eine Vermietung zieht 0,2 ab, wenn sie innerhalb von sechs Monaten endet, und das deckelt nicht; 0,4 bei einem festen Ende in sechs bis 24 Monaten; 0,8 wenn sie unbefristet ist; 1,0 seit 10 Jahren oder bei einer laufenden Sperrfrist (§ 577a). Diese drei deckeln bei mittel. Ein Mehrfamilienhaus oder eine Kapitalanlage hat keinen Einzugsabzug; der Kopf zeigt die Bruttorendite. Eine Stufe neben dem Bedarf zählt die schlechtere Klasse und nimmt hoch nur auf mittel herunter. Zwei oder mehr Stufen verhindern ihn weiterhin.',
+        'Die Verlässlichkeit nutzt acht Kernangaben: Preis, Wohnfläche, Zimmer, Baujahr, Etage, Energie, Hausgeld und eine Straße. Bei einem Haus zählen Etage und Hausgeld als vorhanden. Sieben oder acht sind hoch, fünf oder sechs mittel. Niedrig heißt vier oder weniger Kernangaben, und dann gibt es keinen Score. Ein echter Widerspruch verhindert ihn ebenfalls. Gehzeit und Sonnenlage verhindern ihn nie.',
       ],
     },
     {
       heading: 'Datenquellen',
       paragraphs: [
         // TODO(F03): name the transfer-tax source and the date it was checked once those rates ship. Do not invent a checked-on date before then.
-        'Die Preise für Berliner Eigentumswohnungen stammen aus dem Immobilienmarktbericht 2025/2026 des Gutachterausschusses für Grundstückswerte in Berlin, Lizenz dl-de/zero-2.0. Die Grunderwerbsteuer folgt den veröffentlichten Sätzen der Bundesländer. Die Finanzierungsrechnung startet mit dem FMH-Index für Bauzinsen. Karten nutzen OpenStreetMap und Nominatim.',
+        'Die Preise für Berliner Eigentumswohnungen stammen aus dem Immobilienmarktbericht 2025/2026 des Gutachterausschusses für Grundstückswerte in Berlin, Lizenz dl-de/zero-2.0. Die Grunderwerbsteuer folgt den veröffentlichten Sätzen der Bundesländer. Die Finanzierung nutzt den FMH-Index. Karten nutzen OpenStreetMap und Nominatim.',
       ],
     },
     {

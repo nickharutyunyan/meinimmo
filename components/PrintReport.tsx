@@ -1,8 +1,8 @@
-import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
+import { displayedPropertyScore, scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
+import { formatScore, grossYieldLine, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -17,7 +17,7 @@ type FinanceSettings = { equity: number; interest: number; repayment: number; in
 export function PrintReport({ report, locale, finance, autoPrint }: { report: Report; locale: Locale; finance: FinanceSettings; autoPrint: boolean }) {
   const de = locale === 'de';
   const reportText = copy[locale].report;
-  const score = calculatePropertyScore(report);
+  const score = displayedPropertyScore(report);
   const showScore = scoreAvailable(report);
   const verdict = reportVerdict(report, locale);
   const basis = scoreBasisLine(report, locale);
@@ -68,7 +68,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-hero">
         <div><p>{labels.document}</p><h1>{reportTitle(report, locale)}</h1>{subtitle ? <h2>{subtitle}</h2> : null}</div>
-        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{verdict}</em>{basis !== verdict ? <small className="print-confidence">{basis}</small> : null}{showScore && priceNotCheckedLine(report, locale) ? <small className="print-confidence">{priceNotCheckedLine(report, locale)}</small> : null}{showScore ? score.adjustments.map((item) => <small className="print-confidence" key={item.id}>{scoreAdjustmentLine(item, locale)}</small>) : null}</div>
+        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{verdict}</em>{basis !== verdict ? <small className="print-confidence">{basis}</small> : null}{showScore && priceNotCheckedLine(report, locale) ? <small className="print-confidence">{priceNotCheckedLine(report, locale)}</small> : null}{showScore ? score.adjustments.map((item) => <small className="print-confidence" key={item.id}>{scoreAdjustmentLine(item, locale)}</small>) : null}{showScore && grossYieldLine(report, locale) ? <small className="print-confidence">{grossYieldLine(report, locale)}</small> : null}</div>
       </section>
 
       <section className="print-summary">{summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</section>
