@@ -5,7 +5,7 @@ import { reportConflicts, scoreAvailable, EXTRACTION_VERSION } from '../lib/repo
 import { guardEnrichment } from '../lib/verification-guard.ts';
 import { fetchListing } from '../lib/listing-fetch.ts';
 
-const source = '3-Zimmer-Wohnung in Berlin\n10115 Berlin\nKaufpreis: 400.000 €\nWohnfläche: 80 m²\nBaujahr: 1980\nZustand: gepflegt\nKaufnebenkosten: 30.000 €\nGesamtkosten: 430.000 €';
+const source = '3-Zimmer-Wohnung in Berlin\n10115 Berlin\nKaufpreis: 400.000 €\nWohnfläche: 80 m²\nBaujahr: 1980\nZustand: gepflegt\nKaufnebenkosten: 30.000 €\nGesamtkosten: 430.000 €\nEnergieeffizienzklasse: C\nAusrichtung\nSüd\nDie U-Bahn ist 6 Gehminuten entfernt.';
 test('source conflicts suppress the verdict even when AI flags claim verification', () => {
  const r = parseListing(source, 'test');
  assert.equal(scoreAvailable(r), true);
