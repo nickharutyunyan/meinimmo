@@ -80,6 +80,7 @@
 .print-score strong { display: block; margin: 2mm 0 1mm; font: 400 30px/1 var(--serif); }
 .print-score strong small { margin-left: 2px; color: #788780; font: 12px var(--sans); }
 .print-score em { display: block; color: #4f625a; font-size: 10px; font-style: normal; }
+.print-confidence { display: block; margin-top: 2mm; color: #4f625a; font-size: 10px; line-height: 1.4; }
 
 .print-summary { max-width: 168mm; padding: 7mm 0 2mm; }
 .print-summary p { margin: 0 0 3mm; font: 14px/1.55 var(--serif); }
@@ -126,6 +127,8 @@
 .print-bottom p strong a span { margin-left: 1.2mm; color: #6f7f78; font-size: 8px; }
 .print-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5mm 4mm; }
 .print-score-grid span { display: flex; justify-content: space-between; padding-bottom: 1.5mm; border-bottom: 1px solid #e1ded6; color: #66766f; font-size: 9px; }
+.print-score-grid span.is-unscored { grid-column: 1 / -1; flex-wrap: wrap; }
+.print-score-grid span.is-unscored em { flex-basis: 100%; color: #66766f; font-style: normal; }
 .print-score-grid b { color: var(--ink); }
 
 .print-warnings ul { columns: 2; gap: 8mm; margin: 0; padding-left: 4mm; }

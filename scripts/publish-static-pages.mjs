@@ -1,7 +1,8 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { cacheFileToAssetPath } from '../cloudflare/routes.mjs';
+import { applyDocumentLanguage, cacheFileToAssetPath, pathnameForPublishedAsset } from '../cloudflare/routes.mjs';
+import { staticAssetHeadersFile } from '../lib/security-headers.ts';
 
 export function publishedBody(cache) {
   if (cache && typeof cache.html === 'string') return { body: cache.html, contentType: 'text/html; charset=utf-8' };
@@ -31,6 +32,14 @@ export async function writeReportCacheBuildId(buildIdPath, destination) {
   return id;
 }
 
+/** Write the Cloudflare `_headers` file next to the static assets. */
+export async function writeStaticAssetHeaders(assetDir, contents = staticAssetHeadersFile()) {
+  await mkdir(assetDir, { recursive: true });
+  const destination = path.join(assetDir, '_headers');
+  await writeFile(destination, contents);
+  return destination;
+}
+
 export async function publishStaticPages(cacheDir, assetDir) {
   const builds = [];
   for (const entry of await readdir(cacheDir, { withFileTypes: true })) {
@@ -47,9 +56,12 @@ export async function publishStaticPages(cacheDir, assetDir) {
     if (!assetRelative) continue;
     const published = publishedBody(JSON.parse(await readFile(file, 'utf8')));
     if (!published) continue;
+    const body = published.contentType.includes('text/html')
+      ? applyDocumentLanguage(published.body, pathnameForPublishedAsset(assetRelative))
+      : published.body;
     const destination = path.join(assetDir, assetRelative);
     await mkdir(path.dirname(destination), { recursive: true });
-    await writeFile(destination, published.body);
+    await writeFile(destination, body);
     written.push(assetRelative);
   }
   return written;
@@ -58,8 +70,11 @@ export async function publishStaticPages(cacheDir, assetDir) {
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (invokedDirectly) {
   const root = path.resolve(path.dirname(path.resolve(process.argv[1])), '..');
-  const written = await publishStaticPages(path.join(root, '.open-next/cache'), path.join(root, '.open-next/assets'));
+  const assetDir = path.join(root, '.open-next/assets');
+  await writeStaticAssetHeaders(assetDir);
+  const written = await publishStaticPages(path.join(root, '.open-next/cache'), assetDir);
   const buildId = await writeReportCacheBuildId(path.join(root, '.next/BUILD_ID'), path.join(root, 'cloudflare/build-id.mjs'));
   console.log(`Published ${written.length} prerendered pages into .open-next/assets`);
+  console.log('Wrote .open-next/assets/_headers');
   console.log(`Report cache build id ${buildId}`);
 }

@@ -1,10 +1,11 @@
 import { localizedWarnings } from '@/lib/report-copy';
-import { scoreAvailable } from '@/lib/report-integrity';
+import { scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
 import { Fragment } from 'react';
+import Link from 'next/link';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
-import { calculatePropertyScore } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -16,9 +17,12 @@ import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
 import { acquisitionCosts } from '@/lib/finance';
 import { buyerCostComparisonValue } from '@/lib/buyer-costs';
-import { money as formatMoney, moneyRange } from '@/lib/format';
+import { area, money, percent } from '@/lib/format';
 
-const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
+function scoreCell(item: Report, total: number, locale: Locale) {
+  if (!scoreAvailable(item)) return '—';
+  return `${formatScore(total, locale)} / 10`;
+}
 
 export async function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
   const text = copy[locale].compare;
@@ -31,7 +35,8 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
   const known = (value?: string) => localizedValue(value, locale) === copy[locale].report.notDisclosed ? '—' : localizedValue(value, locale);
   const energy = (item: Report) => {
     const energyClass = known(item.facts.energy);
-    const parts = [...(energyClass === '—' ? [] : [energyClass]), ...(item.facts.energySource ? [item.facts.energySource] : [])];
+    const source = item.facts.energySource ? localizedValue(item.facts.energySource, locale) : '';
+    const parts = [...(energyClass === '—' ? [] : [energyClass]), ...(source && source !== copy[locale].report.notDisclosed ? [source] : [])];
     return parts.length ? parts.join(' · ') : '—';
   };
   const tenancy = (item: Report) => item.facts.tenancy || item.facts.availabilityDate
@@ -52,24 +57,28 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       ? <a className="comparison-address-link" href={mapsHref} target="_blank" rel="noreferrer" aria-label={`${value} — Google Maps`}><GlossaryText locale={locale}>{value}</GlossaryText><span aria-hidden="true">↗</span></a>
       : <GlossaryText locale={locale}>{value}</GlossaryText>;
   };
-  const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
+  const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld, locale)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
+  const amount = (value?: number) => value ? money(value, locale) : '—';
+  const space = (value?: number) => value ? area(value, locale) : '—';
   const acquisition = (item: Report) => {
     const costs = acquisitionCosts(item);
     if (!costs.price && !costs.buyerCosts) return '—';
-    return costs.totalHigh !== undefined ? moneyRange(costs.total, costs.totalHigh, locale) : formatMoney(costs.total, locale);
+    const low = money(costs.total, locale);
+    const high = costs.totalHigh === undefined ? low : money(costs.totalHigh, locale);
+    return low === high ? low : `${low}–${high}`;
   };
   const rows = visibleComparisonRows([
     [text.address, address(first), address(second)],
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
-    [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
+    [text.asking, amount(first.facts.price), amount(second.facts.price)],
     [text.acquisition, acquisition(first), acquisition(second)],
     [text.buyerCosts, buyerCostComparisonValue(first, locale), buyerCostComparisonValue(second, locale)],
-    [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', first.facts.parkingPrice ? money(first.facts.parkingPrice) : '—', second.facts.parkingPrice ? money(second.facts.parkingPrice) : '—'],
+    [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', amount(first.facts.parkingPrice), amount(second.facts.parkingPrice)],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
-    [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
+    [text.perSqm, first.facts.price && first.facts.area ? money(first.facts.price / first.facts.area, locale) : '—', second.facts.price && second.facts.area ? money(second.facts.price / second.facts.area, locale) : '—'],
     [priceCheckCompare(first, locale).label, priceCheckCompare(first, locale).value, priceCheckCompare(second, locale).value],
-    [text.living, first.facts.area ? `${first.facts.area} m²` : '—', second.facts.area ? `${second.facts.area} m²` : '—'],
-    [text.usable, first.facts.usableArea ? `${first.facts.usableArea} m²` : '—', second.facts.usableArea ? `${second.facts.usableArea} m²` : '—'],
+    [text.living, space(first.facts.area), space(second.facts.area)],
+    [text.usable, space(first.facts.usableArea), space(second.facts.usableArea)],
     [text.rooms, known(first.facts.rooms), known(second.facts.rooms)],
     [text.floor, known(first.facts.floor), known(second.facts.floor)],
     [locale === 'de' ? 'Tageslicht' : 'Daylight', localizedTaxonomyValue(first, 'daylight', locale) || '—', localizedTaxonomyValue(second, 'daylight', locale) || '—'],
@@ -78,11 +87,23 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.condition, known(first.facts.condition), known(second.facts.condition)],
     [text.redFlags, redFlagSummary(first, locale), redFlagSummary(second, locale)],
     [text.housegeld, housegeld(first), housegeld(second)],
-    [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
+    [text.return, first.facts.advertisedYield ? percent(first.facts.advertisedYield, locale) : '—', second.facts.advertisedYield ? percent(second.facts.advertisedYield, locale) : '—'],
     [text.energy, energy(first), energy(second)],
     [copy[locale].report.notes, localizedWarnings(first, locale).join(' ') || '—', localizedWarnings(second, locale).join(' ') || '—'],
-    [text.score, scoreAvailable(first) ? `${firstScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first'), scoreAvailable(second) ? `${secondScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first')],
+    [text.score, scoreCell(first, firstScore.total, locale), scoreCell(second, secondScore.total, locale)],
   ] as const);
+
+  const priceNotes = [first, second].flatMap((item, index) => {
+    const score = index === 0 ? firstScore : secondScore;
+    if (score.breakdown.price !== null) return [];
+    const option = index === 0 ? 'A' : 'B';
+    return [`${text.option} ${option}: ${copy[locale].report.components.price} — ${copy[locale].report.priceNotScored}`];
+  });
+  const lowNotes = [first, second].flatMap((item, index) => {
+    if (scoreAvailable(item)) return [];
+    const option = index === 0 ? 'A' : 'B';
+    return [`${text.option} ${option}: ${scoreExplanation(item, locale)}`];
+  });
 
   return <main className="comparison-page" lang={locale}>
     <SiteNav locale={locale} />
@@ -98,7 +119,9 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       const property = item as Report;
       return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
-    <p className="finance-note">{copy[locale].report.scoreExplainer}</p>
+    <p className="finance-note">{copy[locale].report.scoreExplainer} <Link href={localePath(locale, '/method')}>{copy[locale].report.howWeReview}</Link></p>
+    {priceNotes.length ? <p className="finance-note">{priceNotes.join(' · ')}</p> : null}
+    {lowNotes.length ? <p className="finance-note">{lowNotes.join(' · ')}</p> : null}
     <SiteFooter locale={locale} />
   </main>;
 }

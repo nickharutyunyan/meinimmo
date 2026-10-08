@@ -15,7 +15,7 @@ export default function GuideIndex({ locale }: { locale: Locale }) {
       <h1>{de ? 'Guide' : 'The Guide'}</h1>
       <p>{de
         ? 'Notizen für den nächsten freien Samstag: Straßen zum Ablaufen, ehrliche Kiezchecks und Orte für einen Kaffee danach. Mit Quellen—aber geschrieben wie eine Nachricht von jemandem, der wirklich will, dass du gut ankommst.'
-        : 'Notes for your next free Saturday: streets to walk, honest neighborhood checks and somewhere good for coffee afterwards. Sourced, but written like a message from someone who genuinely wants you to land well.'}</p>
+        : 'Notes for your next free Saturday: streets to walk, honest neighbourhood checks and somewhere good for coffee afterwards. Sourced, but written like a message from someone who genuinely wants you to land well.'}</p>
     </header>
     <section className="guide-list">
       {guideArticles.map((article, index) => {

@@ -9,7 +9,7 @@ export function ArmeniaComparison({ first, second }: { first: Report; second: Re
   const items = [first, second]; const land = items.every(r => r.propertyType === 'land');
   const attributes: [string, (r:Report) => string | undefined][] = [
     ['Property type', r => r.propertyType === 'land' ? 'Land plot' : r.propertyType === 'flat' ? 'Apartment' : 'House'],
-    ['Neighborhood', r => r.facts.district], ['Asking price', r => amd(r.facts.price)],
+    ['Neighbourhood', r => r.facts.district], ['Asking price', r => amd(r.facts.price)],
     ['Original asking price', r => `${r.armenia!.originalPrice.toLocaleString('en-GB')} ${r.armenia!.originalCurrency}${r.armenia!.priceBasis === 'per-m2' ? ' per m²' : ''}`],
     ['Conversion date', r => r.armenia!.fx?.date], ['Advertised building area', r => r.propertyType !== 'land' ? `${r.facts.area} m²` : undefined],
     ['Living area', r => r.armenia?.livingArea ? `${r.armenia.livingArea} m²` : undefined],

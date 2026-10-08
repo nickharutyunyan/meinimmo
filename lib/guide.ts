@@ -36,7 +36,7 @@ const investmentSources: GuideSource[] = [
 ];
 
 const familySources: GuideSource[] = [
-  { label: 'Berlin: Prenzlauer Berg family neighborhoods', href: 'https://www.berlin.de/special/stadtteile/prenzlauer-berg/920613-5170843-prenzlauer-berg-familienkieze-im-nordwes.html' },
+  { label: 'Berlin: Prenzlauer Berg family neighbourhoods', href: 'https://www.berlin.de/special/stadtteile/prenzlauer-berg/920613-5170843-prenzlauer-berg-familienkieze-im-nordwes.html' },
   { label: 'Friedenau district profile', href: 'https://www.berlin.de/ba-tempelhof-schoeneberg/politik-und-verwaltung/service-und-organisationseinheiten/koordination-und-beteiligung/bezirksregionen/bzrp_073005-1305939.php' },
   { label: 'Seepark playground reopening', href: 'https://www.berlin.de/ba-lichtenberg/aktuelles/nachrichten/artikel.1449474.php' },
   { label: 'Berlin school directory: Seepark primary school', href: 'https://www.bildung.berlin.de/Schulverzeichnis/Schulportrait.aspx?IDSchulzweig=29800' },
@@ -46,7 +46,7 @@ const familySources: GuideSource[] = [
 ];
 
 const streetSources: GuideSource[] = [
-  { label: 'Berlin: Kantstraße neighborhood walk', href: 'https://www.berlin.de/ba-charlottenburg-wilmersdorf/ueber-den-bezirk/spazieren-und-wandern/kiezspaziergaenge/artikel.1513590.php' },
+  { label: 'Berlin: Kantstraße neighbourhood walk', href: 'https://www.berlin.de/ba-charlottenburg-wilmersdorf/ueber-den-bezirk/spazieren-und-wandern/kiezspaziergaenge/artikel.1513590.php' },
   { label: 'Berlin: Kantstraße food scene', href: 'https://www.berlin.de/restaurants/kieze/10207987-3804422-gastroszene-in-der-kantstrasse.html' },
   { label: 'Schwarzes Café', href: 'https://schwarzescafe-berlin.de/' },
   { label: 'Munich Kunstareal', href: 'https://www.pinakothek-der-moderne.de/kunstareal/' },
@@ -80,7 +80,7 @@ export const guideArticles: GuideArticle[] = [
           heading: 'First, ignore the “next Berlin” talk',
           paragraphs: [
             'Here’s the number that clears the fog: Destatis recorded an 8.4% fall in German residential prices in 2023, another 1.5% decline in 2024, then a 3.2% rise in 2025. So a city being cheaper than Berlin tells you almost nothing on its own. The useful question is whether people have a reason to stay—good work, a university, a painless train home, or simply an everyday life that feels easier than the price suggests.',
-            'My weekend-train shortlist would start with Leipzig and Dresden, then Erfurt. Leipzig has scale and an established cultural pull; Dresden has universities, research and semiconductor jobs; Erfurt has the surprise factor. After those, I’d look selectively at Coburg and towns on the Nuremberg orbit, Koblenz, and individual Ruhr neighborhoods. Saarland can work too, but only when you can name the local employer or cross-border connection doing the heavy lifting. A cheap square metre is not a thesis.',
+            'My weekend-train shortlist would start with Leipzig and Dresden, then Erfurt. Leipzig has scale and an established cultural pull; Dresden has universities, research and semiconductor jobs; Erfurt has the surprise factor. After those, I’d look selectively at Coburg and towns on the Nuremberg orbit, Koblenz, and individual Ruhr neighbourhoods. Saarland can work too, but only when you can name the local employer or cross-border connection doing the heavy lifting. A cheap square metre is not a thesis.',
           ],
         },
         {
@@ -105,7 +105,7 @@ export const guideArticles: GuideArticle[] = [
         {
           heading: 'What Erfurt wins—and what it does not',
           paragraphs: [
-            'Leipzig wins on labor-market depth, culture and the number of neighborhoods with regular buyer demand—but the famous ones already know they are famous. Dresden brings a different strength: universities, research and chip investment. Erfurt is smaller and resale can be slower. Its advantage is centrality, not magic.',
+            'Leipzig wins on labour-market depth, culture and the number of neighbourhoods with regular buyer demand—but the famous ones already know they are famous. Dresden brings a different strength: universities, research and chip investment. Erfurt is smaller and resale can be slower. Its advantage is centrality, not magic.',
             'Before you call anything a deal, compare completed sales, a realistic rent under the local Mietspiegel, non-recoverable Hausgeld, the building reserve and the exact five-minute walk around the front door. Do that walk after dark too. The train timetable is a very good reason to look; it is not permission to overpay.',
           ],
         },
@@ -161,8 +161,8 @@ export const guideArticles: GuideArticle[] = [
     published: '2026-08-24',
     accent: 'green',
     en: {
-      kicker: 'Neighborhood fieldwork · Berlin',
-      title: 'Berlin with children: three neighborhoods that work',
+      kicker: 'Neighbourhood fieldwork · Berlin',
+      title: 'Berlin with children: three neighbourhoods that work',
       dek: 'Forget the postcode for an afternoon. Bring a scooter, trace the school route and find out where you would go on a wet Tuesday.',
       readTime: '8 min read',
       photoLabel: 'A weekday school route in north-west Prenzlauer Berg',
@@ -187,17 +187,17 @@ export const guideArticles: GuideArticle[] = [
         {
           heading: '2. Friedenau: where the useful places hide in plain sight',
           paragraphs: [
-            'Friedenau feels almost improbably small after central Berlin: short blocks, old street trees and errands that join up without a transport plan. The district profile counts eleven public playgrounds and two public primary schools. Start at Breslauer Platz on market day, pick up bread at Lula am Markt, then wander toward Perelsplatz. It is not a blockbuster afternoon, which is precisely the charm—you are rehearsing a normal Saturday.',
-            'Then spoil the idyll on purpose. Cross Hauptstraße, stand beside Bundesallee and walk toward the Ringbahn. Noise and air can change in a block. Ask the school directly about catchments and places; a pin nearby never guarantees admission. Friedenau is best when its calm is real at the exact front door, not just present in the estate agent’s district name.',
+            'Friedenau feels almost improbably small after central Berlin: short blocks, old street trees and errands that join up without a transport plan. The district profile counts eleven public playgrounds and two public primary schools. Start at Breslauer Platz on market day, pick up bread at Lula am Markt, then wander towards Perelsplatz. It is not a blockbuster afternoon, which is precisely the charm—you are rehearsing a normal Saturday.',
+            'Then spoil the idyll on purpose. Cross Hauptstraße, stand beside Bundesallee and walk towards the Ringbahn. Noise and air can change in a block. Ask the school directly about catchments and places; a pin nearby never guarantees admission. Friedenau is best when its calm is real at the exact front door, not just present in the estate agent’s district name.',
           ],
           googleMaps: { query: 'Breslauer Platz Berlin Friedenau', label: 'Open the Friedenau loop in Google Maps' },
           map: {
             query: 'Breslauer Platz Berlin Friedenau',
             label: 'Friedenau: a compact everyday loop', lat: 52.4718, lon: 13.3282,
             places: [
-              { name: 'Breslauer Platz', detail: 'Market square and the small center of the neighborhood.', query: 'Breslauer Platz Berlin Friedenau' },
+              { name: 'Breslauer Platz', detail: 'Market square and the small centre of the neighbourhood.', query: 'Breslauer Platz Berlin Friedenau' },
               { name: 'Lula am Markt', detail: 'Bread, coffee and an easy pause while you watch the square.', query: 'Lula am Markt Lauterstrasse 14 Berlin' },
-              { name: 'Familienzentrum Friedenau', detail: 'Programs and practical support for local families.', query: 'Familienzentrum Friedenau Berlin' },
+              { name: 'Familienzentrum Friedenau', detail: 'Programmes and practical support for local families.', query: 'Familienzentrum Friedenau Berlin' },
               { name: 'Perelsplatz', detail: 'A green pause inside the residential grid.', query: 'Perelsplatz Berlin' },
             ],
           },
@@ -206,7 +206,7 @@ export const guideArticles: GuideArticle[] = [
           heading: '3. Karlshorst by Seepark: the one people forget to mention',
           paragraphs: [
             'Karlshorst is less polished in photographs and often much easier in real life. Seepark’s playground reopened in 2024 after an expansion to roughly 1,200 m², and the new primary school was planned for more than 430 places. Café TreBo is a proper children’s café rather than a café where children are merely tolerated; Tierpark is the sort of weekend plan that needs no committee meeting.',
-            'The catch is hidden in the walk to the S-Bahn. A listing can say “Karlshorst” and still hand you a long daily feeder trip. Trace the route at child-speed, check the tram after 20:00 and ask what nearby construction will look like for the years you expect to live there. The pleasant surprise is space; the risk is paying for connectivity that exists only at the center of the map label.',
+            'The catch is hidden in the walk to the S-Bahn. A listing can say “Karlshorst” and still hand you a long daily feeder trip. Trace the route at child-speed, check the tram after 20:00 and ask what nearby construction will look like for the years you expect to live there. The pleasant surprise is space; the risk is paying for connectivity that exists only at the centre of the map label.',
           ],
           googleMaps: { query: 'Seepark Karlshorst Berlin', label: 'Open Seepark Karlshorst in Google Maps' },
           map: {
@@ -216,7 +216,7 @@ export const guideArticles: GuideArticle[] = [
               { name: 'Seepark playground', detail: 'Expanded play space reopened in 2024.', query: 'Spielplatz Seepark Karlshorst Berlin' },
               { name: 'Seepark primary school', detail: 'New school campus at Blockdammweg 60.', query: 'Seepark Grundschule Blockdammweg 60 Berlin' },
               { name: 'Café TreBo', detail: 'A children’s café where play is part of the plan.', query: 'Cafe TreBo Karlshorst Berlin' },
-              { name: 'Potpourri family center', detail: 'Local family programs at Eginhardstraße 9.', query: 'Familienzentrum Potpourri Eginhardstrasse 9 Berlin' },
+              { name: 'Potpourri family centre', detail: 'Local family programmes at Eginhardstraße 9.', query: 'Familienzentrum Potpourri Eginhardstrasse 9 Berlin' },
             ],
           },
         },
@@ -315,19 +315,19 @@ export const guideArticles: GuideArticle[] = [
           heading: 'Munich · Türkenstraße',
           paragraphs: [
             'Türkenstraße feels as if someone keeps leaving doors open onto other lives: students, galleries, breakfast tables, bicycles, the museum crowd. At number 17, slip into the tiny Türkentor. Entry is free and the whole room is given to a Walter De Maria installation—a lovely five-minute interruption between the much bigger museums around it.',
-            'Then take the ten-second walk to Café Puck at number 33, open daily from 9 and cheerfully calling itself the neighborhood’s living room. This is cultural proximity you can actually use, not an amenity bullet point. It also means deliveries, students and voices on the pavement. For a viewing, stay until early evening; Maxvorstadt changes volume when lectures finish.',
+            'Then take the ten-second walk to Café Puck at number 33, open daily from 9 and cheerfully calling itself the neighbourhood’s living room. This is cultural proximity you can actually use, not an amenity bullet point. It also means deliveries, students and voices on the pavement. For a viewing, stay until early evening; Maxvorstadt changes volume when lectures finish.',
           ],
           googleMaps: { query: 'Tuerkenstrasse Munich', label: 'Open Türkenstraße in Google Maps' },
           stops: [
             { name: 'Türkentor', detail: 'Free entry; check the seasonal opening hours.', query: 'Tuerkentor Tuerkenstrasse 17 Munich' },
-            { name: 'Café Puck', detail: 'Breakfast, coffee and neighborhood life from 9 a.m.', query: 'Cafe Puck Tuerkenstrasse 33 Munich' },
+            { name: 'Café Puck', detail: 'Breakfast, coffee and neighbourhood life from 9 a.m.', query: 'Cafe Puck Tuerkenstrasse 33 Munich' },
           ],
         },
         {
           heading: 'Hamburg · Schulterblatt',
           paragraphs: [
             'Schulterblatt does not make its contradictions subtle. The Rote Flora—the self-organised, occupied cultural project at what used to be number 71 and is now Achidi-John-Platz 1—has been here since 1989. A few doors away you get brunch queues, bars and polished shopfronts. Don’t flatten that into “edgy charm”; the friction is political history, nightlife and rising commercial pressure sharing one short street.',
-            'For a pause, Blattgold at number 83 does vegetarian dinner and a weekend brunch; for serious coffee, detour around the corner to the elbgold roastery in the old Schanzenhöfe on Lagerstraße. Then do the important property-viewing trick: walk one block sideways. Schulterblatt can be loud and public while a nearby residential street feels almost tucked away. That change, over 200 metres, is the real neighborhood review.',
+            'For a pause, Blattgold at number 83 does vegetarian dinner and a weekend brunch; for serious coffee, detour around the corner to the elbgold roastery in the old Schanzenhöfe on Lagerstraße. Then do the important property-viewing trick: walk one block sideways. Schulterblatt can be loud and public while a nearby residential street feels almost tucked away. That change, over 200 metres, is the real neighbourhood review.',
           ],
           googleMaps: { query: 'Schulterblatt Hamburg', label: 'Open Schulterblatt in Google Maps' },
           stops: [
@@ -340,7 +340,7 @@ export const guideArticles: GuideArticle[] = [
           heading: 'Cologne · Körnerstraße',
           paragraphs: [
             'Körnerstraße is short enough that rushing it would be ridiculous. Start with an espresso at Van Dyck, number 43, then look into the small shops and studios Cologne Tourism celebrates. Finish at Café Sehnsucht at number 67: it has been part of Ehrenfeld since 1982, bakes its own bread and cake, and turns from café into restaurant later in the day. That is a very good two-stop explanation of the street—independent, unshowy and built for regulars.',
-            'The former industrial fabric around Ehrenfeld gives the area its texture, but the tracks also give it noise. Look beyond the photogenic shopfronts toward the rail approaches and Körnerpark. A few hundred metres can change both the charm and your sleep, so stand outside the exact building after a train passes before deciding the street is perfect.',
+            'The former industrial fabric around Ehrenfeld gives the area its texture, but the tracks also give it noise. Look beyond the photogenic shopfronts towards the rail approaches and Körnerpark. A few hundred metres can change both the charm and your sleep, so stand outside the exact building after a train passes before deciding the street is perfect.',
           ],
           googleMaps: { query: 'Koernerstrasse Cologne Ehrenfeld', label: 'Open Körnerstraße in Google Maps' },
           stops: [

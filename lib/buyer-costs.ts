@@ -1,5 +1,5 @@
 import type { Locale } from './i18n.ts';
-import { money, moneyRange, percent } from './format.ts';
+import { money, percent } from './format.ts';
 import { buyerCommissionPercent } from './red-flags.ts';
 
 /**
@@ -383,6 +383,12 @@ export function buyerCostBreakdown(input: CostSource): BuyerCostBreakdown {
   };
 }
 
+function moneySpan(low: number, high: number, locale: Locale) {
+  const start = money(low, locale);
+  const end = money(high, locale);
+  return start === end ? start : `${start}–${end}`;
+}
+
 function rateDigits(rate: number) {
   if (!rate) return 0;
   return Math.round(rate * 100) % 10 === 0 ? 1 : 2;
@@ -446,7 +452,7 @@ export function buyerCostView(input: CostSource, locale: Locale): BuyerCostView 
   const commission = commissionOf(breakdown.price, facts.buyerCommission);
   const checked = formatChecked(locale);
   const rows: BuyerCostRowView[] = breakdown.lines.map(line => lineCopy(line, breakdown, commission, locale, checked));
-  const summaryAmount = moneyRange(breakdown.financingLow, breakdown.financingHigh, locale);
+  const summaryAmount = moneySpan(breakdown.financingLow, breakdown.financingHigh, locale);
   const view: BuyerCostView = {
     title: locale === 'de' ? 'Kaufnebenkosten' : 'Buyer costs (Kaufnebenkosten)',
     summaryAmount,
@@ -454,7 +460,7 @@ export function buyerCostView(input: CostSource, locale: Locale): BuyerCostView 
     estimatedMark: locale === 'de' ? '(geschätzt)' : '(est.)',
     rows,
     footnote: FOOTNOTE[locale],
-    totalAmount: moneyRange(breakdown.totalLow, breakdown.totalHigh, locale),
+    totalAmount: moneySpan(breakdown.totalLow, breakdown.totalHigh, locale),
   };
   if (breakdown.usesStated) {
     view.statedNote = locale === 'de'
@@ -463,7 +469,7 @@ export function buyerCostView(input: CostSource, locale: Locale): BuyerCostView 
   }
   if (breakdown.divergence) {
     const stated = money(breakdown.financingLow, locale);
-    const estimate = moneyRange(breakdown.estimateLow, breakdown.estimateHigh, locale);
+    const estimate = moneySpan(breakdown.estimateLow, breakdown.estimateHigh, locale);
     const stateLabel = breakdown.state
       ? stateName(breakdown.state, locale)
       : (locale === 'de' ? 'ein nicht erkanntes Bundesland' : 'an unidentified state');
@@ -504,7 +510,7 @@ function taxCopy(line: BuyerCostLine, breakdown: BuyerCostBreakdown, locale: Loc
     label: locale === 'de'
       ? `Grunderwerbsteuer, Bundesland unklar (${lowRate}–${highRate})`
       : `Transfer tax, state not identified (${lowRate}–${highRate})`,
-    amount: moneyRange(line.low, line.high, locale),
+    amount: moneySpan(line.low, line.high, locale),
     share: shareText(line.low, line.high, breakdown.price, locale),
     basis: locale === 'de'
       ? `Das Angebot nennt kein Bundesland. Der Betrag ist die Spanne vom niedrigsten Satz (${lowRate}, ${lowName}) bis zum höchsten (${highRate}). Geprüft am ${checked}.`
@@ -517,7 +523,9 @@ function notaryCopy(line: BuyerCostLine, price: number, locale: Locale): BuyerCo
   const shown = formatRate(NOTARY_RATE, locale);
   return {
     key: 'notary',
-    label: locale === 'de' ? 'Notar und Grundbuch (Schätzung, ca. 2 %)' : 'Notary and land registry (estimate, ≈2%)',
+    label: locale === 'de'
+      ? `Notar und Grundbuch (Schätzung, ca. ${formatRate(NOTARY_RATE, locale)})`
+      : `Notary and land registry (estimate, ≈${formatRate(NOTARY_RATE, locale)})`,
     amount: money(line.low, locale),
     share: shareText(line.low, line.high, price, locale),
     basis: locale === 'de'
@@ -583,6 +591,6 @@ export function buyerCostDivergenceNote(input: CostSource, locale: Locale) {
 export function buyerCostComparisonValue(input: CostSource, locale: Locale) {
   const breakdown = buyerCostBreakdown(input);
   if (!breakdown.price && !breakdown.usesStated) return '—';
-  const amount = moneyRange(breakdown.financingLow, breakdown.financingHigh, locale);
+  const amount = moneySpan(breakdown.financingLow, breakdown.financingHigh, locale);
   return breakdown.financingIsEstimated ? `${amount} ${locale === 'de' ? '(geschätzt)' : '(est.)'}` : amount;
 }

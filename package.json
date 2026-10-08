@@ -8,7 +8,7 @@
     "dev": "next dev --turbopack",
     "build": "npm run helper:package && next build",
     "start": "next start",
-    "build:worker": "opennextjs-cloudflare build && node scripts/publish-static-pages.mjs",
+    "build:worker": "opennextjs-cloudflare build && node --experimental-strip-types scripts/publish-static-pages.mjs",
     "preview": "npm run build:worker && opennextjs-cloudflare preview",
     "deploy": "npm run build:worker && opennextjs-cloudflare deploy",
     "upload": "npm run build:worker && opennextjs-cloudflare upload",

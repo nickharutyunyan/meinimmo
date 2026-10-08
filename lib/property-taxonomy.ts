@@ -1,4 +1,5 @@
 import type { Report } from './types';
+import { localizedTenancy } from './i18n.ts';
 
 // Stable product vocabulary. Codes never depend on language or model wording.
 export const TAXONOMY_VERSION = 2;
@@ -9,7 +10,7 @@ export const taxonomy = {
   orientation: { north: ['North-facing', 'Nordausrichtung'], east: ['East-facing', 'Ostausrichtung'], south: ['South-facing', 'Südausrichtung'], west: ['West-facing', 'Westausrichtung'], multiple: ['Multiple directions', 'Mehrere Ausrichtungen'] },
   occupancy: { rented: ['Rented', 'Vermietet'], not_rented: ['Not rented', 'Nicht vermietet'], owner_occupied: ['Owner-occupied', 'Selbst genutzt'] },
   availability: { immediate: ['Available immediately (listing)', 'Laut Exposé sofort bezugsfrei'], dated: ['Availability date stated', 'Bezugstermin angegeben'], agreement: ['Available by agreement', 'Bezug nach Vereinbarung'] },
-  heating: { heat_pump: ['Heat pump', 'Wärmepumpe'], district: ['District heating', 'Fernwärme'], central: ['Central heating', 'Zentralheizung'], individual: ['Individual apartment heating', 'Etagenheizung'], underfloor: ['Underfloor heating', 'Fußbodenheizung'], mixed: ['Multiple heating components', 'Mehrere Heizkomponenten'] },
+  heating: { heat_pump: ['Heat pump', 'Wärmepumpe'], district: ['District heating', 'Fernwärme'], central: ['Central heating', 'Zentralheizung'], individual: ['Individual flat heating', 'Etagenheizung'], underfloor: ['Underfloor heating', 'Fußbodenheizung'], mixed: ['Multiple heating components', 'Mehrere Heizkomponenten'] },
   energy: { a_plus: ['A+', 'A+'], a: ['A', 'A'], b: ['B', 'B'], c: ['C', 'C'], d: ['D', 'D'], e: ['E', 'E'], f: ['F', 'F'], g: ['G', 'G'], h: ['H', 'H'] },
 } as const;
 
@@ -149,9 +150,17 @@ export function parseFactualTaxonomy(raw: unknown, report: Report, inputHash: st
   return { version: TAXONOMY_VERSION, model: result.model, inputHash, fields };
 }
 
+function resolvedOccupancy(report: Report, locale: 'en' | 'de') {
+  const tenancy = report.facts?.tenancy;
+  if (!tenancy || /not stated|unknown/i.test(tenancy)) return undefined;
+  return `${headings[locale].occupancy}: ${localizedTenancy(tenancy, report.facts.availabilityDate, locale)}`;
+}
+
 export function localizedFactualTaxonomy(report: Report, locale: 'en' | 'de') {
   if (report.taxonomy?.version !== TAXONOMY_VERSION) return [];
+  const occupancy = resolvedOccupancy(report, locale);
   return taxonomyFields.flatMap(field => {
+    if (field === 'occupancy' && occupancy) return [occupancy];
     const decision = report.taxonomy?.fields[field];
     if (!decision || decision.status !== 'classified') return [];
     const labels = (taxonomy[field] as Record<string, readonly string[]>)[decision.value];

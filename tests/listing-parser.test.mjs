@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkedCharacteristic, looksLikePropertyListing, parseListing } from '../lib/listing-parser.ts';
-import { localizedFeatures } from '../lib/i18n.ts';
+import { checkedCharacteristic, findSunOrientation, looksLikePropertyListing, parseListing, statesPrivateGarden } from '../lib/listing-parser.ts';
+import { EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { localizedFeatures, localizedValue } from '../lib/i18n.ts';
+import { localizedConsiderations } from '../lib/report-copy.ts';
 
 const tableRow = (label, value) => `<tr><td><div>${label}</div></td><td><div>${value}</div></td></tr>`;
 
@@ -508,4 +510,87 @@ test('a rented house does not use flat unit wording', () => {
   assert.equal(report.facts.tenancy, 'Rented');
   assert.match(report.qualityWarnings.join(' '), /The house is rented but no verified yield was extracted/);
   assert.doesNotMatch(report.qualityWarnings.join(' '), /The unit is rented/);
+});
+
+test('compound balcony directions are extracted in a bounded way', () => {
+  const cases = [
+    ['Die Wohnung hat zwei Süd-/Südwestbalkone.', 'Süd-/Südwest'],
+    ['Balkon Süd-West mit Abendsonne.', 'Süd-West'],
+    ['Ein Südwestbalkon gehört zur Wohnung.', 'Südwest'],
+    ['Die Wohnräume sind nach Süden ausgerichtet.', 'nach Süden ausgerichtet'],
+    ['West-/Südbalkon zur ruhigen Seite.', 'West-/Süd'],
+    ['Die Wohnung ist Ost-West ausgerichtet.', 'Ost-West'],
+  ];
+  for (const [line, expected] of cases) assert.equal(findSunOrientation([line]), expected, line);
+  assert.equal(findSunOrientation(['Kein Südwestbalkon.']), '');
+  const html = `<title>Wohnung</title><main><p>Kaufpreis 400.000 €</p><p>Wohnfläche 70 m²</p><p>10439 Berlin</p><p>zwei Süd-/Südwestbalkone</p></main>`;
+  const parsed = parseListing(html, 'https://example.test/orientation');
+  assert.equal(parsed.sunOrientation, 'Süd-/Südwest');
+  assert.equal(localizedValue(parsed.sunOrientation, 'en'), 'Süd-/Südwest');
+  assert.equal(localizedValue(parsed.sunOrientation, 'de'), 'Süd-/Südwest');
+});
+
+test('terrace and garden advice follows what the listing actually states', () => {
+  const shared = parseListing(`<title>Wohnung mit Hof</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Die Wohnung hat einen Balkon. Der Gemeinschaftsgarten und der Innenhof werden gemeinschaftlich genutzt.</p>
+  </main>`, 'https://example.test/shared-garden');
+  const joined = [...shared.considerations, ...localizedConsiderations(shared, 'de')].join('\n');
+  assert.equal(shared.facts.privateGarden, undefined);
+  assert.doesNotMatch(joined, /Terrasse|terrace|Teilungserklärung|Sondernutzungsrecht/i);
+  const terrace = parseListing(`<title>Wohnung</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Zur Wohnung gehört eine Terrasse.</p>
+  </main>`, 'https://example.test/terrace');
+  assert.match(terrace.considerations.join(' '), /terrace rights/i);
+  assert.doesNotMatch(terrace.considerations.join(' '), /garden/i);
+  assert.match(localizedConsiderations(terrace, 'de').join(' '), /Terrassenrecht/);
+  assert.doesNotMatch(localizedConsiderations(terrace, 'de').join(' '), /Garten/);
+  const garden = ['Sondernutzungsrecht am Garten ist eingetragen.'];
+  assert.equal(statesPrivateGarden(garden), true);
+  const privateGarden = parseListing(`<title>Wohnung</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Sondernutzungsrecht am Garten.</p>
+  </main>`, 'https://example.test/private-garden');
+  assert.equal(privateGarden.facts.privateGarden, true);
+  assert.match(privateGarden.considerations.join(' '), /private garden use \(Sondernutzungsrecht\)/i);
+  assert.doesNotMatch(privateGarden.considerations.join(' '), /terrace/i);
+  assert.match(localizedConsiderations(privateGarden, 'de').join(' '), /private Gartennutzungsrecht \(Sondernutzungsrecht\)/);
+  assert.doesNotMatch([...privateGarden.considerations, ...localizedConsiderations(privateGarden, 'de')].join('\n'), /ImmoScout|Ohne-Makler|ohne-makler/i);
+});
+
+test('keeps a multi-unit house room total and a stated energy class that disagrees with demand', () => {
+  assert.equal(EXTRACTION_VERSION, 2026100803);
+  const html = `<html><head><title>NEUWERTIGES MEHRFAMILIENHAUS IN BOCHUM-LINDEN – ATTRAKTIVE KAPITALANLAGE MIT 6 WOHNEINHEITEN</title></head><body><main>
+    <div>44879 Bochum (Linden) – Nordrhein-Westfalen</div>
+    <div>Kaufpreis: 1.180.000 €</div>
+    <div>17</div><div>Zimmer</div>
+    <div>439,12 m²</div><div>Wohnfläche</div>
+    <p>Dieses im Jahr 2022 errichtete Mehrfamilienhaus in Bochum-Linden bietet sechs Wohnungen. Auf vier Wohnebenen stehen insgesamt rund 439,12 m² Wohnfläche zur Verfügung.</p>
+    <p>Wohnung 1: UG - 97,00 m² Vier-Zimmer-Wohnung im Sockelgeschoss.</p>
+    <p>Wohnung 2: EG - 72,04 m² Drei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 3: EG - 58,09 m² Zwei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 4: 1. OG - 72,04 m² Drei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 5: 1. OG - 58,09 m² Zwei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 6: SG - 81,86 m² Drei-Zimmer-Wohnung mit Dachterrasse.</p>
+    <div>Aktuelle Nutzung</div><div>Vermietet</div>
+    <div>Objektart</div><div>Haus</div>
+    <div>Energieeffizienzklasse</div><div>A</div>
+    <div>Energieausweistyp</div><div>Bedarfsausweis</div>
+    <div>Endenergiebedarf</div><div>24,00 kWh/(m²a)</div>
+  </main></body></html>`;
+  const report = parseListing(html, 'https://example.test/bochum-linden');
+  assert.equal(report.extractionVersion, 2026100803);
+  assert.equal(report.propertyType, 'house');
+  assert.equal(report.facts.rooms, '17');
+  assert.equal(report.facts.area, 439.12);
+  assert.equal(report.facts.city, 'Bochum');
+  assert.equal(report.facts.district, 'Linden');
+  assert.equal(report.facts.energy, 'A');
+  assert.equal(report.facts.energyDemand, 24);
+  assert.equal(report.facts.energyCertificate, 'Bedarfsausweis');
+  assert.equal(report.facts.price, 1180000);
+  assert.equal(report.title, '17-room house · Linden');
+  assert.equal(report.score, null);
+  assert.ok(report.qualityWarnings.some(warning => /energy class and consumption/i.test(warning)));
 });

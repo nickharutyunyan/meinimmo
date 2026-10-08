@@ -9,7 +9,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const article = getGuideArticle(slug);
   if (!article) return {};
-  return { title: `${article.en.title} | Review a House`, description: article.en.dek, alternates: { canonical: `/guide/${slug}`, languages: { en: `/guide/${slug}`, de: `/de/guide/${slug}` } } };
+  const title = `${article.en.title} | Review a House`;
+  const description = article.en.dek;
+  return {
+    title,
+    description,
+    alternates: { canonical: `/guide/${slug}`, languages: { en: `/guide/${slug}`, de: `/de/guide/${slug}` } },
+    openGraph: { type: 'website', url: `/guide/${slug}`, siteName: 'ReviewAHouse', locale: 'en_GB', title, description },
+    twitter: { card: 'summary', title, description },
+  };
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

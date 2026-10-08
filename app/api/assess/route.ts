@@ -12,7 +12,7 @@ import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-s
 import { deleteSourcePdf, saveSourcePdf } from '@/lib/source-storage';
 import { categorizeProperty } from '@/lib/jev';
 import { EXTRACTION_VERSION } from '@/lib/report-integrity';
-import { fetchListing, ListingFetchError } from '@/lib/listing-fetch';
+import { fetchListing, listingImportStatus, ListingFetchError } from '@/lib/listing-fetch';
 import { verifyReportFacts } from '@/lib/fact-verification';
 
 export const runtime = 'nodejs';
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         invalid: de ? 'Der Link führt nicht zu einer gültigen öffentlichen Seite.' : 'The link does not lead to a valid public page.',
         unavailable: de ? 'Das Angebot ist nicht mehr verfügbar oder konnte nicht geöffnet werden. Versuche ein PDF oder den Angebotstext.' : 'This listing is no longer available or could not be opened. Try its PDF or paste its listing text.',
       };
-      return respond({ error: messages[code] }, code === 'too_large' ? 413 : 422);
+      return respond({ error: messages[code] }, listingImportStatus(code));
     }
   }
 

@@ -34,6 +34,30 @@ export function reportDocumentId(pathname) {
   return match[1];
 }
 
+/** English at `/`, German at `/de`. Other country paths stay English. */
+export function documentLanguage(pathname) {
+  const path = normalizePathname(pathname || '/');
+  return path === '/de' || path.startsWith('/de/') ? 'de' : 'en';
+}
+
+/** Set `<html lang>` for the URL. Idempotent, and a no-op for non-HTML. */
+export function applyDocumentLanguage(html, pathname) {
+  if (typeof html !== 'string' || !html.includes('<html')) return html;
+  const lang = documentLanguage(pathname);
+  if (/\blang=["'][^"']*["']/i.test(html.slice(html.indexOf('<html'), html.indexOf('<html') + 80))) {
+    return html.replace(/(<html\b[^>]*\blang=["'])[^"']*(["'])/i, `$1${lang}$2`);
+  }
+  return html.replace(/<html\b/i, `<html lang="${lang}"`);
+}
+
+export function pathnameForPublishedAsset(assetRelative) {
+  const normalized = String(assetRelative || '').replace(/\\/g, '/');
+  if (normalized === 'index.html') return '/';
+  if (normalized.endsWith('/index.html')) return `/${normalized.slice(0, -'/index.html'.length)}`;
+  if (normalized.endsWith('.html')) return `/${normalized.slice(0, -'.html'.length)}`;
+  return `/${normalized}`;
+}
+
 export function assetPathForPathname(pathname) {
   const path = normalizePathname(pathname);
   if (path === '/') return '/index.html';

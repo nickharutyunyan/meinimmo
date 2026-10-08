@@ -43,7 +43,7 @@ export const copy = {
         ['Energy', 'Class and heating, when the listing states them'],
         ['Warnings', 'Conflicts and missing facts, in plain language'],
       ],
-      approachFree: 'Your first report is free.',
+      approachFree: 'Reports are free.',
       approachFreeNote: 'No sign-up, no subscription.',
       approachCta: 'Start with a listing',
       faqLabel: 'FREQUENTLY ASKED',
@@ -55,7 +55,7 @@ export const copy = {
         ['How can I keep track of properties during a long house hunt?', 'Every report you open is added chronologically to the sidebar in your browser. Pin the strongest candidates to keep them at the top, and remove the ones you have ruled out. Repeating the same listing reuses its existing entry, so your shortlist stays clean.'],
         ['Can I compare two properties side by side?', 'Yes. Select any two saved reports in the sidebar to create a focused comparison. It aligns asking price, purchase costs, price per square metre, size, floor, energy facts, the Review a House score and other key details so the trade-offs are easier to see.'],
         ['Can I share a property report or comparison with other people?', 'Yes. Every report and comparison has its own persistent link. Send it to a partner, friend, family member or adviser so everyone is discussing the same facts and assumptions.'],
-        ['How can I quickly tell whether a property deserves a closer look?', 'The Review a House score gives every property a consistent rating out of 10 for quick filtering. It weighs price, neighbourhood, space, building, energy, natural light, costs and source quality, and shows the components behind the result. It is a screening tool—not a formal valuation or a substitute for technical and legal due diligence.'],
+        ['How can I quickly tell whether a property deserves a closer look?', 'The Review a House score rates each listing from 0 to 10 on the facts it states: price (only where official local sales prices exist), neighbourhood, space, building, energy, light, running costs and how complete the listing is. Each score shows how much data it rests on. It is a screening tool, not a valuation or a substitute for technical and legal checks.'],
         ['Can I adjust the mortgage estimate to fit my situation?', 'Yes. Change the down payment, mortgage rate and initial repayment rate directly in the report. The estimated loan and monthly payment update immediately. The calculator is deliberately rough, so confirm the final financing and ancillary costs with a lender or adviser.'],
         ['Is Review a House free, and what do the paid plans include?', 'Reports are free, with no daily limit and no sign-up required. A one-off €5 day pass gives you 50 reports for 24 hours with no subscription or automatic renewal. Pro costs €10 per month for 10 reports per day, while Ultra costs €20 per month for up to 100 reports per day.'],
       ],
@@ -67,20 +67,20 @@ export const copy = {
     },
     report: {
       brief: 'REVIEW A HOUSE / PROPERTY REPORT', copyLink: 'Copy share link', copied: 'Link copied', score: 'LISTING RUBRIC',
-      deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'A fixed rubric of stated listing facts, not a valuation or recommendation. Price bands are not adjusted to local comparable sales. Missing facts reduce confidence; conflicting critical facts withhold the score.', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', commission: "Buyer's commission", monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
+      deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'A screening rubric based on the facts the listing states, not a valuation or a buying recommendation. Price counts only where we have official local sales prices (Berlin for now). Missing facts lower the confidence, and conflicting facts withhold the score.', scoreWithheld: 'No score while key facts are missing or conflicting.', conflictWithheld: 'Score withheld: the listing contradicts itself on {facts}.', addressWithheld: 'Score withheld: the extracted street is not a valid address.', sourceWithheld: 'Score withheld: this saved report needs a fresh source review.', figuresWithheld: 'Score withheld: the listing does not state a price and a living area.', placeWithheld: 'Score withheld: the listing does not name a town.', typeWithheld: 'Score withheld: the property type is not clear from the listing.', lowConfidence: 'Not enough stated facts for a score ({present} of 8). Ask the seller for the missing details.', missingFacts: 'Missing: {facts}.', priceNotScored: 'not scored (no local price data)', howWeReview: 'How we review', confidenceLevel: { high: 'High', medium: 'Medium', low: 'Low' }, confidenceLine: 'Confidence: {level} · {present} of {total} key facts', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', commission: "Buyer's commission", monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
       atGlance: 'AT A GLANCE', profile: 'PROPERTY PROFILE', details: 'LISTING DETAILS', matters: 'WHAT MATTERS', notes: 'DATA NOTES', notDisclosed: 'Not disclosed',
       photosCaption: 'Photos from the listing · opens the original page',
       photoLink: 'Photo {n} of {total}, opens the original listing in a new tab',
       plot: 'Plot area', redFlags: 'RED FLAGS', redFlagsEmpty: 'No red flags found in the listing text. That is not a guarantee, so check the documents.', redFlagSerious: 'Serious', redFlagCheck: 'Check', redFlagFrom: 'From the listing:',
-      components: { price: 'Price', neighborhood: 'Neighborhood', space: 'Space', building: 'Building', energy: 'Energy', light: 'Light', costs: 'Costs', source: 'Source' },
+      components: { price: 'Price', neighborhood: 'Neighbourhood', space: 'Space', building: 'Building', energy: 'Energy', light: 'Light', costs: 'Costs', source: 'Source' },
       source: 'SOURCE', original: 'View original listing ↗', downloadPdf: 'Download PDF ↓', saved: 'Report saved', assessMore: 'CREATE MORE REPORTS', plansTitle: 'Keep the decision process moving.', plansCopy: 'Reports are free, with no daily limit. No sign-up, and no subscription required.', perMonth: '/month', proLimit: '10 reports per day', ultraLimit: '100 reports per day', proButton: 'Upgrade to Pro', ultraButton: 'Choose Ultra',
     },
     finance: {
-      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', estimatedBuyerCosts: 'Estimated buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', includeHousegeld: 'Include Hausgeld', higherTotal: 'of the higher total', note: 'Starts with the current FMH average effective rate for a 10-year German mortgage. Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross when included; for a rented unit, verify the recoverable and owner-only portions. Confirm the final rate, costs and affordability with a lender.', houseNote: 'Starts with the current FMH average effective rate for a 10-year German mortgage. Illustrative annuity calculation, not a financing offer. Confirm the final rate, costs and affordability with a lender.',
+      label: 'FINANCING SCENARIO', knownOutlay: 'Known monthly outlay before rent', payment: 'Illustrative loan payment', loan: 'Loan', purchase: 'Purchase price', buyerCosts: 'Buyer costs', estimatedBuyerCosts: 'Estimated buyer costs', total: 'Total cost', equity: 'Equity / down payment', rate: 'Mortgage rate', repayment: 'Initial repayment (Tilgung)', includeHousegeld: 'Include Hausgeld', higherTotal: 'of the higher total', rateLoading: "Loading today's mortgage rate…", rateUnavailable: 'Current mortgage rates are unavailable right now', note: 'Starts with the current FMH average effective rate for a 10-year German mortgage. Illustrative annuity calculation, not a financing offer. Hausgeld is shown gross when included; for a rented unit, verify the recoverable and owner-only portions. Confirm the final rate, costs and affordability with a lender.', houseNote: 'Starts with the current FMH average effective rate for a 10-year German mortgage. Illustrative annuity calculation, not a financing offer. Confirm the final rate, costs and affordability with a lender.',
     },
     questions: { label: 'ASK BEFORE YOU OFFER', reviewing: 'Reviewing listing', tailored: 'Tailored to this listing', core: '', title: 'Questions worth asking', note: '' },
-    map: { label: 'NEIGHBORHOOD', intro: 'Use the map to verify walking routes to U-Bahn, S-Bahn, trams, parks and daily essentials—not just straight-line distance.', loading: 'Locating the neighborhood…', explore: 'Explore on OpenStreetMap ↗', approximate: 'The listing does not disclose an exact address. The map is centered on the most precise stated area:', exact: 'The listing provides an exact street address.' },
-    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', property: 'PROPERTY', option: 'OPTION', address: 'Address', neighborhood: 'Neighborhood', asking: 'Asking price', acquisition: 'Total acquisition cost', buyerCosts: 'Buyer costs', estimated: '(est.)', commission: "Buyer's commission", perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', redFlags: 'Red flags', score: 'Listing rubric' },
+    map: { label: 'NEIGHBOURHOOD', intro: 'Use the map to verify walking routes to U-Bahn, S-Bahn, trams, parks and daily essentials—not just straight-line distance.', loading: 'Locating the neighbourhood…', explore: 'Explore on OpenStreetMap ↗', approximate: 'The listing does not disclose an exact address. The map is centred on the most precise stated area:', exact: 'The listing provides an exact street address.' },
+    compare: { label: 'PROPERTY COMPARISON', title: 'Two homes, side by side.', property: 'PROPERTY', option: 'OPTION', address: 'Address', neighborhood: 'Neighbourhood', asking: 'Asking price', acquisition: 'Total acquisition cost', buyerCosts: 'Buyer costs', estimated: '(est.)', commission: "Buyer's commission", perSqm: 'Price per living m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', housegeld: 'Hausgeld', monthly: '/ month', return: 'Advertised return', energy: 'Energy', redFlags: 'Red flags', score: 'Listing rubric' },
     ads: { partner: 'PARTNER SPACE', note: 'A quiet place for a useful partner—not a distraction.', finance: 'Financing, survey or buyer-service partner', local: 'Local agent, architect or home partner' },
   },
   de: {
@@ -114,7 +114,7 @@ export const copy = {
         ['Energie', 'Klasse und Heizung, soweit das Angebot sie nennt'],
         ['Hinweise', 'Widersprüche und fehlende Angaben, in klaren Worten'],
       ],
-      approachFree: 'Dein erster Bericht ist kostenlos.',
+      approachFree: 'Berichte sind kostenlos.',
       approachFreeNote: 'Ohne Anmeldung, ohne Abo.',
       approachCta: 'Mit einem Inserat starten',
       faqLabel: 'HÄUFIGE FRAGEN',
@@ -126,7 +126,7 @@ export const copy = {
         ['Wie behalte ich bei einer längeren Immobiliensuche den Überblick?', 'Jeder geöffnete Bericht wird in deinem Browser chronologisch in der Seitenleiste gespeichert. Gute Kandidaten kannst du oben anpinnen, aussortierte wieder entfernen. Dasselbe Angebot wird nicht doppelt angelegt, damit die Liste sauber bleibt.'],
         ['Kann ich zwei Immobilien direkt vergleichen?', 'Ja. Wähle in der Seitenleiste zwei gespeicherte Berichte aus. Die Vergleichsansicht stellt Kaufpreis, Nebenkosten, Quadratmeterpreis, Größe, Etage, Energie, den Review-a-House-Score und weitere wichtige Angaben direkt nebeneinander.'],
         ['Kann ich einen Bericht oder Vergleich mit anderen teilen?', 'Ja. Jeder Bericht und jeder Vergleich hat einen festen Link. Schick ihn an Partner, Freunde, Familie oder deine Beratung – dann sprechen alle über dieselben Fakten und Annahmen.'],
-        ['Wie sehe ich schnell, ob sich ein genauerer Blick lohnt?', 'Der Review-a-House-Score bewertet jede Immobilie nach derselben Formel auf einer Skala von 1 bis 10. Preis, Lage, Platz, Gebäude, Energie, Tageslicht, Kosten und Qualität der Quelle fließen ein. Du siehst auch die Einzelwerte. Der Score ist ein Filter, kein Verkehrswertgutachten und kein Ersatz für technische oder rechtliche Prüfung.'],
+        ['Wie sehe ich schnell, ob sich ein genauerer Blick lohnt?', 'Der Review-a-House-Score bewertet jedes Angebot von 0 bis 10 anhand seiner Angaben: Preis (nur wo amtliche lokale Kaufpreise vorliegen), Lage, Platz, Gebäude, Energie, Licht, laufende Kosten und Vollständigkeit. Jeder Score zeigt, auf wie vielen Angaben er beruht. Er ist ein Filter, kein Wertgutachten und kein Ersatz für technische oder rechtliche Prüfung.'],
         ['Kann ich die grobe Finanzierung an meine Situation anpassen?', 'Ja. Eigenkapital, Zinssatz und anfängliche Tilgung lassen sich direkt im Bericht ändern. Darlehen und Monatsrate passen sich sofort an. Die Rechnung ist bewusst grob – finale Kosten und Konditionen solltest du mit einer Bank oder Beratung prüfen.'],
         ['Ist Review a House kostenlos und was bringen die Bezahlpakete?', 'Berichte sind kostenlos, ohne Tageslimit und ohne Anmeldung. Ein Tagespass kostet einmalig 5 € für 50 Berichte in 24 Stunden, ohne Abo oder automatische Verlängerung. Pro kostet 10 € im Monat für 10 Berichte pro Tag, Ultra kostet 20 € im Monat für bis zu 100 Berichte pro Tag.'],
       ],
@@ -138,7 +138,7 @@ export const copy = {
     },
     report: {
       brief: 'REVIEW A HOUSE / IMMOBILIEN-BERICHT', copyLink: 'Link kopieren', copied: 'Link kopiert', score: 'ANGEBOTSRASTER',
-      deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Ein festes Raster der Angebotsangaben, kein Wertgutachten und keine Kaufempfehlung. Preisgrenzen sind nicht an lokale Vergleichsverkäufe angepasst. Bei wichtigen Widersprüchen wird kein Score angezeigt.', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', commission: 'Käuferprovision', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
+      deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Ein Prüfraster auf Basis der Angaben im Angebot, kein Wertgutachten und keine Kaufempfehlung. Der Preis zählt nur, wo amtliche lokale Kaufpreise vorliegen (vorerst Berlin). Fehlende Angaben senken die Verlässlichkeit, Widersprüche verhindern den Score.', scoreWithheld: 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.', conflictWithheld: 'Kein Score: Das Angebot widerspricht sich {facts}.', addressWithheld: 'Kein Score: Die erkannte Straße ist keine gültige Adresse.', sourceWithheld: 'Kein Score: Dieser gespeicherte Bericht braucht eine neue Quellenprüfung.', figuresWithheld: 'Kein Score: Das Angebot nennt keinen Kaufpreis und keine Wohnfläche.', placeWithheld: 'Kein Score: Das Angebot nennt keinen Ort.', typeWithheld: 'Kein Score: Die Objektart geht aus dem Angebot nicht klar hervor.', lowConfidence: 'Zu wenige Angaben für einen Score ({present} von 8). Frag beim Verkäufer nach den fehlenden Angaben.', missingFacts: 'Es fehlen: {facts}.', priceNotScored: 'nicht bewertet (keine lokalen Preisdaten)', howWeReview: 'So prüfen wir', confidenceLevel: { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }, confidenceLine: 'Verlässlichkeit: {level} · {present} von {total} Kernangaben', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', commission: 'Käuferprovision', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
       atGlance: 'AUF EINEN BLICK', profile: 'IMMOBILIENPROFIL', details: 'ANGABEN IM EXPOSÉ', matters: 'WAS WICHTIG IST', notes: 'HINWEISE ZU DEN DATEN', notDisclosed: 'Nicht angegeben',
       photosCaption: 'Fotos aus dem Angebot · öffnet die Originalseite',
       photoLink: 'Foto {n} von {total}, öffnet das Originalangebot in einem neuen Tab',
@@ -147,7 +147,7 @@ export const copy = {
       source: 'QUELLE', original: 'Originalangebot öffnen ↗', downloadPdf: 'PDF herunterladen ↓', saved: 'Bericht gespeichert', assessMore: 'MEHR BERICHTE ERSTELLEN', plansTitle: 'Bleib bei deiner Suche im Fluss.', plansCopy: 'Berichte sind kostenlos, ohne Tageslimit. Ohne Anmeldung und ohne Abo.', perMonth: '/Monat', proLimit: '10 Berichte pro Tag', ultraLimit: '100 Berichte pro Tag', proButton: 'Pro wählen', ultraButton: 'Ultra wählen',
     },
     finance: {
-      label: 'BAUFINANZIERUNGSRECHNER', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', estimatedBuyerCosts: 'Geschätzte Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Kalkulationszins', repayment: 'Anfängliche Tilgung', includeHousegeld: 'Hausgeld einrechnen', higherTotal: 'vom höheren Gesamtbetrag', note: 'Startet mit dem aktuellen durchschnittlichen FMH-Effektivzins für eine zehnjährige Baufinanzierung in Deutschland. Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto eingerechnet, wenn ausgewählt; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Finale Konditionen, Kosten und Leistbarkeit bitte mit einer Bank klären.', houseNote: 'Startet mit dem aktuellen durchschnittlichen FMH-Effektivzins für eine zehnjährige Baufinanzierung in Deutschland. Grobe Annuitätenrechnung, kein Finanzierungsangebot. Finale Konditionen, Kosten und Leistbarkeit bitte mit einer Bank klären.',
+      label: 'BAUFINANZIERUNGSRECHNER', knownOutlay: 'Bekannte Monatskosten vor Mieteinnahmen', payment: 'Grobe monatliche Kreditrate', loan: 'Darlehen', purchase: 'Kaufpreis', buyerCosts: 'Kaufnebenkosten', estimatedBuyerCosts: 'Geschätzte Kaufnebenkosten', total: 'Gesamtkosten', equity: 'Eigenkapital', rate: 'Kalkulationszins', repayment: 'Anfängliche Tilgung', includeHousegeld: 'Hausgeld einrechnen', higherTotal: 'vom höheren Gesamtbetrag', rateLoading: 'Aktueller Bauzins wird geladen…', rateUnavailable: 'Aktuelle Bauzinsen sind gerade nicht verfügbar', note: 'Startet mit dem aktuellen durchschnittlichen FMH-Effektivzins für eine zehnjährige Baufinanzierung in Deutschland. Grobe Annuitätenrechnung, kein Finanzierungsangebot. Das Hausgeld ist brutto eingerechnet, wenn ausgewählt; bei vermieteten Wohnungen den umlagefähigen und den eigenen Anteil prüfen. Finale Konditionen, Kosten und Leistbarkeit bitte mit einer Bank klären.', houseNote: 'Startet mit dem aktuellen durchschnittlichen FMH-Effektivzins für eine zehnjährige Baufinanzierung in Deutschland. Grobe Annuitätenrechnung, kein Finanzierungsangebot. Finale Konditionen, Kosten und Leistbarkeit bitte mit einer Bank klären.',
     },
     questions: { label: 'VOR DEM ANGEBOT FRAGEN', reviewing: 'Angebot wird geprüft', tailored: 'Auf dieses Angebot zugeschnitten', core: '', title: 'Fragen, die sich lohnen', note: '' },
     map: { label: 'LAGE', intro: 'Prüfe auf der Karte echte Wege zu U-Bahn, S-Bahn, Tram, Parks und Dingen des täglichen Lebens – nicht nur die Luftlinie.', loading: 'Lage wird gesucht…', explore: 'Auf OpenStreetMap öffnen ↗', approximate: 'Im Angebot steht keine genaue Adresse. Die Karte zeigt den genauesten genannten Bereich:', exact: 'Im Angebot steht eine genaue Straßenadresse.' },
@@ -157,8 +157,8 @@ export const copy = {
 } as const;
 
 const hiddenPlanFaq = {
-  en: ['Is Review a House free?', 'Reports are free, with no daily limit and no sign-up required.'],
-  de: ['Ist Review a House kostenlos?', 'Berichte sind kostenlos, ohne Tageslimit und ohne Anmeldung.'],
+  en: ['Is Review a House free?', 'Yes. Reports are free, with no daily limit and no sign-up.'],
+  de: ['Ist Review a House kostenlos?', 'Ja. Berichte sind kostenlos, ohne Tageslimit und ohne Anmeldung.'],
 } as const;
 
 export function homePresentation(locale: Locale, paidPlansOffered: boolean) {
@@ -173,6 +173,53 @@ export function homePresentation(locale: Locale, paidPlansOffered: boolean) {
 export function financeFootnote(propertyType: string, locale: Locale) {
   const finance = copy[locale].finance;
   return propertyType === 'house' ? finance.houseNote : finance.note;
+}
+
+const ENERGY_PHRASES: Array<[RegExp, string]> = [
+  [/luft\s*[-/]\s*wasser\s*[-]?\s*w[aä]rme(?:pumpe)?/gi, 'Air-to-water heat pump'],
+  [/sole\s*[-/]\s*wasser\s*[-]?\s*w[aä]rmepumpe/gi, 'Brine-to-water heat pump'],
+  [/wasser\s*[-/]\s*wasser\s*[-]?\s*w[aä]rmepumpe/gi, 'Water-to-water heat pump'],
+  [/luft\s*[-]?\s*w[aä]rmepumpe/gi, 'Air-source heat pump'],
+  [/erd\s*[-]?\s*w[aä]rmepumpe/gi, 'Ground-source heat pump'],
+  [/blockheizkraftwerk/gi, 'Combined heat and power system'],
+  [/fußbodenheizung|fussbodenheizung/gi, 'Underfloor heating'],
+  [/nachtspeicher(?:heizung)?/gi, 'Night-storage heating'],
+  [/etagenheizung/gi, 'Individual heating system'],
+  [/zentralheizung/gi, 'Central heating'],
+  [/gasheizung/gi, 'Gas heating'],
+  [/ölheizung|oelheizung/gi, 'Oil heating'],
+  [/pelletheizung/gi, 'Pellet heating'],
+  [/fernw[aä]rme/gi, 'District heating'],
+  [/nahw[aä]rme/gi, 'Local district heating'],
+  [/umweltw[aä]rme/gi, 'Ambient heat'],
+  [/erdw[aä]rme|geothermie/gi, 'Geothermal energy'],
+  [/luftw[aä]rme/gi, 'Air-source heat'],
+  [/wärmepumpe|waermepumpe/gi, 'Heat pump'],
+  [/erdgas/gi, 'Natural gas'],
+  [/heizöl|heizoel/gi, 'Heating oil'],
+  [/flüssiggas|fluessiggas/gi, 'LPG'],
+  [/holzpellets/gi, 'Wood pellets'],
+  [/solarthermie/gi, 'Solar thermal'],
+  [/elektroheizung/gi, 'Electric heating'],
+];
+
+const EXACT_ENERGY: Record<string, string> = {
+  öl: 'Oil', oel: 'Oil', gas: 'Gas', strom: 'Electricity', holz: 'Wood', kohle: 'Coal', pellets: 'Pellets', solar: 'Solar',
+};
+
+/** English gloss for a German heating or energy-carrier label. Empty when nothing matched. */
+export function translateEnergyPhrase(value: string) {
+  const exact = EXACT_ENERGY[value.trim().toLocaleLowerCase('de-DE')];
+  if (exact) return exact;
+  let next = value;
+  let changed = false;
+  for (const [pattern, english] of ENERGY_PHRASES) {
+    const expression = new RegExp(pattern.source, 'gi');
+    if (!expression.test(next)) continue;
+    changed = true;
+    next = next.replace(new RegExp(pattern.source, 'gi'), english);
+  }
+  return changed ? next.replace(/\s{2,}/g, ' ').trim() : '';
 }
 
 export function localizedValue(value: string | undefined, locale: Locale) {
@@ -196,9 +243,13 @@ export function localizedValue(value: string | undefined, locale: Locale) {
       EG: 'Ground floor', Erdgeschoss: 'Ground floor', Hochparterre: 'Raised ground floor', Souterrain: 'Lower ground floor', DG: 'Top floor', Dachgeschoss: 'Top floor',
       Etagenheizung: 'Individual heating system', Zentralheizung: 'Central heating', Fernwärme: 'District heating', Gasheizung: 'Gas heating', Ölheizung: 'Oil heating', Wärmepumpe: 'Heat pump',
       Fußbodenheizung: 'Underfloor heating', Nachtspeicherheizung: 'Night-storage heating', Pelletheizung: 'Pellet heating', Blockheizkraftwerk: 'Combined heat and power system',
-      'Luft-/Wasserwärme': 'Air-to-water heat', 'Timber frame': 'Timber frame',
+      'Luft-/Wasserwärme': 'Air-to-water heat pump', 'Luft-Wasser-Wärmepumpe': 'Air-to-water heat pump', 'Luft/Wasser-Wärmepumpe': 'Air-to-water heat pump',
+      Luftwärmepumpe: 'Air-source heat pump', Erdwärmepumpe: 'Ground-source heat pump', Umweltwärme: 'Ambient heat',
+      Erdwärme: 'Geothermal energy', Luftwärme: 'Air-source heat', Nahwärme: 'Local district heating', Erdgas: 'Natural gas', Heizöl: 'Heating oil',
+      'Timber frame': 'Timber frame',
+      'Needs modernization': 'Needs modernisation',
     };
-    return englishTranslations[normalized] || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
+    return englishTranslations[normalized] || translateEnergyPhrase(normalized) || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
   }
   const translations: Record<string, string> = {
     'First occupancy': 'Erstbezug',

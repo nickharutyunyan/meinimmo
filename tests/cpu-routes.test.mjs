@@ -3,10 +3,10 @@ import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
+import { applyDocumentLanguage, assetPathForPathname, cacheFileToAssetPath, documentLanguage, isCacheableDocument, isRouterDataRequest, pathnameForPublishedAsset, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
 import { withTimeout } from '../lib/io-timeout.ts';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
-import { invalidateReportHtml, reportHtmlUrls } from '../lib/report-html-cache.ts';
+import { invalidateReportHtml, REPORT_HTML_CACHE_TTL_SECONDS, reportHtmlUrls } from '../lib/report-html-cache.ts';
 import { publishedBody, publishStaticPages, writeReportCacheBuildId } from '../scripts/publish-static-pages.mjs';
 
 const headers = (pairs) => new Headers(pairs);
@@ -117,6 +117,37 @@ test('a stalled promise rejects instead of hanging', async () => {
   assert.equal(await withTimeout(Promise.resolve('ok'), 30), 'ok');
 });
 
+test('a German report-cache hit is labelled once and the stored HTML is not rewritten', async () => {
+  const cached = '<html lang="en"><head></head><body>172.000 €</body></html>';
+  const served = applyDocumentLanguage(cached, '/de/r/59531030123f2eba');
+  assert.equal(served, '<html lang="de"><head></head><body>172.000 €</body></html>');
+  assert.equal(applyDocumentLanguage(served, '/de/r/59531030123f2eba'), served);
+  assert.equal(applyDocumentLanguage(cached, '/r/59531030123f2eba'), cached);
+
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  const serve = worker.slice(worker.indexOf('async function serveReport'), worker.indexOf('async function fetchNext'));
+  const fetchFn = worker.slice(worker.indexOf('export default'));
+  assert.doesNotMatch(serve, /applyDocumentLanguage|withDocumentLanguage/);
+  assert.match(serve, /await response\.clone\(\)\.text\(\)/);
+  assert.ok(fetchFn.indexOf('backfillRejection(request, env.BACKFILL_TOKEN)') < fetchFn.indexOf('serveReport'));
+  assert.ok(fetchFn.indexOf('serveReport') < fetchFn.indexOf('return withDocumentLanguage'));
+  assert.equal(fetchFn.match(/withDocumentLanguage\(/g).length, 1);
+});
+
+test('German document HTML carries lang=de and English stays lang=en', () => {
+  assert.equal(documentLanguage('/de'), 'de');
+  assert.equal(documentLanguage('/de/r/abc'), 'de');
+  assert.equal(documentLanguage('/'), 'en');
+  assert.equal(documentLanguage('/r/abc'), 'en');
+  assert.equal(documentLanguage('/am'), 'en');
+  const english = '<html lang="en"><head><title>Bericht</title></head></html>';
+  assert.equal(applyDocumentLanguage(english, '/de/r/abc'), '<html lang="de"><head><title>Bericht</title></head></html>');
+  assert.equal(applyDocumentLanguage(english, '/r/abc'), english);
+  assert.equal(applyDocumentLanguage('<html><body></body></html>', '/de'), '<html lang="de"><body></body></html>');
+  assert.equal(pathnameForPublishedAsset('de/index.html'), '/de');
+  assert.equal(pathnameForPublishedAsset('index.html'), '/');
+});
+
 test('cached report HTML is the anonymous document', () => {
   const shared = '<a class="account-nav" href="/account">Sign in</a><section class="card private-note"><p>YOUR NOTE</p><textarea></textarea>';
   assert.equal(reportHtmlIsShared(shared), true);
@@ -124,6 +155,19 @@ test('cached report HTML is the anonymous document', () => {
   assert.equal(reportHtmlIsShared('<html>rah_session=abc</html>'), false);
   assert.equal(reportHtmlIsShared('<input name="csrf" value="t">'), false);
   assert.equal(reportHtmlIsShared(''), false);
+});
+
+test('the report-page cache TTL is short enough for other colos to refresh', async () => {
+  assert.ok(REPORT_HTML_CACHE_TTL_SECONDS > 0);
+  assert.ok(REPORT_HTML_CACHE_TTL_SECONDS <= 5 * 60);
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  const serve = worker.slice(worker.indexOf('async function serveReport'), worker.indexOf('async function fetchNext'));
+  assert.match(serve, /REPORT_HTML_CACHE_TTL_SECONDS/);
+  assert.match(serve, /max-age=\$\{REPORT_HTML_CACHE_TTL_SECONDS\}/);
+  assert.doesNotMatch(serve, /max-age=86400/);
+  assert.match(serve, /x-report-cache', 'hit'/);
+  assert.doesNotMatch(serve, /env\.DB|storedMortgageRate|prepare\(/);
+  assert.match(await readFile(new URL('../lib/store.ts', import.meta.url), 'utf8'), /invalidateReportHtml\(item\.id\)/);
 });
 
 test('the worker serves prerendered documents before the Next handler', async () => {
@@ -139,6 +183,7 @@ test('the worker serves prerendered documents before the Next handler', async ()
   assert.match(worker, /env\.ASSETS\.fetch/);
   assert.match(worker, /applySecurityHeaders/);
   assert.match(worker, /reportHtmlIsShared/);
+  assert.match(worker, /applyDocumentLanguage/);
   assert.match(worker, /reportCacheRequest\(request\.url, REPORT_CACHE_BUILD_ID\)/);
   assert.match(worker, /from '\.\/build-id\.mjs'/);
   const reportPage = await read('app/r/[id]/page.tsx');
