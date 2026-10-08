@@ -1,4 +1,5 @@
 import type { Report } from './types';
+import { localizedTenancy } from './i18n.ts';
 
 // Stable product vocabulary. Codes never depend on language or model wording.
 export const TAXONOMY_VERSION = 2;
@@ -149,9 +150,17 @@ export function parseFactualTaxonomy(raw: unknown, report: Report, inputHash: st
   return { version: TAXONOMY_VERSION, model: result.model, inputHash, fields };
 }
 
+function resolvedOccupancy(report: Report, locale: 'en' | 'de') {
+  const tenancy = report.facts?.tenancy;
+  if (!tenancy || /not stated|unknown/i.test(tenancy)) return undefined;
+  return `${headings[locale].occupancy}: ${localizedTenancy(tenancy, report.facts.availabilityDate, locale)}`;
+}
+
 export function localizedFactualTaxonomy(report: Report, locale: 'en' | 'de') {
   if (report.taxonomy?.version !== TAXONOMY_VERSION) return [];
+  const occupancy = resolvedOccupancy(report, locale);
   return taxonomyFields.flatMap(field => {
+    if (field === 'occupancy' && occupancy) return [occupancy];
     const decision = report.taxonomy?.fields[field];
     if (!decision || decision.status !== 'classified') return [];
     const labels = (taxonomy[field] as Record<string, readonly string[]>)[decision.value];

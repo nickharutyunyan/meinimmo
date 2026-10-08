@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
 import { scoreAvailable } from '../lib/report-integrity.ts';
 import { resolveLocation } from '../lib/display.ts';
-import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor } from '../lib/report-copy.ts';
+import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor } from '../lib/report-copy.ts';
+import { localizedFactualTaxonomy, parseFactualTaxonomy, taxonomyFields } from '../lib/property-taxonomy.ts';
+import { localizedTenancy } from '../lib/i18n.ts';
 import { redFlagSentence } from '../lib/red-flags.ts';
 import { priceCheckPresentation } from '../lib/price-check-copy.ts';
 
@@ -205,7 +207,24 @@ test('Osnabrück shows the ground lease and the rented-until conflict, never vac
   assert.match(offerQuestionsFor(report, 'en')[0], /lease contract/);
   assert.match(offerQuestionsFor(report, 'de')[0], /Pachtvertrag/);
   assert.match(localizedSummary(report, 'de'), /Pachtgrundstück/);
-  assert.match(localizedSummary(report, 'de'), /widerspricht/);
+  assert.match(localizedSummary(report, 'de'), /bis Ende November 2026/);
+  assert.doesNotMatch(localizedSummary(report, 'de'), /widerspricht/);
+  assert.doesNotMatch(`${report.summary}\n${localizedSummary(report, 'de')}\n${localizedWarnings(report, 'en').join('\n')}\n${localizedWarnings(report, 'de').join('\n')}`, /key-facts table says it is not rented|widerspricht/);
+  for (const locale of ['en', 'de']) {
+    const notes = localizedWarnings(report, locale);
+    const clarify = clarifyBeforeDecision(report, locale);
+    for (const item of clarify) assert.equal(notes.includes(item), false, item);
+    assert.doesNotMatch(clarify.join('\n'), /key-facts table says it is not rented|widerspricht/);
+  }
+  const taxonomy = parseFactualTaxonomy({
+    model: 'jev-test',
+    answers: Object.fromEntries(taxonomyFields.map(field => [field, { type: 'choice', choice: field === 'occupancy' ? 'not_rented' : 'unknown', confidence: 0.99 }])),
+  }, report, 'hash');
+  const profiled = { ...report, taxonomy };
+  assert.equal(localizedFactualTaxonomy(profiled, 'en').find(row => row.startsWith('Rental status:')), `Rental status: ${localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, 'en')}`);
+  assert.equal(localizedFactualTaxonomy(profiled, 'de').find(row => row.startsWith('Vermietung:')), `Vermietung: ${localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, 'de')}`);
+  assert.doesNotMatch(localizedFactualTaxonomy(profiled, 'en').join('\n'), /Not rented/);
+  assert.doesNotMatch(localizedFactualTaxonomy(profiled, 'de').join('\n'), /Nicht vermietet/);
   assert.doesNotMatch(localizedSummary(report, 'de'), /Erbbaurecht|Erbbauzins/);
 });
 

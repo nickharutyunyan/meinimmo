@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { scoreAvailable, reportVerdict, reportConflicts } from '@/lib/report-integrity';
+import { scoreAvailable, reportVerdict } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
 import { copy, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
-import { localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
+import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
@@ -113,6 +113,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
+  const clarify = clarifyBeforeDecision(report, locale);
   const features = localizedFeatures(facts.features, locale);
   const redFlags = report.redFlags || [];
   const propertyCategories = localizedFactualTaxonomy(report, locale);
@@ -149,7 +150,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         <div className="verdict-copy"><h2>{reportVerdict(report, locale)}.</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
-      {reportConflicts(report).length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{warnings.filter(w => !/exact street|exact floor/.test(w)).map(w => <p key={w}>{w}</p>)}</section> : null}
+      {clarify.length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{clarify.map(w => <p key={w}>{w}</p>)}</section> : null}
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>
