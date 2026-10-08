@@ -196,8 +196,42 @@ export function terraceGardenConsideration(facts: Pick<Report['facts'], 'feature
   return 'Confirm that private garden use (Sondernutzungsrecht) is recorded in the Teilungserklärung and clarify maintenance responsibility.';
 }
 
+function germanSquareMetres(value: string) {
+  return value.replace('.', ',');
+}
+
+const NON_LIVING_KIND_DE: Record<string, string> = {
+  'unfinished loft': 'unausgebauter Dachboden',
+  loft: 'Dachboden',
+  'usable space': 'Nutzfläche',
+  cellar: 'Keller',
+  'hobby room': 'Hobbyraum',
+  'expansion reserve': 'Ausbaureserve',
+  'non-living space': 'Nichtwohnfläche',
+};
+
+function localizedLivingAreaWarning(warning: string, locale: Locale) {
+  const preferred = warning.match(/The header states ([\d.]+) m², but the description gives ([\d.]+) m² of living space(?: plus ([\d.]+) m² of non-living space \(([^)]+)\))?\. The price comparison uses the stated living area of [\d.]+ m²\./);
+  if (preferred) {
+    if (locale === 'en') return warning;
+    const header = germanSquareMetres(preferred[1]);
+    const living = germanSquareMetres(preferred[2]);
+    const kind = preferred[4] ? (NON_LIVING_KIND_DE[preferred[4]] || preferred[4]) : '';
+    const extra = preferred[3] ? ` plus ${germanSquareMetres(preferred[3])} m² Nichtwohnfläche${kind ? ` (${kind})` : ''}` : '';
+    return `Im Kopf stehen ${header} m², die Beschreibung nennt aber ${living} m² Wohnfläche${extra}. Der Preisvergleich nutzt die angegebene Wohnfläche von ${living} m².`;
+  }
+  const unclear = warning.match(/The living area in the listing is unclear: the header states ([\d.]+) m² and the description states ([\d.]+) m²\./);
+  if (unclear) {
+    if (locale === 'en') return warning;
+    return `Die Wohnfläche im Angebot ist unklar: im Kopf stehen ${germanSquareMetres(unclear[1])} m², die Beschreibung nennt ${germanSquareMetres(unclear[2])} m².`;
+  }
+  return '';
+}
+
 export function localizedWarnings(report: Report, locale: Locale) {
   const warnings = (report.qualityWarnings || []).map((warning) => {
+    const livingArea = localizedLivingAreaWarning(warning, locale);
+    if (livingArea) return livingArea;
     if (/energy class and consumption|one step off the stated demand/.test(warning) && energyClassGap(report) === 1) {
       return locale === 'de'
         ? 'Die Energieklasse weicht eine Stufe vom angegebenen Bedarf ab. Der Score nutzt die schlechtere Klasse.'

@@ -1,7 +1,8 @@
 import type { Report, ScoreBreakdown } from './types';
 import { score as formatLocaleScore } from './format.ts';
 import { copy, type Locale } from './i18n.ts';
-import { berlinPriceCheck } from './price-check.ts';
+import { localPriceCheck, type PriceCheck } from './price-check.ts';
+import { MUNICH_SCORE_CEILING, coveredPriceCity } from './price-ref.ts';
 
 /** GEG demand bands. A+ is under 30 kWh/(m²·a); H is 250 or more. */
 const ENERGY_CLASS_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
@@ -77,10 +78,25 @@ export function scorePriceFromDelta(deltaPct: number, confidence: 'normal' | 'lo
   return confidence === 'low' ? (bandScore + 6) / 2 : bandScore;
 }
 
+/**
+ * Citywide tables do not know the location class, so only clear outliers score.
+ * Not central and d ≥ +25 → 4.5 (low confidence). d ≤ −25 → 7.25.
+ * Asking at or above €14,770/m² scores 4.5 in every district, including the centre.
+ */
+export function cityTierPriceScore(check: PriceCheck): number | null {
+  if (check.askingPerSqm >= MUNICH_SCORE_CEILING) return 4.5;
+  if (check.central || check.ceiling) return null;
+  if (check.deltaPct >= 25) return 4.5;
+  if (check.deltaPct <= -25) return 7.25;
+  return null;
+}
+
 function priceScore(report: Report): number | null {
-  const check = berlinPriceCheck(report);
+  const check = localPriceCheck(report);
   if (!check) return null;
-  let score = scorePriceFromDelta(check.deltaPct, check.confidence);
+  const cityScore = check.tier === 'city' ? cityTierPriceScore(check) : undefined;
+  if (check.tier === 'city' && cityScore == null) return null;
+  let score = check.tier === 'city' ? cityScore! : scorePriceFromDelta(check.deltaPct, check.confidence);
   const { price, totalCost, advertisedYield } = report.facts;
   if (price && totalCost && totalCost / price > 1.13) score -= 0.4;
   if (advertisedYield && advertisedYield >= 5) score += 0.4;
@@ -316,12 +332,10 @@ function isTenanted(report: Pick<Report, 'facts' | 'propertyType'>) {
   return report.facts.tenancy === 'Rented' && report.propertyType !== 'land';
 }
 
-/** Outside Berlin there is no official sales table, so price is not a checked fact. */
-export function lacksLocalPriceReference(report: Pick<Report, 'country' | 'facts'>) {
+/** Outside a covered city there is no official sales table, so price is not a checked fact. */
+export function lacksLocalPriceReference(report: Pick<Report, 'country' | 'address' | 'location' | 'facts'>) {
   if (report.country === 'AM') return false;
-  const city = `${report.facts.city || ''} ${report.facts.district || ''}`;
-  if (/\bberlin\b/i.test(city)) return false;
-  return berlinPriceCheck(report as Report) == null;
+  return coveredPriceCity(report) == null;
 }
 
 export function scoreAdjustments(report: Report): ScoreAdjustment[] {
@@ -376,6 +390,13 @@ export function scoreAdjustmentLine(adjustment: ScoreAdjustment, locale: Locale)
 
 export function priceNotCheckedLine(report: Report, locale: Locale) {
   return lacksLocalPriceReference(report) ? copy[locale].report.priceNotChecked : '';
+}
+
+/** Citywide data that did not clear the outlier rule uses its own unscored label. */
+export function priceUnscoredLabel(report: Report, locale: Locale) {
+  const check = localPriceCheck(report);
+  if (check?.tier === 'city' && cityTierPriceScore(check) == null) return copy[locale].report.priceNotScoredCitywide;
+  return copy[locale].report.priceNotScored;
 }
 
 /**

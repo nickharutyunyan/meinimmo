@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
-import { calculatePropertyScore, formatScore } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, priceUnscoredLabel } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -88,7 +88,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     const score = index === 0 ? firstScore : secondScore;
     if (score.breakdown.price !== null) return [];
     const option = index === 0 ? 'A' : 'B';
-    return [`${text.option} ${option}: ${copy[locale].report.components.price} — ${copy[locale].report.priceNotScored}`];
+    return [`${text.option} ${option}: ${copy[locale].report.components.price} — ${priceUnscoredLabel(item, locale)}`];
   });
   const lowNotes = [first, second].flatMap((item, index) => {
     if (scoreAvailable(item)) return [];

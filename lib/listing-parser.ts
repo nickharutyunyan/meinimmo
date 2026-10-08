@@ -791,6 +791,81 @@ function formatStreetAddress(street: string, postalCode: string, city: string) {
   return tidy(place ? `${street}, ${place}` : street);
 }
 
+const LIVING_AREA_UNIT = String.raw`(?:m²|m2|qm|sqm|sq\.?\s*m)`;
+const NON_LIVING_AREA = /Nutzfl[aä]che|Dachboden|Spitzboden|Ausbaureserve|Hobbyraum|Keller/i;
+
+function plainSquareMetres(value: number) {
+  const rounded = Math.round(value * 100) / 100;
+  return String(rounded).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+}
+
+function figuresBeside(line: string, keyword: RegExp) {
+  const unit = new RegExp(String.raw`(\d[\d.,]*)\s*${LIVING_AREA_UNIT}`, 'gi');
+  const found: number[] = [];
+  if (!keyword.test(line)) return found;
+  for (const match of line.matchAll(unit)) {
+    const value = parseListingNumber(match[1]);
+    if (value > 0) found.push(value);
+  }
+  return found;
+}
+
+function statedLivingFigures(line: string) {
+  const expression = new RegExp(
+    String.raw`(?<![\p{L}])(?:Wohnfl[aä]che|Living area)(?![\p{L}])[^.\n]{0,48}?(\d[\d.,]*)\s*${LIVING_AREA_UNIT}|(\d[\d.,]*)\s*${LIVING_AREA_UNIT}[^.\n]{0,32}?(?<![\p{L}])(?:Wohnfl[aä]che|Living area)(?![\p{L}])`,
+    'giu',
+  );
+  const found: number[] = [];
+  for (const match of line.matchAll(expression)) {
+    const value = parseListingNumber(match[1] || match[2]);
+    if (value > 0) found.push(value);
+  }
+  return found;
+}
+
+function nonLivingKind(text: string) {
+  if (/Spitzboden|Dachboden|unausgebaut|Ausbaureserve/i.test(text)) return 'unfinished loft';
+  if (/Hobbyraum/i.test(text)) return 'hobby room';
+  if (/Keller/i.test(text)) return 'cellar';
+  if (/Nutzfl[aä]che/i.test(text)) return 'usable space';
+  return 'non-living space';
+}
+
+/**
+ * Prefer a smaller Wohnfläche when the header total includes non-living space.
+ * The swap always comes with a data note. Two unexplained figures stay on the header and are marked unclear.
+ */
+export function preferStatedLivingArea(lines: string[], headerArea: number) {
+  if (!(headerArea > 0)) return undefined;
+  const prose = lines
+    .filter((line) => line.length > 24)
+    .flatMap(statedLivingFigures)
+    .filter((value) => headerArea - value >= 2);
+  const extras = lines.flatMap((line) => (NON_LIVING_AREA.test(line) ? figuresBeside(line, NON_LIVING_AREA).filter((value) => Math.abs(value - headerArea) >= 1) : []));
+  const living = prose.length ? Math.min(...prose) : 0;
+  const explains = living > 0 && extras.some((extra) => Math.abs(headerArea - (living + extra)) <= 1);
+  const sameSentence = living > 0 && lines.some((line) => statedLivingFigures(line).some((value) => Math.abs(value - living) < 0.05) && NON_LIVING_AREA.test(line));
+  if (living > 0 && (explains || sameSentence)) {
+    const extra = extras.find((value) => Math.abs(headerArea - (living + value)) <= 1) ?? extras[0];
+    const kind = nonLivingKind(lines.join('\n'));
+    const header = plainSquareMetres(headerArea);
+    const stated = plainSquareMetres(living);
+    const plus = extra ? ` plus ${plainSquareMetres(extra)} m² of non-living space (${kind})` : '';
+    return {
+      area: living,
+      usable: extra,
+      warning: `The header states ${header} m², but the description gives ${stated} m² of living space${plus}. The price comparison uses the stated living area of ${stated} m².`,
+    };
+  }
+  if (living > 0 && headerArea - living >= 5) {
+    return {
+      area: headerArea,
+      warning: `The living area in the listing is unclear: the header states ${plainSquareMetres(headerArea)} m² and the description states ${plainSquareMetres(living)} m².`,
+    };
+  }
+  return undefined;
+}
+
 function publishScore(report: Report) {
   delete report.scoreTitle;
   const scored = attachCalculatedScore(report);
@@ -807,9 +882,11 @@ export function parseListing(raw: string, source: string): Report {
   const areaValue = /(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
 
   const price = purchasePrice(lines);
-  const area = number(firstMatch(lines, /\b(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
+  const headerArea = number(firstMatch(lines, /\b(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 3, 3)
     || firstMatch(lines, /\b(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)\s+(?:Wohnfl[aä]che|Living area)/i));
+  const livingPreference = preferStatedLivingArea(lines, headerArea);
+  const area = livingPreference?.area || headerArea;
   const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 1, 3));
   const plotArea = number(firstMatch(lines, /\bGrundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm)/i)
@@ -946,7 +1023,7 @@ export function parseListing(raw: string, source: string): Report {
   const photoUrls = isRemoteListingSource(source) ? extractListingPhotoUrls(raw) : [];
   const photosExpireAt = listingPhotosExpireAt(photoUrls);
   const facts = {
-    price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
+    price, area, usableArea: usableArea || livingPreference?.usable || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
     buyerCosts: buyerCosts || undefined, brokerFee, buyerCommission: buyerCommission || undefined, housegeld: housegeld || undefined, housegeldYear, parkingPrice,
     tenancy, tenancyConflict: tenancyConflict || undefined, rentedUntilText: rentalText?.untilText, availabilityDate, advertisedYield: advertisedYield || undefined, condition, features,
@@ -976,6 +1053,7 @@ export function parseListing(raw: string, source: string): Report {
   };
 
   const qualityWarnings = [
+    livingPreference?.warning || '',
     parkingPrice ? `The listing separately quotes ${money(parkingPrice, 'en')} for parking. Confirm whether this is additional and required; it is not included in the stated total.` : '',
     housegeldYear ? `The Hausgeld amount refers to ${housegeldYear}; confirm the current economic plan before budgeting.` : '',
     roomsConflict ? 'The listing gives conflicting room counts. Confirm the floor plan; no room count is used in the title.' : '',

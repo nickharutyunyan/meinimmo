@@ -2,7 +2,7 @@ import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from 
 import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -106,7 +106,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
           const value = score.breakdown[key as keyof typeof score.breakdown];
           const unscored = value === null;
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);
-          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label}<b>{figure}</b>{unscored ? <em>{reportText.priceNotScored}</em> : null}</span>;
+          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label}<b>{figure}</b>{unscored ? <em>{priceUnscoredLabel(report, locale)}</em> : null}</span>;
         })}</div></div>
       </section>
 

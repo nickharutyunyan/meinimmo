@@ -6,7 +6,7 @@ import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from 
 import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
 import { clarifyBeforeDecision, glanceFacts, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
@@ -136,7 +136,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
           const value = breakdown[key as keyof typeof breakdown];
           const unscored = value === null;
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);
-          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label} <b>{figure}</b>{unscored ? <em>{text.priceNotScored}</em> : null}</span>;
+          return <span key={key} className={unscored ? 'is-unscored' : undefined}>{label} <b>{figure}</b>{unscored ? <em>{priceUnscoredLabel(report, locale)}</em> : null}</span>;
         })}</div><Link className="score-method-link" href={localePath(locale, '/method')}>{text.howWeReview}</Link></div></details></div>
         <div className="verdict-copy"><h2>{verdictText}</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
