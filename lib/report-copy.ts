@@ -99,6 +99,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/exact street address/i.test(warning)) return 'Die genaue Straßenadresse steht nicht im Angebot.';
     if (/exact floor/i.test(warning)) return 'Die genaue Etage steht nicht im Angebot.';
     if (/complete acquisition total/i.test(warning)) return 'Im Angebot fehlt eine vollständige Gesamtsumme. Die Finanzierung nutzt deshalb eine grobe Schätzung der Kaufnebenkosten.';
+    if (/The house is rented but no verified yield/i.test(warning)) return 'Das Haus ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
   });

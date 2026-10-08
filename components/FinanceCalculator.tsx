@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
-import { copy, type Locale } from '@/lib/i18n';
+import { copy, financeFootnote, type Locale } from '@/lib/i18n';
 import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/finance';
 import { GlossaryText } from './GlossaryText';
 
@@ -85,6 +85,6 @@ export function FinanceCalculator({ report, locale }: { report: Report; locale: 
       <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.repayment}</GlossaryText></span><b>{repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</b></span>
       <input type="range" min="1" max="5" step="0.1" aria-label={text.repayment} value={repayment} onChange={(event) => setRepayment(Number(event.target.value))} />
     </label>
-    <small className="finance-note"><GlossaryText locale={locale}>{text.note}</GlossaryText></small>
+    <small className="finance-note"><GlossaryText locale={locale}>{financeFootnote(report.propertyType, locale)}</GlossaryText></small>
   </section>;
 }
