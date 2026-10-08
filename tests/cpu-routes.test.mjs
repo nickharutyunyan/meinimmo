@@ -17,6 +17,7 @@ test('document GETs of public pages are cacheable and router data is not', () =>
   assert.equal(isCacheableDocument('HEAD', '/de/guide/berlin-with-children/', headers([]), params('')), true);
   assert.equal(isCacheableDocument('POST', '/', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/api/auth/me', headers([]), params('')), false);
+  assert.equal(isCacheableDocument('GET', '/api/session', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/downloads/reviewahouse-helper.zip', headers([]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/', headers([['RSC', '1']]), params('')), false);
   assert.equal(isCacheableDocument('GET', '/', headers([['Next-Router-Prefetch', '1']]), params('')), false);

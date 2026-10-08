@@ -4,6 +4,8 @@ import { appEnvironment, authDatabase } from './auth-db';
 import { anonymousToken, sessionUser } from './auth';
 import { sha256Hex } from './security';
 import { featureFlagEnabled } from './feature-flags';
+import { berlinDay, nextBerlinMidnight } from './berlin-time';
+import { USER_REPORT_PAGE_SIZE, userReportWindow } from './user-reports';
 
 export type AccessKind = 'free' | 'day_pass' | 'pro' | 'ultra';
 export type AccessState = {
@@ -27,20 +29,6 @@ export type AllowanceReservation = {
   release?: () => Promise<void>;
   userId?: string;
 };
-
-function berlinDay(date = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-}
-
-function nextBerlinMidnight(date = new Date()) {
-  const tomorrow = new Date(date.getTime() + 36 * 60 * 60 * 1000);
-  const datePart = berlinDay(tomorrow);
-  const utcGuess = new Date(`${datePart}T00:00:00Z`);
-  const offsetParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', timeZoneName: 'longOffset', hour: '2-digit' }).formatToParts(utcGuess);
-  const offset = offsetParts.find((part) => part.type === 'timeZoneName')?.value.match(/GMT([+-])(\d{2}):(\d{2})/);
-  const minutes = offset ? (offset[1] === '+' ? 1 : -1) * (Number(offset[2]) * 60 + Number(offset[3])) : 60;
-  return new Date(utcGuess.getTime() - minutes * 60 * 1000).toISOString();
-}
 
 async function anonymousSubject(token: string) {
   return `a:${await sha256Hex(token)}`;
@@ -175,8 +163,11 @@ export async function rememberUserReport(userId: string | undefined, reportId: s
     .bind(userId, reportId, new Date().toISOString()).run();
 }
 
-export async function userReportIds(userId: string) {
+export async function userReportIds(userId: string, window = userReportWindow(null)) {
+  const limit = Math.min(USER_REPORT_PAGE_SIZE, Math.max(1, Math.floor(window.limit)));
+  const offset = Math.max(0, Math.floor(window.offset));
   const db = await authDatabase();
-  const result = await db.prepare('SELECT report_id FROM user_reports WHERE user_id = ?1 ORDER BY created_at ASC').bind(userId).all<{ report_id: string }>();
+  const result = await db.prepare('SELECT report_id FROM user_reports WHERE user_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3')
+    .bind(userId, limit, offset).all<{ report_id: string }>();
   return result.results.map((row) => row.report_id);
 }
