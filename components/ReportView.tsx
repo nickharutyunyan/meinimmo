@@ -29,6 +29,14 @@ const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'curre
 export function ReportView({ report: initialReport, locale }: { report: Report; locale: Locale }) {
   const [report, setReport] = useState(initialReport);
   const [copied, setCopied] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ billingAvailable?: boolean }> : null)
+      .then((data) => setShowPlans(Boolean(data?.billingAvailable)))
+      .catch(() => setShowPlans(false));
+  }, []);
 
   useEffect(() => {
     if ((report.verificationAttempted || (report.aiLocationChecked && report.aiFactChecked)) && (!report.taxonomyEvidence || (report.jevCategorized && report.taxonomy?.version === TAXONOMY_VERSION))) return;
@@ -150,11 +158,11 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         </aside>
       </div>
 
-      <section className="plans">
+      {showPlans ? <section className="plans">
         <div><p className="eyebrow">{text.assessMore}</p><h2>{text.plansTitle}</h2><p>{text.plansCopy}</p></div>
         <article><span>PRO</span><strong>€10<small>{text.perMonth}</small></strong><p>{text.proLimit}</p><PlanButton plan="pro" locale={locale}>{text.proButton}</PlanButton></article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{text.perMonth}</small></strong><p>{text.ultraLimit}</p><PlanButton plan="ultra" locale={locale}>{text.ultraButton}</PlanButton></article>
-      </section>
+      </section> : null}
       <SiteFooter locale={locale} />
     </main>
   </>;

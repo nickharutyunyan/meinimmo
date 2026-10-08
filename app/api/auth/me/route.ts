@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     } : null,
     reportIds: user ? await userReportIds(user.id) : [],
     googleAvailable: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    paidPlansEnabled: billing.plansEnabled,
     billingAvailable: billing.subscriptions,
     dayPassBillingAvailable: billing.dayPass,
   });

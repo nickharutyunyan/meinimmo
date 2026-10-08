@@ -36,6 +36,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
   const [pinned, setPinned] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [access, setAccess] = useState<{ limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string } | null>(null);
+  const [purchases, setPurchases] = useState({ plans: false, dayPass: false });
   const text = copy[locale].sidebar;
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
       const reportQuery = historyIds.length ? `?ids=${encodeURIComponent(historyIds.slice(-30).join(','))}` : '';
       const [all, account] = await Promise.all([
         fetch(`/api/reports${reportQuery}`).then(response => response.json()) as Promise<Report[]>,
-        fetch('/api/auth/me', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string } }>,
+        fetch('/api/auth/me', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string }; billingAvailable?: boolean; dayPassBillingAvailable?: boolean }>,
       ]);
       const visible = all.filter(item => historyIds.includes(item.id));
       const unique = new Map<string, Report>();
@@ -58,6 +59,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
       setPinned(pinIds.filter((id) => uniqueIds.includes(id)));
       setSelected(selectedIds.filter((id) => uniqueIds.includes(id)).slice(0, 2));
       setAccess(account.access || null);
+      setPurchases({ plans: Boolean(account.billingAvailable), dayPass: Boolean(account.dayPassBillingAvailable) });
     };
     void load().catch(() => setComparisonError(locale === 'de' ? 'Berichte konnten nicht geladen werden. Lade die Seite erneut.' : 'Reports could not be loaded. Refresh to retry.'));
     const reload = () => { void load().catch(() => undefined); };
@@ -75,6 +77,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
   }), [reports, pinned]);
   const dayPassEligible = canOfferDayPass(access);
   const limitsEnabled = access?.limitsEnabled === true;
+  const showUpgrade = limitsEnabled && (dayPassEligible ? purchases.dayPass : purchases.plans);
   const accessLabel = access?.kind === 'day_pass'
     ? text.passUsage
     : text.todayUsage;
@@ -130,7 +133,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
     <aside ref={drawer} id="report-shortlist" role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined} aria-label={locale === 'de' ? 'Meine Berichte' : 'My reports'} className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}>
 
     <header><button className="mobile-sidebar-close" onClick={() => setMobileOpen(false)} aria-label={locale === 'de' ? 'Berichte schließen' : 'Close reports'}>×</button><Brand className="side-logo" locale={locale} href={homeHref}/><button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? text.expand : text.collapse} title={collapsed ? text.expand : text.collapse}><span aria-hidden="true"><svg viewBox="0 0 20 20"><path className="arrow-head" d="M9 5 4 10l5 5"/><path className="arrow-tail" d="M5 10h11"/></svg></span></button></header>
-    <div className={limitsEnabled ? 'actions' : 'actions single'}><Link href={homeHref || localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link>{limitsEnabled ? <Link href={dayPassEligible ? `${localePath(locale)}?daypass=1` : localePath(locale, '/account')} className={dayPassEligible ? 'upgrade ready' : 'upgrade'}>✦ <span>{dayPassEligible ? text.dayPass : text.upgrade}</span></Link> : null}</div>
+    <div className={showUpgrade ? 'actions' : 'actions single'}><Link href={homeHref || localePath(locale)} className="new">＋ <span>{text.newAssessment}</span></Link>{showUpgrade ? <Link href={dayPassEligible ? `${localePath(locale)}?daypass=1` : localePath(locale, '/account')} className={dayPassEligible ? 'upgrade ready' : 'upgrade'}>✦ <span>{dayPassEligible ? text.dayPass : text.upgrade}</span></Link> : null}</div>
     {limitsEnabled ? <div className="quota" aria-live="polite">
       <span>{accessLabel}</span>
       <strong>{access ? access.used : '—'}<small> / {access ? access.limit : '—'}</small></strong>

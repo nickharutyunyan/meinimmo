@@ -4,7 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
-import { copy, localePath, type Locale } from '@/lib/i18n';
+import { homePresentation, localePath, type Locale } from '@/lib/i18n';
 import { QuotaModal } from './QuotaModal';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
@@ -66,12 +66,19 @@ export function LandingPage({ locale }: { locale: Locale }) {
   const [status, setStatus] = useState('');
   const [quotaOpen, setQuotaOpen] = useState(false);
   const [dayPassEligible, setDayPassEligible] = useState(false);
-  const text = copy[locale].home;
+  const [dayPassBillingAvailable, setDayPassBillingAvailable] = useState(false);
+  const [paidPlansOffered, setPaidPlansOffered] = useState(false);
+  const [limitsEnabled, setLimitsEnabled] = useState(false);
+  const text = homePresentation(locale, { paidPlansOffered, limitsEnabled });
 
   useEffect(() => {
     const requestedDayPass = new URLSearchParams(window.location.search).get('daypass') === '1';
-    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess }).then((data) => {
-      const eligible = canOfferDayPass(data.access);
+    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess; paidPlansEnabled?: boolean; dayPassBillingAvailable?: boolean }).then((data) => {
+      const purchasesOpen = Boolean(data.dayPassBillingAvailable);
+      setPaidPlansOffered(Boolean(data.paidPlansEnabled));
+      setLimitsEnabled(data.access?.limitsEnabled === true);
+      setDayPassBillingAvailable(purchasesOpen);
+      const eligible = canOfferDayPass(data.access) && purchasesOpen;
       setDayPassEligible(eligible);
       if (requestedDayPass && eligible) setQuotaOpen(true);
       if (requestedDayPass && !eligible) history.replaceState(null, '', window.location.pathname);
@@ -88,8 +95,12 @@ export function LandingPage({ locale }: { locale: Locale }) {
     if (!response.ok || !data.id) {
       if (data.code === 'quota_exceeded') {
         setStatus('');
-        setDayPassEligible(true);
-        setQuotaOpen(true);
+        if (dayPassBillingAvailable) {
+          setDayPassEligible(true);
+          setQuotaOpen(true);
+        } else {
+          setStatus(locale === 'de' ? 'Das Tageslimit für Berichte ist erreicht.' : 'Today’s report limit is reached.');
+        }
         return;
       }
       throw new Error(data.error || text.genericError);

@@ -30,7 +30,7 @@ export const copy = {
       pdfError: 'The PDF could not be read. Try a text-searchable Exposé.',
       approachLabel: 'HOW IT WORKS',
       approachTitle: 'See if the listing deserves a viewing.',
-      approachIntro: 'Paste an ImmoScout24 or Ohne-Makler link, or upload the Exposé. One report sets the score, Kaufnebenkosten and Hausgeld next to questions for the seller or agent.',
+      approachIntro: 'Paste a listing link from a German property portal, or upload the Exposé. One report sets the score, Kaufnebenkosten and Hausgeld next to questions for the seller or agent.',
       steps: [
         ['THE LISTING', 'Bring the source you have', 'Paste a public link or upload the Exposé PDF. If a portal blocks the import, paste the listing text. Price, space, floor, energy and commission are taken from that source; anything missing stays blank.'],
         ['THE REPORT', 'The costs, next to the score', 'A score out of 10 when price, size and place are stated — hidden when those facts are missing or contradict each other. The map uses only the location the listing gives. Try a rough mortgage with your equity, the current German mortgage rate and Tilgung.'],
@@ -98,7 +98,7 @@ export const copy = {
       pdfError: 'Das PDF konnte nicht gelesen werden. Versuch es mit einem durchsuchbaren Exposé.',
       approachLabel: 'SO FUNKTIONIERT’S',
       approachTitle: 'Sieh, ob das Angebot eine Besichtigung verdient.',
-      approachIntro: 'Füge einen Link von ImmoScout24 oder Ohne-Makler ein oder lade das Exposé hoch. Ein Bericht stellt den Score, die Kaufnebenkosten und das Hausgeld neben die Fragen an Verkäufer oder Makler.',
+      approachIntro: 'Füge einen Inserat-Link von einem deutschen Immobilienportal ein oder lade das Exposé hoch. Ein Bericht stellt den Score, die Kaufnebenkosten und das Hausgeld neben die Fragen an Verkäufer oder Makler.',
       steps: [
         ['DAS INSERAT', 'Die Quelle, die du schon hast', 'Füge einen öffentlichen Link ein oder lade das Exposé als PDF hoch. Blockiert ein Portal den Import, füge den Angebotstext ein. Preis, Fläche, Etage, Energie und Provision kommen aus dieser Quelle; was fehlt, bleibt leer.'],
         ['DER BERICHT', 'Die Kosten neben dem Score', 'Ein Score bis 10, wenn Preis, Größe und Lage genannt sind. Fehlen diese Angaben oder widersprechen sie sich, bleibt der Score aus. Die Karte zeigt nur die Lage aus dem Angebot. Die Finanzierung ist eine grobe Rechnung mit Eigenkapital, aktuellem Bauzins und Tilgung.'],
@@ -149,6 +149,38 @@ export const copy = {
     ads: { partner: 'PLATZ FÜR PARTNER', note: 'Ein ruhiger Platz für einen hilfreichen Partner – ohne Ablenkung.', finance: 'Finanzierung, Gutachten oder Kaufberatung', local: 'Makler, Architekt oder Partner fürs Zuhause' },
   },
 } as const;
+
+const freeFaq = {
+  unlimited: {
+    en: ['Is Review a House free?', 'Yes. Reports are free, and you can create them without signing up.'],
+    de: ['Ist Review a House kostenlos?', 'Ja. Berichte sind kostenlos, und du kannst sie ohne Anmeldung erstellen.'],
+  },
+  limited: {
+    en: ['Is Review a House free?', 'Yes. Two reports a day are free, with no sign-up.'],
+    de: ['Ist Review a House kostenlos?', 'Ja. Zwei Berichte pro Tag sind kostenlos, ohne Anmeldung.'],
+  },
+} as const;
+
+export function homePresentation(locale: Locale, options: { paidPlansOffered?: boolean; limitsEnabled?: boolean } = {}) {
+  const paidPlansOffered = options.paidPlansOffered === true;
+  const limitsEnabled = options.limitsEnabled === true;
+  const home = copy[locale].home;
+  const de = locale === 'de';
+  const approachFree = limitsEnabled ? home.approachFree : (de ? 'Berichte sind kostenlos.' : 'Reports are free.');
+  const approachFreeNote = !limitsEnabled
+    ? (de ? 'Ohne Anmeldung.' : 'No sign-up.')
+    : (paidPlansOffered ? home.approachFreeNote : (de ? 'Zwei am Tag. Ohne Anmeldung.' : 'Two a day. No sign-up.'));
+  const offeredWhileUnlimited = de
+    ? ['Ist Review a House kostenlos und was bringen die Bezahlpakete?', 'Berichte sind derzeit kostenlos, ohne Tageslimit und ohne Anmeldung. Pro kostet 10 € im Monat für 10 Berichte pro Tag, Ultra kostet 20 € im Monat für bis zu 100 Berichte pro Tag. Ein Tagespass kostet einmalig 5 € für 50 Berichte in 24 Stunden, ohne Abo oder automatische Verlängerung.'] as const
+    : ['Is Review a House free, and what do the paid plans include?', 'Reports are free right now, with no daily limit and no sign-up. Pro costs €10 per month for 10 reports per day, while Ultra costs €20 per month for up to 100 reports per day. A one-off €5 day pass gives you 50 reports for 24 hours with no subscription or automatic renewal.'] as const;
+  const replacement = !paidPlansOffered
+    ? freeFaq[limitsEnabled ? 'limited' : 'unlimited'][locale]
+    : (limitsEnabled ? null : offeredWhileUnlimited);
+  const faqs = replacement
+    ? home.faqs.map((entry, index) => (index === home.faqs.length - 1 ? replacement : entry))
+    : home.faqs;
+  return { ...home, approachFree, approachFreeNote, faqs };
+}
 
 export function localizedValue(value: string | undefined, locale: Locale) {
   if (!value || /not stated|unknown|address not stated/i.test(value)) return copy[locale].report.notDisclosed;
