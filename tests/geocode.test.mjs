@@ -11,16 +11,18 @@ import {
   NOMINATIM_CONTACT,
   NOMINATIM_MIN_INTERVAL_MS,
   acquireD1NominatimSlot,
+  acquireGeocodeSlot,
   applyStoredGeocode,
   cacheEntryFresh,
   canPersistGeocode,
   createD1GeocodeCache,
   createMemoryGeocodeCache,
   createMemoryRateStore,
+  lookupCachedGeocode,
+  resetMissingGeocodeTableNoticeForTests,
   geocodeCacheKey,
   geocodeForView,
   geocodePrecision,
-  lookupCachedGeocode,
   neighborhoodFromAddress,
   nominatimRequestHeaders,
   normalizeGeocodeQuery,
@@ -300,11 +302,110 @@ test('D1 cache round-trips a result and the rate-limit row spaces live calls', a
 
   const broken = createD1GeocodeCache({
     prepare() {
-      return { bind() { return { async first() { throw new Error('no such table'); }, async run() { throw new Error('no such table'); } }; } };
+      return { bind() { return { async first() { throw new Error('D1_ERROR: no such table: geocode_cache: SQLITE_ERROR'); }, async run() { throw new Error('D1_ERROR: no such table: geocode_cache: SQLITE_ERROR'); } }; } };
     },
   });
-  assert.equal(await broken.get('de:berlin'), undefined);
-  await broken.set('de:berlin', { lat: 1, lon: 2, label: 'Berlin' }, 0);
+  const originalWarn = console.warn;
+  console.warn = () => undefined;
+  try {
+    assert.equal(await broken.get('de:berlin'), undefined);
+    await broken.set('de:berlin', { lat: 1, lon: 2, label: 'Berlin' }, 0);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('geocode stores the pin in report JSON when the geocode tables are missing', async () => {
+  resetMissingGeocodeTableNoticeForTests();
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => { warnings.push(args.map(String).join(' ')); };
+  const reports = new Map();
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          return {
+            async first() {
+              if (/FROM reports\b/i.test(sql)) {
+                const data = reports.get(values[0]);
+                return data ? { data } : null;
+              }
+              const table = /geocode_rate_limit/i.test(sql) ? 'geocode_rate_limit' : 'geocode_cache';
+              throw new Error(`D1_ERROR: no such table: ${table}: SQLITE_ERROR`);
+            },
+            async run() {
+              if (/INTO reports\b/i.test(sql)) {
+                reports.set(values[0], values[1]);
+                return { meta: { changes: 1 } };
+              }
+              const table = /geocode_rate_limit/i.test(sql) ? 'geocode_rate_limit' : 'geocode_cache';
+              throw new Error(`D1_ERROR: no such table: ${table}: SQLITE_ERROR`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const report = sampleReport();
+  const query = reportGeocodeQuery(report);
+  const rate = createMemoryRateStore();
+  const cache = createD1GeocodeCache(db);
+  let fetches = 0;
+  const loadReport = async (id) => {
+    const row = await db.prepare('SELECT data FROM reports WHERE id = ?1').bind(id).first();
+    if (row?.data) return JSON.parse(row.data);
+    return id === report.id ? report : undefined;
+  };
+  const saveReport = async (next) => {
+    await db.prepare('INSERT INTO reports (id, data, created_at) VALUES (?1, ?2, ?3)').bind(next.id, JSON.stringify(next), next.createdAt).run();
+  };
+  try {
+    const first = await geocodeForView({ ok: true, query, country: 'de', reportId: report.id }, {
+      cache,
+      acquireSlot: (now) => acquireGeocodeSlot(db, now, rate),
+      fetchPlace: async () => { fetches += 1; return { lat: 52.43, lon: 13.54, label: 'Adlershof' }; },
+      loadReport,
+      saveReport,
+    });
+    assert.equal(first.persisted, true);
+    assert.equal(fetches, 1);
+    const raw = reports.get(report.id);
+    assert.equal(typeof raw, 'string');
+    const stored = JSON.parse(raw);
+    assert.equal(stored.geocode.lat, 52.43);
+    assert.equal(stored.geocode.lon, 13.54);
+    assert.equal(stored.geocode.precision, 'street');
+    const schema = await read('migrations/0001_initial.sql');
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS reports \(\s*id TEXT PRIMARY KEY NOT NULL,\s*data TEXT NOT NULL,\s*created_at TEXT NOT NULL/s);
+    assert.doesNotMatch(schema, /\b(lat|lon|latitude|longitude|precision)\b/i);
+
+    const repeat = await geocodeForView({ ok: true, query, country: 'de', reportId: report.id }, {
+      cache,
+      acquireSlot: (now) => acquireGeocodeSlot(db, now, rate),
+      fetchPlace: async () => { fetches += 1; return { lat: 0, lon: 0, label: 'should not run' }; },
+      loadReport,
+      saveReport,
+    });
+    assert.equal(repeat.persisted, false);
+    assert.equal(repeat.place.lat, 52.43);
+    assert.equal(fetches, 1);
+
+    await lookupCachedGeocode({
+      query: 'Hamburg',
+      country: 'de',
+      cache,
+      clock: () => Date.now() + 5_000,
+      acquireSlot: (now) => acquireGeocodeSlot(db, now, rate),
+      fetchPlace: async () => { fetches += 1; return { lat: 53.55, lon: 10.0, label: 'Hamburg' }; },
+    });
+    assert.equal(fetches, 2);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /no such table/);
+    assert.match(warnings[0], /geocode_cache/);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test('views use a stored pin, comparisons do not call Nominatim, and every map shows the credit', async () => {

@@ -5,10 +5,11 @@ import { report as findReport, replaceReport } from './store.ts';
 import { resolveLocation } from './display.ts';
 import { hasStoredGeocode } from './osm-map.ts';
 import {
-  acquireD1NominatimSlot,
+  acquireGeocodeSlot,
   createD1GeocodeCache,
   createMemoryGeocodeCache,
   createMemoryRateStore,
+  geocodeD1TablesMissing,
   geocodeForView,
   geocodeGermanLocation,
   lookupCachedGeocode,
@@ -28,19 +29,20 @@ async function database() {
 }
 
 export async function runtimeGeocodeCache() {
+  if (geocodeD1TablesMissing()) return isolateCache;
   try {
     const db = await database();
     if (db) return createD1GeocodeCache(db);
-  } catch { /* The report row is the durable pin. The cache table may not be migrated yet. */ }
+  } catch { /* Binding failures use the isolate cache. A missing table is handled on the first query. */ }
   return isolateCache;
 }
 
 export async function acquireRuntimeNominatimSlot(now: number) {
   try {
-    const db = await database();
-    if (db) return await acquireD1NominatimSlot(db, now);
-  } catch { /* One isolate-local slot is the fallback when D1 cannot record the global one. */ }
-  return isolateRate.tryAcquire(now);
+    return await acquireGeocodeSlot(await database(), now, isolateRate);
+  } catch {
+    return isolateRate.tryAcquire(now);
+  }
 }
 
 /** One Nominatim lookup per new report. The neighbourhood, when missing, comes from that same response. */

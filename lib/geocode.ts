@@ -164,6 +164,32 @@ export function createMemoryRateStore() {
 
 type CacheRow = { lat: number; lon: number; label: string; neighborhood: string | null; cached_at: string };
 
+/** One warning per isolate. A deploy can run before migration 0004; later requests stay quiet. */
+let missingGeocodeTableLogged = false;
+
+export function missingGeocodeTable(error: unknown) {
+  const cause = error instanceof Error && error.cause != null ? String(error.cause) : '';
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return /no such table/i.test(`${message} ${cause}`);
+}
+
+export function geocodeD1TablesMissing() {
+  return missingGeocodeTableLogged;
+}
+
+export function resetMissingGeocodeTableNoticeForTests() {
+  missingGeocodeTableLogged = false;
+}
+
+function noteMissingGeocodeTable(error: unknown) {
+  if (!missingGeocodeTable(error)) return false;
+  if (!missingGeocodeTableLogged) {
+    missingGeocodeTableLogged = true;
+    console.warn('D1 geocode tables are missing (no such table). Lookups continue without geocode_cache and geocode_rate_limit; pins stay on the report.');
+  }
+  return true;
+}
+
 export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
   return {
     async get(key) {
@@ -181,7 +207,8 @@ export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
             neighborhood: row.neighborhood || undefined,
           },
         };
-      } catch {
+      } catch (error) {
+        if (noteMissingGeocodeTable(error)) return undefined;
         return undefined;
       }
     },
@@ -194,8 +221,9 @@ export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
             neighborhood = excluded.neighborhood, cached_at = excluded.cached_at`)
           .bind(key, place.lat, place.lon, place.label, place.neighborhood || null, new Date(cachedAt).toISOString())
           .run();
-      } catch {
-        // A missing cache table must not block the one live lookup that fills the report.
+      } catch (error) {
+        // A missing cache table must not block the lookup that fills the report JSON.
+        noteMissingGeocodeTable(error);
       }
     },
   };
@@ -203,12 +231,33 @@ export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
 
 /** Best-effort global slot. A lost race returns no change and the caller waits. */
 export async function acquireD1NominatimSlot(db: SqlDatabase, now: number) {
-  const result = await db.prepare(`INSERT INTO geocode_rate_limit (id, last_request_at) VALUES ('nominatim', ?1)
-    ON CONFLICT(id) DO UPDATE SET last_request_at = excluded.last_request_at
-    WHERE ?1 - geocode_rate_limit.last_request_at >= ?2`)
-    .bind(now, NOMINATIM_MIN_INTERVAL_MS)
-    .run();
-  return (result.meta?.changes ?? 0) > 0;
+  try {
+    const result = await db.prepare(`INSERT INTO geocode_rate_limit (id, last_request_at) VALUES ('nominatim', ?1)
+      ON CONFLICT(id) DO UPDATE SET last_request_at = excluded.last_request_at
+      WHERE ?1 - geocode_rate_limit.last_request_at >= ?2`)
+      .bind(now, NOMINATIM_MIN_INTERVAL_MS)
+      .run();
+    return (result.meta?.changes ?? 0) > 0;
+  } catch (error) {
+    if (noteMissingGeocodeTable(error)) return true;
+    throw error;
+  }
+}
+
+/**
+ * Uses the D1 slot when the rate-limit table exists. A missing table is "no row":
+ * the request is allowed, and this isolate spaces further calls itself.
+ */
+export async function acquireGeocodeSlot(db: SqlDatabase | undefined, now: number, isolate: { tryAcquire(now: number): Promise<boolean> }) {
+  if (geocodeD1TablesMissing() || !db) return isolate.tryAcquire(now);
+  try {
+    const allowed = await acquireD1NominatimSlot(db, now);
+    if (geocodeD1TablesMissing()) return isolate.tryAcquire(now);
+    return allowed;
+  } catch (error) {
+    if (noteMissingGeocodeTable(error)) return isolate.tryAcquire(now);
+    throw error;
+  }
 }
 
 export async function lookupCachedGeocode(options: {
@@ -264,6 +313,9 @@ export async function geocodeForView(allowed: GeocodeAllowance, deps: {
   clock?: () => number;
 }): Promise<{ place?: GermanPlace; persisted: boolean; cache: 'hit' | 'miss' }> {
   const current = allowed.reportId && deps.loadReport ? await deps.loadReport(allowed.reportId) : undefined;
+  if (current && hasStoredGeocode(current.geocode) && normalizeGeocodeQuery(reportGeocodeQuery(current)) === normalizeGeocodeQuery(allowed.query)) {
+    return { place: { lat: current.geocode.lat, lon: current.geocode.lon, label: allowed.query }, persisted: false, cache: 'hit' };
+  }
   const city = current && current.country !== 'AM' ? resolveLocation(current).city : '';
   const looked = await lookupCachedGeocode({
     query: allowed.query,
