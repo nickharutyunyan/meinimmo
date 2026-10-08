@@ -6,10 +6,15 @@ export const EXTRACTION_VERSION = 2026100802;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
-/** Old or missing extraction versions stay readable. Armenian reports use their own rubric. */
+/**
+ * Old or missing extraction versions stay readable. A report saved before
+ * extractionVersion existed omits the field and is stale: the score is
+ * withheld and the backfill can select it. Armenian reports use their own rubric.
+ */
 export function reportIsStale(report: Pick<Report, 'country' | 'extractionVersion' | 'sourceUnavailable'>) {
   if (report.sourceUnavailable) return true;
   if (report.country === 'AM') return false;
+  if (report.extractionVersion == null) return true;
   return report.extractionVersion !== EXTRACTION_VERSION;
 }
 

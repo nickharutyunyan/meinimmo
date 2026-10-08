@@ -1,14 +1,10 @@
 import nextWorker, { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from '../.open-next/worker.js';
-import securityHeaders from './security-headers.json';
-import { assetPathForPathname, isCacheableDocument, reportCacheRequest, reportDocumentId } from './routes.mjs';
+import { applySecurityHeaders } from '../lib/security-headers.ts';
+import { assetPathForPathname, isCacheableDocument, reportCacheRequest, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
 
 const NEXT_TIMEOUT_MS = 20_000;
-
-function applySecurity(headers) {
-  for (const [key, value] of Object.entries(securityHeaders)) headers.set(key, value);
-}
 
 function tagged(response, workerPath) {
   const headers = new Headers(response.headers);
@@ -34,7 +30,7 @@ async function fetchAsset(request, env, pathname) {
   headers.set('cache-control', 'public, max-age=0, must-revalidate');
   headers.set('vary', 'RSC, Next-Router-Prefetch, Next-Router-State-Tree, Next-Router-Segment-Prefetch');
   headers.set('x-worker-path', 'asset');
-  applySecurity(headers);
+  applySecurityHeaders(headers);
   if (request.method === 'HEAD') return new Response(null, { status: asset.status, headers });
   return new Response(asset.body, { status: asset.status, headers });
 }
@@ -57,7 +53,7 @@ async function serveReport(request, env, ctx) {
         headers.delete('set-cookie');
         headers.set('x-report-cache', 'hit');
         headers.set('x-worker-path', 'report-cache');
-        applySecurity(headers);
+        applySecurityHeaders(headers);
         return new Response(hit.body, { status: hit.status, headers });
       }
     } catch {
@@ -65,22 +61,20 @@ async function serveReport(request, env, ctx) {
     }
   }
   const response = await fetchNext(request, env, ctx);
-  if (!cache || !cacheableReport(response)) {
-    const headers = new Headers(response.headers);
-    headers.set('x-report-cache', 'miss');
-    if (!headers.has('x-worker-path')) headers.set('x-worker-path', 'next');
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-  }
-  const storedHeaders = new Headers(response.headers);
-  storedHeaders.set('cache-control', 'public, max-age=86400');
-  storedHeaders.delete('set-cookie');
-  storedHeaders.delete('vary');
-  const stored = new Response(response.clone().body, { status: response.status, headers: storedHeaders });
-  ctx.waitUntil(cache.put(key, stored).catch(() => undefined));
   const headers = new Headers(response.headers);
   headers.set('cache-control', 'private, no-store');
   headers.set('x-report-cache', 'miss');
-  headers.set('x-worker-path', 'next');
+  if (!headers.has('x-worker-path')) headers.set('x-worker-path', 'next');
+  applySecurityHeaders(headers);
+  const html = cache && cacheableReport(response) ? await response.clone().text() : '';
+  if (cache && html && reportHtmlIsShared(html)) {
+    const storedHeaders = new Headers(headers);
+    storedHeaders.set('cache-control', 'public, max-age=86400');
+    storedHeaders.delete('set-cookie');
+    storedHeaders.delete('vary');
+    const stored = new Response(html, { status: response.status, headers: storedHeaders });
+    ctx.waitUntil(cache.put(key, stored).catch(() => undefined));
+  }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 

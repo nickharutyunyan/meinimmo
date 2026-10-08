@@ -88,6 +88,7 @@ test('page, print, sitemap and metadata routes do not read archived HTML', async
   assert.doesNotMatch(reportFn, /parseListing|report_sources|source_text|fetchListing/);
   const candidateQuery = store.slice(store.indexOf('export async function staleReportsForBackfill'), store.indexOf('export async function archivedListingSource'));
   assert.match(candidateQuery, /LIMIT/);
+  assert.match(candidateQuery, /COALESCE\(json_extract\(data, '\$\.extractionVersion'\), -1\)/);
   assert.doesNotMatch(candidateQuery, /source_text/);
   const backfill = await read('app/api/reports/backfill/route.ts');
   assert.match(backfill, /backfillAuthorized/);

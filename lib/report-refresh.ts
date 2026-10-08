@@ -41,8 +41,8 @@ export function resetReportRefreshState() {
 export function needsArchivedRefresh(item: Pick<Report, 'country' | 'extractionVersion' | 'sourceUnavailable' | 'sourceReviewAttemptedAt'>) {
   if (item.country === 'AM') return false;
   if (item.sourceUnavailable && item.sourceReviewAttemptedAt) return false;
-  if (item.extractionVersion === EXTRACTION_VERSION) return false;
-  return true;
+  if (item.extractionVersion == null) return true;
+  return item.extractionVersion !== EXTRACTION_VERSION;
 }
 
 /** Persist this when a re-parse cannot finish. The marker, not the old version, is what the next read checks. */
@@ -75,17 +75,24 @@ export function finishReportRefresh(id: string) {
 export async function runBoundedRefresh<T>(id: string, task: () => Promise<T>, budgetMs = REFRESH_TIME_BUDGET_MS): Promise<RefreshOutcome<T>> {
   const status = beginReportRefresh(id);
   if (status !== 'started') return { status };
+  // The budget returns to the caller. The in-flight slot stays until task settles,
+  // so a slow parse cannot be replaced by another id while it is still running.
+  const work = Promise.resolve()
+    .then(task)
+    .finally(() => finishReportRefresh(id));
+  work.catch(() => undefined);
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const value = await new Promise<T>((resolve, reject) => {
-      timer = setTimeout(() => reject(new Error('refresh_budget')), budgetMs);
-      task().then(resolve, reject);
-    });
+    const value = await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('refresh_budget')), budgetMs);
+      }),
+    ]);
     return { status: 'started', ok: true, value };
   } catch (error) {
     return { status: 'started', ok: false, error };
   } finally {
     if (timer) clearTimeout(timer);
-    finishReportRefresh(id);
   }
 }

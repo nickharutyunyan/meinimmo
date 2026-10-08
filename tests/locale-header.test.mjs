@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
 
 function sources(csp, name) {
   const part = csp.split(';').map(item => item.trim()).find(item => item === name || item.startsWith(`${name} `));
@@ -10,13 +11,20 @@ function sources(csp, name) {
 
 test('one CSP covers every locale and allows only the GA4 hosts the tag uses', async () => {
   const config = await readFile(new URL('../next.config.ts', import.meta.url), 'utf8');
-  const headers = JSON.parse(await readFile(new URL('../cloudflare/security-headers.json', import.meta.url), 'utf8'));
+  const headerSource = await readFile(new URL('../lib/security-headers.ts', import.meta.url), 'utf8');
   const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
-  assert.equal([...config.matchAll(/security-headers\.json/g)].length, 1);
+  const layout = await readFile(new URL('../app/layout.tsx', import.meta.url), 'utf8');
+  assert.equal([...config.matchAll(/security-headers\.ts/g)].length, 1);
   assert.match(config, /source:\s*'\/\(\.\*\)'/);
-  assert.match(worker, /security-headers\.json/);
-  const csp = headers['Content-Security-Policy'];
-  assert.equal(typeof csp, 'string');
+  assert.match(headerSource, /CONTENT_SECURITY_POLICY/);
+  assert.match(worker, /applySecurityHeaders/);
+  assert.equal([...config.matchAll(/script-src/g)].length, 0);
+  const csp = CONTENT_SECURITY_POLICY;
+  assert.ok(csp);
+  assert.doesNotMatch(csp, /nonce-/);
+  assert.match(csp, /script-src[^;]*'unsafe-inline'/);
+  assert.match(layout, /https:\/\/www\.googletagmanager\.com\/gtag\/js/);
+  assert.doesNotMatch(layout, /nonce=/);
 
   const script = sources(csp, 'script-src');
   const connect = sources(csp, 'connect-src');

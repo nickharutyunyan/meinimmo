@@ -21,7 +21,9 @@ test('source conflicts suppress the verdict even when AI flags claim verificatio
  assert.equal(scoreAvailable(r), false);
  delete r.sourceUnavailable;
  delete r.extractionVersion;
+ assert.equal(r.extractionVersion, undefined);
  assert.equal(reportIsStale(r), true);
+ assert.equal(scoreAvailable(r), false);
  assert.match(reportConflicts(r).join(' '), /fresh source review/);
  const served = presentStoredReport(r);
  assert.match(served.qualityWarnings.join(' '), /fresh source review/);

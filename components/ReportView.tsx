@@ -24,6 +24,7 @@ import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
 import { ReportPrintButton } from './ReportPrintButton';
 import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxonomy';
+import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
 
@@ -140,6 +141,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink} aria-label={copied ? text.copied : text.copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span className="action-label-long" aria-live="polite">{copied ? text.copied : text.copyLink}</span><span className="action-label-short" aria-hidden="true">{copied ? (locale === 'de' ? 'Kopiert' : 'Copied') : (locale === 'de' ? 'Link' : 'Copy')}</span></button><ReportPrintButton reportId={report.id} locale={locale}/><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
         <div className="report-title-block"><div className="report-market-line"><p className="eyebrow">{text.brief}</p><CountrySwitch locale={locale}/></div><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
+
+      <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} />
 
       <section className="verdict">
         <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? propertyScore.total.toFixed(1) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{showScore ? text.scoreExplainer : (locale === 'de' ? 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.' : 'No score while key facts are missing or conflicting.')}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => <span key={key}>{label} <b>{showScore ? breakdown[key as keyof typeof breakdown].toFixed(1) : '—'}</b></span>)}</div></div></details></div>

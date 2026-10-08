@@ -74,6 +74,7 @@ export async function staleReportsForBackfill() {
     SELECT data FROM reports
     WHERE COALESCE(json_extract(data, '$.country'), '') != 'AM'
       AND COALESCE(json_extract(data, '$.extractionVersion'), -1) != ?1
+      -- A missing extractionVersion is JSON null, so COALESCE makes it eligible.
       AND NOT (
         json_extract(data, '$.sourceUnavailable') = 1
         AND typeof(json_extract(data, '$.sourceReviewAttemptedAt')) = 'text'

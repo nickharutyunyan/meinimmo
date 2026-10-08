@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportCacheRequest, reportDocumentId } from '../cloudflare/routes.mjs';
+import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportCacheRequest, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
 import { withTimeout } from '../lib/io-timeout.ts';
 import { invalidateReportHtml, reportHtmlUrls } from '../lib/report-html-cache.ts';
 import { publishedBody, publishStaticPages } from '../scripts/publish-static-pages.mjs';
@@ -95,6 +95,15 @@ test('a stalled promise rejects instead of hanging', async () => {
   assert.equal(await withTimeout(Promise.resolve('ok'), 30), 'ok');
 });
 
+test('cached report HTML is the anonymous document', () => {
+  const shared = '<a class="account-nav" href="/account">Sign in</a><section class="card private-note"><p>YOUR NOTE</p><textarea></textarea>';
+  assert.equal(reportHtmlIsShared(shared), true);
+  assert.equal(reportHtmlIsShared(shared.replace('Sign in', 'Sign out') + ' class="account-menu"'), false);
+  assert.equal(reportHtmlIsShared('<html>rah_session=abc</html>'), false);
+  assert.equal(reportHtmlIsShared('<input name="csrf" value="t">'), false);
+  assert.equal(reportHtmlIsShared(''), false);
+});
+
 test('the worker serves prerendered documents before the Next handler', async () => {
   const read = (file) => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
   const worker = await read('cloudflare/worker.mjs');
@@ -106,6 +115,16 @@ test('the worker serves prerendered documents before the Next handler', async ()
   assert.match(wrangler, /"main": "cloudflare\/worker.mjs"/);
   assert.match(wrangler, /"!\/_next\/static\/\*"/);
   assert.match(worker, /env\.ASSETS\.fetch/);
+  assert.match(worker, /applySecurityHeaders/);
+  assert.match(worker, /reportHtmlIsShared/);
+  const reportPage = await read('app/r/[id]/page.tsx');
+  const germanReport = await read('app/de/r/[id]/page.tsx');
+  const printPage = await read('app/r/[id]/print/page.tsx');
+  const sitemap = await read('app/sitemap.ts');
+  assert.doesNotMatch(reportPage, /cookies\(|headers\(|rah_session|robots/);
+  assert.doesNotMatch(germanReport, /cookies\(|headers\(|rah_session|robots/);
+  assert.match(printPage, /index:\s*false/);
+  assert.doesNotMatch(sitemap, /\/r\//);
   assert.match(worker, /caches\?\.default/);
   assert.match(worker, /NEXT_TIMEOUT_MS = 20_000/);
   assert.match(worker, /isCacheableDocument/);

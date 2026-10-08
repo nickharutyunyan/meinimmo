@@ -24,6 +24,8 @@ test('a failed refresh is saved as a marker and is not parsed again', () => {
   assert.equal(needsArchivedRefresh(marked), false);
   assert.equal(needsArchivedRefresh({ country: 'AM', extractionVersion: 0 }), false);
   assert.equal(needsArchivedRefresh({ extractionVersion: EXTRACTION_VERSION }), false);
+  assert.equal(needsArchivedRefresh({}), true);
+  assert.equal(needsArchivedRefresh({ extractionVersion: undefined }), true);
 });
 
 test('the refresh limiter drops extra work, releases on failure, and remembers an attempt', async () => {
@@ -47,12 +49,21 @@ test('the refresh limiter drops extra work, releases on failure, and remembers a
   assert.equal((await runBoundedRefresh('d1', async () => 'again')).status, 'already');
 
   const started = performance.now();
-  const timedOut = await runBoundedRefresh('hung', () => new Promise(() => {}), 30);
+  let releaseHung = () => undefined;
+  const timedOut = await runBoundedRefresh('hung', () => new Promise(resolve => { releaseHung = () => resolve('done'); }), 30);
   assert.equal(timedOut.status, 'started');
   assert.equal(timedOut.ok, false);
   assert.ok(performance.now() - started < 500, 'the budget must return without waiting for the parse');
-  assert.equal(refreshInFlight(), 0);
+  assert.equal(refreshInFlight(), 1);
   assert.equal((await runBoundedRefresh('hung', async () => 'again')).status, 'already');
+  assert.equal((await runBoundedRefresh('while-hung', async () => 'ok')).status, 'started');
+  const stillHung = runBoundedRefresh('hung-2', () => new Promise(() => {}), 20);
+  await stillHung;
+  assert.equal(refreshInFlight(), 2);
+  assert.equal((await runBoundedRefresh('hung-3', async () => 'no')).status, 'dropped');
+  releaseHung();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(refreshInFlight(), 1);
 
   resetReportRefreshState();
   for (let index = 0; index < REFRESH_ATTEMPTED_MAX + 10; index += 1) {

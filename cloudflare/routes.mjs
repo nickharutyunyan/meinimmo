@@ -51,6 +51,18 @@ export function cacheFileToAssetPath(cacheRelativePath) {
   return `${route}/index.html`;
 }
 
+/**
+ * Report HTML is safe to share across viewers when it has no session marker
+ * and no signed-in account menu. Notes and the sign-in label are filled in
+ * the browser after the document loads.
+ */
+export function reportHtmlIsShared(html) {
+  if (typeof html !== 'string' || html.length === 0) return false;
+  if (/rah_session|rah_google_oauth|csrf/i.test(html)) return false;
+  if (html.includes('class="account-menu"') || html.includes('class="account-status"')) return false;
+  return true;
+}
+
 /** Cache key: GET origin + locale path + id, with no query string. */
 export function reportCacheRequest(requestUrl) {
   const url = new URL(requestUrl);
