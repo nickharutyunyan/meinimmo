@@ -919,6 +919,7 @@ export function parseListing(raw: string, source: string): Report {
     soldAsIs: findSoldAsIs(lines) ? true : undefined,
     construction: findTimberFrame(title, lines) ? 'Timber frame' : undefined,
     groundLease: lease ? true : undefined,
+    groundLeaseKind: lease?.kind,
     groundRentYear: lease?.year,
     groundRentMonth: lease?.month,
     groundRentInServiceCharge: lease?.inCharges || undefined,

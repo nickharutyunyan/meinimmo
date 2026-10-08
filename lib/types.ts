@@ -31,6 +31,8 @@ export type Facts = {
   /** Timber-frame construction, when the listing states it for this building. */
   construction?: string;
   groundLease?: boolean;
+  /** Erbbaurecht and a Pachtgrundstück are different rights. */
+  groundLeaseKind?: 'leasehold' | 'pacht' | 'both';
   groundRentYear?: number;
   groundRentMonth?: number;
   groundRentInServiceCharge?: boolean;
