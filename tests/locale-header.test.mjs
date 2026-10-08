@@ -55,8 +55,13 @@ test('one CSP covers every locale and allows only the GA4 hosts the tag uses', a
 test('country picker width follows the selected label in English and German', async () => {
   const css = await readFile(new URL('../app/countries.css', import.meta.url), 'utf8');
   const component = await readFile(new URL('../components/CountrySwitch.tsx', import.meta.url), 'utf8');
-  assert.match(component, /className="country-switch-value" aria-hidden="true">\{label\(country\)\}/);
-  assert.match(component, /locale === 'de' && code === 'DE' \? 'Deutschland'/);
+  const countries = await readFile(new URL('../lib/countries.ts', import.meta.url), 'utf8');
+  assert.match(component, /className="country-switch-value" aria-hidden="true">\{countryLabel\(country, locale\)\}/);
+  assert.match(countries, /DE: 'Deutschland'/);
+  assert.match(countries, /AM: 'Armenien'/);
+  assert.match(countries, /US: 'USA'/);
+  assert.match(countries, /CA: 'Kanada'/);
+  assert.match(countries, /Land der Immobilie/);
   assert.match(css, /\.country-switch\s*\{[^}]*display:\s*inline-grid/);
   assert.match(css, /\.country-switch-value\s*\{[^}]*visibility:\s*hidden;[^}]*white-space:\s*nowrap/);
   assert.match(css, /\.country-switch select\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0/);

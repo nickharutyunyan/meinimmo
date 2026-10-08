@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { scoreAvailable, reportVerdict, scoreExplanation } from '@/lib/report-integrity';
+import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, scoreConfidence, scoreConfidenceLabel } from '@/lib/property-score';
-import { copy, localePath, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
-import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
+import { calculatePropertyScore, formatScore } from '@/lib/property-score';
+import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
+import { clarifyBeforeDecision, glanceFacts, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
@@ -28,8 +28,6 @@ import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxon
 import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
-
-const euros = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
 
 export function ReportView({ report: initialReport, locale }: { report: Report; locale: Locale }) {
   const [report, setReport] = useState(initialReport);
@@ -84,30 +82,12 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const text = copy[locale].report;
   const location = resolveLocation(report);
   const subtitle = reportSubtitle(report);
-  const known = (value?: string) => localizedValue(value, locale);
-  const stated = (value?: string) => known(value) !== text.notDisclosed;
   const priceView = priceCheckPresentation(report, locale);
-  const glance: Array<[string, string]> = [
-    ...(facts.price ? [[text.asking, euros(facts.price)] as [string, string]] : []),
-    ...(facts.price && facts.area ? [[text.perSqm, euros(facts.price / facts.area)] as [string, string]] : []),
-    ...(priceView.kind === 'matched' ? [[priceView.glanceLabel, priceView.glanceValue] as [string, string]] : []),
-    ...(facts.area ? [[text.living, `${facts.area} m²`] as [string, string]] : []),
-    ...(facts.plotArea ? [[text.plot, `${facts.plotArea.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} m²`] as [string, string]] : []),
-    ...(facts.usableArea ? [[text.usable, `${facts.usableArea} m²`] as [string, string]] : []),
-    ...(stated(facts.rooms) ? [[text.rooms, known(facts.rooms)] as [string, string]] : []),
-    ...(stated(facts.floor) ? [[text.floor, known(facts.floor)] as [string, string]] : []),
-    ...(stated(facts.tenancy) ? [[text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)] as [string, string]] : []),
-    ...(stated(facts.condition) ? [[text.condition, known(facts.condition)] as [string, string]] : []),
-    ...(facts.soldAsIs ? [[locale === 'de' ? 'Verkauf' : 'Sale', locale === 'de' ? 'Ist-Zustand' : 'As-is'] as [string, string]] : []),
-    ...(facts.buyerCommission ? [[text.commission, known(facts.buyerCommission)] as [string, string]] : []),
-    ...(facts.housegeld ? [['Hausgeld', `${euros(facts.housegeld)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`] as [string, string]] : []),
-    ...(facts.advertisedYield ? [[text.return, `${facts.advertisedYield.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')}%`] as [string, string]] : []),
-    ...(stated(report.sunOrientation) ? [[text.sun, known(report.sunOrientation)] as [string, string]] : []),
-    ...(report.daylight ? [[text.daylight, known(report.daylight)] as [string, string]] : []),
-    ...(stated(facts.energy) || facts.energyDemand ? [[text.energy, `${stated(facts.energy) ? known(facts.energy) : ''}${facts.energyDemand ? `${stated(facts.energy) ? ' · ' : ''}${facts.energyDemand.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB')} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : ''}`] as [string, string]] : []),
-    ...(stated(facts.heating) || facts.energySource ? [[text.heating, `${stated(facts.heating) ? known(facts.heating) : ''}${facts.energySource ? `${stated(facts.heating) ? ' · ' : ''}${known(facts.energySource)}` : ''}`] as [string, string]] : []),
-    ...(stated(facts.year) ? [[text.built, known(facts.year)] as [string, string]] : []),
-  ];
+  const glance = glanceFacts(report, locale);
+  if (priceView.kind === 'matched') {
+    const perSqm = glance.findIndex(([label]) => label === text.perSqm);
+    glance.splice(perSqm >= 0 ? perSqm + 1 : glance.length, 0, [priceView.glanceLabel, priceView.glanceValue]);
+  }
   const propertyScore = calculatePropertyScore(report);
   const verdict = reportVerdict(report, locale);
   const verdictText = /[.!?]$/.test(verdict) ? verdict : `${verdict}.`;
@@ -149,7 +129,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
       <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} />
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreConfidenceLabel(scoreConfidence(report), locale)}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{scoreExplanation(report, locale)}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => {
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreBasisLine(report, locale)}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {
           const value = breakdown[key as keyof typeof breakdown];
           const unscored = value === null;
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);

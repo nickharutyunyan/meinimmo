@@ -1,8 +1,14 @@
 import type { Metadata } from 'next';
 import { DocumentLocale } from '@/components/DocumentLocale';
 
+const title = 'ReviewAHouse — Immobilienangebote prüfen und vergleichen';
+const description = 'Prüfe deutsche Immobilienangebote mit klaren Berichten, Lage- und Energiedaten, direkten Vergleichen und einem anpassbaren Finanzierungsrechner.';
+
 export const metadata: Metadata = {
-  openGraph: { locale: 'de_DE', siteName: 'ReviewAHouse' },
+  title,
+  description,
+  openGraph: { type: 'website', locale: 'de_DE', siteName: 'ReviewAHouse', title, description },
+  twitter: { card: 'summary', title, description },
 };
 
 export default function GermanLayout({ children }: Readonly<{ children: React.ReactNode }>) {

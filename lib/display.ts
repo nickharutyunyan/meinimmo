@@ -1,4 +1,5 @@
 import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './location-validation.ts';
+import { area } from './format.ts';
 import type { Locale } from './i18n';
 import type { Report } from './types';
 
@@ -150,14 +151,11 @@ function statedRoomCount(value?: string) {
 }
 
 function descriptor(report: Pick<Report, 'propertyType' | 'facts'>, locale: Locale) {
-  if (report.propertyType === 'land') return `${report.facts.area ? `${report.facts.area} m² ` : ''}${locale === 'de' ? 'Grundstück' : 'land plot'}`;
+  if (report.propertyType === 'land') return `${report.facts.area ? `${area(report.facts.area, locale)} ` : ''}${locale === 'de' ? 'Grundstück' : 'land plot'}`;
   const rooms = statedRoomCount(report.facts.rooms);
   const type = locale === 'de' ? (report.propertyType === 'flat' ? 'Wohnung' : 'Haus') : report.propertyType;
   if (rooms) return locale === 'de' ? `${rooms.replace('.', ',')}-Zimmer-${type}` : `${rooms}-room ${type}`;
-  if (report.facts.area) {
-    const area = new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-GB', { maximumFractionDigits: 1 }).format(report.facts.area);
-    return `${area} m² ${type}`;
-  }
+  if (report.facts.area) return `${area(report.facts.area, locale)} ${type}`;
   return locale === 'de' ? type : type[0].toUpperCase() + type.slice(1);
 }
 

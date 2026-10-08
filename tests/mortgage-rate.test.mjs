@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { parseFmhMortgageRate } from '../lib/fmh-mortgage-rate.ts';
+import { copy } from '../lib/i18n.ts';
 
 const sample = `
   <table>
@@ -19,6 +21,16 @@ test('parses the current 10-year FMH average and observation date', () => {
 test('assigns a late-December observation to the previous year when run in January', () => {
   const december = sample.replace('27.08.', '31.12.');
   assert.equal(parseFmhMortgageRate(december, new Date('2027-01-02T12:00:00Z')).observedAt, '2026-12-31');
+});
+
+test('a missing mortgage rate is described without a provider name', () => {
+  assert.equal(copy.en.finance.rateUnavailable, 'Current mortgage rates are unavailable right now');
+  assert.equal(copy.de.finance.rateUnavailable, 'Aktuelle Bauzinsen sind gerade nicht verfügbar');
+  assert.doesNotMatch(`${copy.en.finance.rateUnavailable} ${copy.de.finance.rateUnavailable}`, /FMH/);
+  const component = readFileSync(new URL('../components/FinanceCalculator.tsx', import.meta.url), 'utf8');
+  assert.match(component, /text\.rateUnavailable/);
+  assert.doesNotMatch(component, /FMH unavailable|FMH nicht verfügbar/);
+  assert.match(component, /useState\(3\.5\)/);
 });
 
 test('rejects malformed or implausible rate data', () => {

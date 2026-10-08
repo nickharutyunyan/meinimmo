@@ -9,7 +9,8 @@ test('hiding plans removes paid prices and leaves the how-it-works free line unc
   for (const locale of ['en', 'de']) {
     const home = homePresentation(locale, false);
     const visible = `${home.approachFree} ${home.approachFreeNote} ${home.approachIntro} ${home.faqs.flat().join(' ')}`;
-    assert.equal(home.approachFree, locale === 'de' ? 'Dein erster Bericht ist kostenlos.' : 'Your first report is free.');
+    assert.equal(home.approachFree, locale === 'de' ? 'Berichte sind kostenlos.' : 'Reports are free.');
+    assert.doesNotMatch(visible, /first report is free|erster Bericht ist kostenlos|two reports per day|zwei Berichte pro Tag/i);
     assert.match(home.approachFreeNote, locale === 'de' ? /Ohne Anmeldung, ohne Abo/ : /No sign-up, no subscription/);
     assert.match(home.approachIntro, locale === 'de' ? /deutschen Immobilienportal/ : /German property portal/);
     assert.doesNotMatch(visible, /immoscout|ohne-makler|two a day|zwei am tag|per day|pro tag/i);

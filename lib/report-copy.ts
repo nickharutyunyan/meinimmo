@@ -1,7 +1,8 @@
-import { localizedValue, type Locale } from './i18n.ts';
+import { copy, localizedTenancy, localizedValue, type Locale } from './i18n.ts';
 import type { Report } from './types';
-import { factualLocation } from './display.ts';
+import { resolveLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
+import { area, money, moneyPerSqm, percent, plainNumber } from './format.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 import { reportConflicts } from './report-integrity.ts';
@@ -23,85 +24,155 @@ export function questionsAreConcise(value: unknown): value is string[] {
     && !isObviousAddressQuestion(item));
 }
 
-function factualRentedSummary(facts: Report['facts'], locale: Locale) {
-  const until = locale === 'de' ? facts.rentedUntilText : formatRentedUntil(facts.rentedUntilText, 'en');
-  const from = formatAvailabilityDate(facts.availabilityDate, locale);
-  if (locale === 'de') {
-    return `Die Immobilie wird vermietet verkauft${until ? ` bis ${until}` : ''}${from ? ` und ist ab ${from} frei` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`;
-  }
-  return `It is sold rented${until ? ` until ${until}` : ''}${from ? ` and free from ${from}` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`;
+function roomLabel(rooms: string | undefined, locale: Locale) {
+  if (!stated(rooms)) return '';
+  const value = Number(String(rooms).replace(',', '.'));
+  if (!Number.isFinite(value)) return String(rooms);
+  return plainNumber(value, locale, 1);
+}
+
+function midSentence(value: string) {
+  if (!value || !/[a-z]/.test(value)) return value;
+  return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
+function locationClause(report: Report) {
+  const resolved = resolveLocation(report);
+  const place = resolved.titleLocation;
+  const street = resolved.basis === 'address' || resolved.basis === 'street';
+  return { place, street: Boolean(place && street) };
 }
 
 export function localizedSummary(report: Report, locale: Locale) {
-  if (locale === 'en') {
-    const conflict = tenancyConflictSentence(report.facts, 'en');
-    const withoutConflict = (report.redFlags || []).some(flag => flag.id === 'rentedOccupied') && report.summary.includes(conflict)
-      ? report.summary.replace(conflict, factualRentedSummary(report.facts, 'en'))
-      : report.summary;
-    const correctedCondition = localizedValue(report.facts.condition, 'en') === 'Renovated'
-      ? withoutConflict.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
-      : withoutConflict;
-    return correctedCondition
-    .replace('The listing states that it is available to move into; confirm the handover date in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.')
-    .replace('It is described as owner-occupied; confirm the agreed handover date and vacant possession in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.');
-  }
   const { facts } = report;
   const house = report.propertyType === 'house';
-  const type = house ? 'Haus' : 'Wohnung';
-  const roomPrefix = stated(facts.rooms) ? `${facts.rooms.replace('.', ',')}-Zimmer-` : '';
-  const factualPlace = factualLocation(report);
-  const place = factualPlace ? ` in ${factualPlace}` : '';
-  const plot = facts.plotArea && house ? ` auf einem ${facts.plotArea.toLocaleString('de-DE')} m² Grundstück` : '';
-  const space = facts.area
-    ? ` hat ${facts.area.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Wohnfläche${facts.usableArea ? ` und ${facts.usableArea.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m² Nutzfläche` : ''}${plot}`
+  const { place, street } = locationClause(report);
+  const rooms = roomLabel(facts.rooms, locale);
+  const living = facts.area ? area(facts.area, locale) : '';
+  const usable = facts.usableArea ? area(facts.usableArea, locale) : '';
+  const plot = facts.plotArea && house ? area(facts.plotArea, locale) : '';
+  const price = facts.price
+    ? (locale === 'de'
+      ? ` Der Kaufpreis liegt bei ${money(facts.price, 'de')}${facts.area ? ` (${moneyPerSqm(facts.price / facts.area, 'de')})` : ''}.`
+      : ` The asking price is ${money(facts.price, 'en')}${facts.area ? ` (${moneyPerSqm(facts.price / facts.area, 'en')})` : ''}.`)
     : '';
-  const price = facts.price ? ` Der Kaufpreis liegt bei ${facts.price.toLocaleString('de-DE')} €${facts.area ? ` (${Math.round(facts.price / facts.area).toLocaleString('de-DE')} €/m²)` : ''}.` : '';
-  const building = [
-    stated(facts.year) ? `Baujahr ${facts.year}` : '',
-    facts.construction === 'Timber frame' ? 'Holzbau (Holzständer)' : '',
-    stated(facts.condition) ? `Zustand laut Angebot: ${localizedValue(facts.condition, 'de')}` : '',
-    stated(facts.energy) ? `Energieklasse ${facts.energy}` : '',
-    facts.energySource ? `Energieträger ${facts.energySource}` : '',
-  ].filter(Boolean).join(', ');
-  const first = `${house ? 'Dieses' : 'Diese'} ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
-  const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
-  const rentedUntil = facts.rentedUntilText;
-  const occupancy = facts.tenancy === 'Rented'
-    ? `Die Immobilie wird vermietet verkauft${rentedUntil ? ` bis ${rentedUntil}` : ''}${availableFrom ? ` und ist ab ${availableFrom} frei` : ''}${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
-    : facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom
-    ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
-    : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
-      ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
+  if (locale === 'de') {
+    const type = house ? 'Haus' : 'Wohnung';
+    const roomPrefix = rooms ? `${rooms}-Zimmer-` : '';
+    const where = place ? (street ? ` (${place})` : ` in ${place}`) : '';
+    const space = living
+      ? ` hat ${living} Wohnfläche${usable ? ` und ${usable} Nutzfläche` : ''}${plot ? ` auf einem ${plot} Grundstück` : ''}`
       : '';
-  const costs = facts.housegeld && !house ? ` Das Hausgeld${facts.housegeldYear ? ` für ${facts.housegeldYear}` : ''} liegt laut Angebot bei ${facts.housegeld.toLocaleString('de-DE')} € im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
-  const asIs = facts.soldAsIs
-    ? (house ? 'Das Haus wird im Ist-Zustand verkauft.' : 'Die Einheit wird im Ist-Zustand verkauft.')
+    const comma = place && !street && space ? ',' : '';
+    const building = [
+      stated(facts.year) ? `Baujahr ${facts.year}` : '',
+      facts.construction === 'Timber frame' ? 'Holzbau (Holzständer)' : '',
+      stated(facts.condition) ? `Zustand laut Angebot: ${localizedValue(facts.condition, 'de')}` : '',
+      stated(facts.energy) ? `Energieklasse ${facts.energy}` : '',
+      facts.energySource && !UNKNOWN.test(facts.energySource) ? `Energieträger ${facts.energySource}` : '',
+    ].filter(Boolean).join(', ');
+    const first = `${house ? 'Dieses' : 'Diese'} ${roomPrefix}${type}${where}${comma}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
+    const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
+    const rentedUntil = facts.rentedUntilText;
+    const yieldText = facts.advertisedYield ? percent(facts.advertisedYield, 'de') : '';
+    const occupancy = facts.tenancy === 'Rented'
+      ? `Die Immobilie wird vermietet verkauft${rentedUntil ? ` bis ${rentedUntil}` : ''}${availableFrom ? ` und ist ab ${availableFrom} frei` : ''}${yieldText ? `; angegeben sind ${yieldText} Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
+      : facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom
+      ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
+      : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
+        ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
+        : '';
+    const costs = facts.housegeld && !house ? ` Das Hausgeld${facts.housegeldYear ? ` für ${facts.housegeldYear}` : ''} liegt laut Angebot bei ${money(facts.housegeld, 'de')} im Monat. Wichtig ist die Trennung zwischen umlagefähigem und eigenem Anteil.` : '';
+    const asIs = facts.soldAsIs
+      ? (house ? 'Das Haus wird im Ist-Zustand verkauft.' : 'Die Einheit wird im Ist-Zustand verkauft.')
+      : '';
+    const honest = [asIs, groundLeaseSentence(facts, 'de')].filter(Boolean).join(' ');
+    const second = `${occupancy}${honest ? ` ${honest}` : ''}${costs}`.trim();
+    return second ? `${first}\n\n${second}` : first;
+  }
+
+  const type = report.propertyType;
+  const identity = `${rooms ? `${rooms}-room ` : ''}${type}`;
+  const where = place ? (street ? ` at ${place}` : ` in ${place}`) : '';
+  const space = living
+    ? ` has ${living} of living area${usable ? ` and ${usable} of usable area` : ''}${plot ? ` on a ${plot} plot` : ''}`
     : '';
-  const honest = [asIs, groundLeaseSentence(facts, 'de')].filter(Boolean).join(' ');
-  const second = `${occupancy}${honest ? ` ${honest}` : ''}${costs}`.trim();
+  const comma = where && space ? ',' : '';
+  const heating = facts.energySource && !UNKNOWN.test(facts.energySource) ? localizedValue(facts.energySource, 'en') : '';
+  const condition = stated(facts.condition) ? localizedValue(facts.condition, 'en') : '';
+  const building = [
+    stated(facts.year) ? `built in ${facts.year}` : '',
+    facts.construction === 'Timber frame' ? 'timber-frame construction' : '',
+    condition ? `described as ${midSentence(condition)}` : '',
+    stated(facts.energy) ? `energy class ${facts.energy}` : '',
+    heating && heating !== copy.en.report.notDisclosed ? `heated via ${midSentence(heating)}` : '',
+  ].filter(Boolean).join(', ');
+  const first = `This ${identity}${where}${comma}${space}.${price}${building ? ` Listing details: ${building}.` : ''}`.trim();
+  const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'en');
+  const rentedUntil = formatRentedUntil(facts.rentedUntilText, 'en');
+  const yieldText = facts.advertisedYield ? percent(facts.advertisedYield, 'en') : '';
+  const investment = facts.tenancy === 'Rented'
+    ? `It is sold rented${rentedUntil ? ` until ${rentedUntil}` : ''}${availableFrom ? ` and free from ${availableFrom}` : ''}${yieldText ? ` and advertised at a ${yieldText} return` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`
+    : availableFrom
+    ? `The listing states that the property will be available from ${availableFrom}; confirm vacant handover on that date in the purchase contract.`
+    : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
+      ? 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.'
+      : '';
+  const occupancyWarning = facts.tenancy === 'Occupancy unclear' ? 'The portal says not rented, but the description says occupants remain. Current occupancy and vacant handover need clarification.' : '';
+  const costs = facts.housegeld && !house ? ` Monthly Hausgeld${facts.housegeldYear ? ` for ${facts.housegeldYear}` : ''} is stated at ${money(facts.housegeld, 'en')}; separate recoverable tenant costs from the owner-only share.` : '';
+  const asIs = facts.soldAsIs
+    ? (house ? 'The house is sold as-is (Ist-Zustand).' : 'The unit is sold as-is (Ist-Zustand).')
+    : '';
+  const honest = [asIs, groundLeaseSentence(facts, 'en')].filter(Boolean).join(' ');
+  const second = `${occupancyWarning || investment}${honest ? ` ${honest}` : ''}${costs}`.trim();
   return second ? `${first}\n\n${second}` : first;
 }
 
 export function localizedConsiderations(report: Report, locale: Locale) {
-  if (locale === 'en') return report.considerations;
   const { facts } = report;
-  const items: string[] = [];
-  if (facts.tenancy === 'Occupancy unclear') items.push('Kläre den rechtlichen Status der Bewohner und eine verbindliche Vereinbarung zur freien Übergabe.');
-  if (facts.tenancy === 'Rented') items.push('Prüfe Mietvertrag, Nettokaltmiete und Zahlungshistorie.');
   const house = report.propertyType === 'house';
-  if (facts.housegeld && !house) {
-    items.push(isNewOrFirstOccupancy(facts.condition)
-      ? `Prüfe, wie sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld auf laufende Gemeinschafts- und Eigentümerkosten verteilen.`
-      : `Prüfe die Aufteilung der ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld und lass dir den aktuellen Stand der WEG-Rücklage zeigen.`);
+  const items: string[] = [];
+  const hausgeld = facts.housegeld ? money(facts.housegeld, locale) : '';
+  if (locale === 'de') {
+    if (facts.tenancy === 'Occupancy unclear') items.push('Kläre den rechtlichen Status der Bewohner und eine verbindliche Vereinbarung zur freien Übergabe.');
+    if (facts.tenancy === 'Rented') items.push('Prüfe Mietvertrag, Nettokaltmiete und Zahlungshistorie.');
+    if (hausgeld && !house) {
+      items.push(isNewOrFirstOccupancy(facts.condition)
+        ? `Prüfe, wie sich die ${hausgeld} Hausgeld auf laufende Gemeinschafts- und Eigentümerkosten verteilen.`
+        : `Prüfe die Aufteilung der ${hausgeld} Hausgeld und lass dir den aktuellen Stand der WEG-Rücklage zeigen.`);
+    }
+    if (!stated(facts.floor) && !house) items.push('Kläre Etage, Aufzug sowie Straßen- oder Hoflage.');
+    if (stated(facts.energy)) items.push(`Vergleiche den ${facts.energyCertificate || 'Energieausweis'} mit echten Energieabrechnungen.`);
+    const rights = !house ? terraceGardenConsideration(facts, 'de') : '';
+    if (rights) items.push(rights);
+    if (!items.length) items.push(house
+      ? 'Fordere das vollständige Exposé, den Energieausweis und eine klare Aufstellung der laufenden Kosten an.'
+      : 'Fordere das vollständige Exposé, den Energieausweis, WEG-Unterlagen und eine klare Aufstellung der laufenden Kosten an.');
+    return items.slice(0, 4);
   }
-  if (!stated(facts.floor) && !house) items.push('Kläre Etage, Aufzug sowie Straßen- oder Hoflage.');
-  if (stated(facts.energy)) items.push(`Vergleiche den ${facts.energyCertificate || 'Energieausweis'} mit echten Energieabrechnungen.`);
-  const rights = !house ? terraceGardenConsideration(facts, 'de') : '';
+  if (facts.tenancy === 'Occupancy unclear') items.push('Confirm the occupants’ legal status and a binding vacant-handover agreement.');
+  if (facts.tenancy === 'Rented') items.push('Check the signed lease, net cold rent and payment history.');
+  if (hausgeld && !house) {
+    items.push(isNewOrFirstOccupancy(facts.condition)
+      ? `Check how the ${hausgeld} Hausgeld is split between shared running costs and owner-only costs.`
+      : `Check how the ${hausgeld} Hausgeld is split and ask for the current WEG reserve balance.`);
+  }
+  if (!house && !stated(facts.floor)) items.push('Confirm the floor, lift access and whether the unit faces the street or courtyard.');
+  if (stated(facts.energy)) items.push(`Compare the ${facts.energyCertificate || 'Energieausweis'} with actual energy bills.`);
+  const rights = !house ? terraceGardenConsideration(facts, 'en') : '';
   if (rights) items.push(rights);
   if (!items.length) items.push(house
-    ? 'Fordere das vollständige Exposé, den Energieausweis und eine klare Aufstellung der laufenden Kosten an.'
-    : 'Fordere das vollständige Exposé, den Energieausweis, WEG-Unterlagen und eine klare Aufstellung der laufenden Kosten an.');
+    ? 'Request the complete Exposé, Energieausweis and an itemized list of running costs before making an offer.'
+    : 'Request the complete Exposé, Energieausweis, WEG records and itemized running costs before making an offer.');
   return items.slice(0, 4);
+}
+
+function parkingWarning(report: Report, locale: Locale) {
+  const amount = money(report.facts.parkingPrice, locale);
+  if (!amount) return '';
+  return locale === 'de'
+    ? `Das Angebot nennt separat ${amount} für Garage oder Stellplatz. Kläre, ob dieser Kauf verpflichtend und zusätzlich ist; der Betrag ist nicht in der angegebenen Gesamtsumme enthalten.`
+    : `The listing separately quotes ${amount} for parking. Confirm whether this is additional and required; it is not included in the stated total.`;
 }
 
 function coveredByRedFlag(report: Report, warning: string) {
@@ -125,12 +196,16 @@ export function terraceGardenConsideration(facts: Pick<Report['facts'], 'feature
 }
 
 export function localizedWarnings(report: Report, locale: Locale) {
-  const warnings = locale === 'en' ? (report.qualityWarnings || []) : (report.qualityWarnings || []).map((warning) => {
-    if (/separately quotes/.test(warning)) return `Das Angebot nennt separat ${report.facts.parkingPrice?.toLocaleString('de-DE')} € für Garage oder Stellplatz. Kläre, ob dieser Kauf verpflichtend und zusätzlich ist; der Betrag ist nicht in der angegebenen Gesamtsumme enthalten.`;
+  const warnings = (report.qualityWarnings || []).map((warning) => {
+    if (/separately quotes/.test(warning)) return parkingWarning(report, locale);
+    if (locale === 'en') return warning;
     if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
     if (/purchase price, buyer costs/.test(warning)) return 'Kaufpreis, Kaufnebenkosten und Gesamtsumme widersprechen sich. Die Finanzierung nutzt die angegebene Gesamtsumme; kläre die Aufschlüsselung.';
     if (/Construction year and new-build/.test(warning)) return 'Baujahr und Neubauzustand widersprechen sich. Kläre den tatsächlichen Zustand.';
-    if (/Hausgeld amount refers to/.test(warning)) return `Die Hausgeldangabe bezieht sich auf ${report.facts.housegeldYear}. Prüfe den aktuellen Wirtschaftsplan.`;
+    if (/Hausgeld amount refers to/.test(warning)) {
+      const year = report.facts.housegeldYear;
+      return year ? `Die Hausgeldangabe bezieht sich auf ${year}. Prüfe den aktuellen Wirtschaftsplan.` : '';
+    }
     if (/conflicting room counts/.test(warning)) return 'Das Angebot enthält widersprüchliche Zimmerzahlen. Prüfe den Grundriss; der Titel nennt deshalb keine Zimmerzahl.';
     if (/energy class and consumption/.test(warning)) return 'Die angegebene Energieklasse und der Verbrauch passen nicht zu den üblichen Klassengrenzen. Prüfe den Energieausweis.';
     if (/key-facts table says it is not rented/.test(warning)) return tenancyConflictSentence(report.facts, 'de');
@@ -146,7 +221,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
   });
-  return warnings.filter(warning => !coveredByRedFlag(report, warning));
+  return warnings.filter(warning => Boolean(warning) && !coveredByRedFlag(report, warning));
 }
 
 /** Conflicts already shown as a red flag or a data note stay out of the clarify box. */
@@ -167,7 +242,7 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
     if (report.propertyType === 'flat') questions.push(isNewOrFirstOccupancy(facts.condition)
       ? 'Welcher anfängliche Beitrag zur WEG-Rücklage ist vorgesehen?'
       : 'Wie hoch ist die WEG-Rücklage, und sind Sonderumlagen geplant?');
-    if (facts.housegeld && report.propertyType !== 'house') questions.push(`Wie teilen sich die ${facts.housegeld.toLocaleString('de-DE')} € Hausgeld in umlagefähige und eigene Kosten?`);
+    if (facts.housegeld && report.propertyType !== 'house') questions.push(`Wie teilen sich die ${money(facts.housegeld, 'de')} Hausgeld in umlagefähige und eigene Kosten?`);
     if (/Needs renovation|Needs modernization/i.test(facts.condition || '')) questions.push('Welche Arbeiten sind nötig, und gibt es dafür Kostenvoranschläge?');
     if (!stated(facts.floor) && report.propertyType === 'flat') questions.push('In welcher Etage liegt die Wohnung, und gibt es einen Aufzug?');
     questions.push('Kann ich den Energieausweis und die letzten Energieabrechnungen sehen?');
@@ -182,10 +257,47 @@ export function offerQuestionsFor(report: Report, locale: Locale = 'en') {
   if (report.propertyType === 'flat') questions.push(isNewOrFirstOccupancy(facts.condition)
     ? 'What initial contribution to the WEG reserve is planned?'
     : 'What is the WEG reserve, and are any Sonderumlagen planned?');
-  if (facts.housegeld && report.propertyType !== 'house') questions.push(`How is the €${facts.housegeld.toLocaleString('de-DE')} Hausgeld split between recoverable and owner-only costs?`);
+  if (facts.housegeld && report.propertyType !== 'house') questions.push(`How is the ${money(facts.housegeld, 'en')} Hausgeld split between recoverable and owner-only costs?`);
   if (/Needs renovation|Needs modernization/i.test(facts.condition || '')) questions.push('Which repairs are necessary, and are contractor estimates available?');
   if (!stated(facts.floor) && report.propertyType === 'flat') questions.push('Which floor is the unit on, and is there a lift?');
   questions.push('May I see the Energieausweis and recent energy bills?');
   questions.push('Are there known defects, Baulasten or registered Dienstbarkeiten?');
   return questions.slice(0, 4);
+}
+
+/** At-a-glance rows, formatted for the report locale. Price-check rows stay with that card. */
+export function glanceFacts(report: Report, locale: Locale): Array<[string, string]> {
+  const facts = report.facts;
+  const text = copy[locale].report;
+  const known = (value?: string) => localizedValue(value, locale);
+  const shown = (value?: string) => known(value) !== text.notDisclosed;
+  const demand = Number.isFinite(facts.energyDemand) && facts.energyDemand ? plainNumber(facts.energyDemand, locale, 2) : '';
+  const energy = [
+    shown(facts.energy) ? known(facts.energy) : '',
+    demand ? `${demand} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : '',
+  ].filter(Boolean).join(' · ');
+  const heating = [
+    shown(facts.heating) ? known(facts.heating) : '',
+    facts.energySource && shown(facts.energySource) ? known(facts.energySource) : '',
+  ].filter(Boolean).join(' · ');
+  const rows: Array<[string, string]> = [];
+  if (facts.price) rows.push([text.asking, money(facts.price, locale)]);
+  if (facts.price && facts.area) rows.push([text.perSqm, money(facts.price / facts.area, locale)]);
+  if (facts.area) rows.push([text.living, area(facts.area, locale)]);
+  if (facts.plotArea) rows.push([text.plot, area(facts.plotArea, locale)]);
+  if (facts.usableArea) rows.push([text.usable, area(facts.usableArea, locale)]);
+  if (shown(facts.rooms)) rows.push([text.rooms, roomLabel(facts.rooms, locale) || known(facts.rooms)]);
+  if (shown(facts.floor)) rows.push([text.floor, known(facts.floor)]);
+  if (shown(facts.tenancy)) rows.push([text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale)]);
+  if (shown(facts.condition)) rows.push([text.condition, known(facts.condition)]);
+  if (facts.soldAsIs) rows.push([locale === 'de' ? 'Verkauf' : 'Sale', locale === 'de' ? 'Ist-Zustand' : 'As-is']);
+  if (facts.buyerCommission) rows.push([text.commission, known(facts.buyerCommission)]);
+  if (facts.housegeld) rows.push(['Hausgeld', `${money(facts.housegeld, locale)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`]);
+  if (facts.advertisedYield) rows.push([text.return, percent(facts.advertisedYield, locale)]);
+  if (shown(report.sunOrientation)) rows.push([text.sun, known(report.sunOrientation)]);
+  if (report.daylight) rows.push([text.daylight, known(report.daylight)]);
+  if (energy) rows.push([text.energy, energy]);
+  if (heating) rows.push([text.heating, heating]);
+  if (shown(facts.year)) rows.push([text.built, known(facts.year)]);
+  return rows.filter(([, value]) => Boolean(value));
 }

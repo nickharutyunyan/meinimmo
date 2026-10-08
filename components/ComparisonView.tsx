@@ -15,8 +15,7 @@ import { visibleComparisonRows } from '@/lib/comparison';
 import { redFlagSummary } from '@/lib/red-flags';
 import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
-
-const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
+import { area, money, percent } from '@/lib/format';
 
 function scoreCell(item: Report, total: number, locale: Locale) {
   if (!scoreAvailable(item)) return '—';
@@ -34,7 +33,8 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
   const known = (value?: string) => localizedValue(value, locale) === copy[locale].report.notDisclosed ? '—' : localizedValue(value, locale);
   const energy = (item: Report) => {
     const energyClass = known(item.facts.energy);
-    const parts = [...(energyClass === '—' ? [] : [energyClass]), ...(item.facts.energySource ? [item.facts.energySource] : [])];
+    const source = item.facts.energySource ? localizedValue(item.facts.energySource, locale) : '';
+    const parts = [...(energyClass === '—' ? [] : [energyClass]), ...(source && source !== copy[locale].report.notDisclosed ? [source] : [])];
     return parts.length ? parts.join(' · ') : '—';
   };
   const tenancy = (item: Report) => item.facts.tenancy || item.facts.availabilityDate
@@ -55,18 +55,20 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       ? <a className="comparison-address-link" href={mapsHref} target="_blank" rel="noreferrer" aria-label={`${value} — Google Maps`}><GlossaryText locale={locale}>{value}</GlossaryText><span aria-hidden="true">↗</span></a>
       : <GlossaryText locale={locale}>{value}</GlossaryText>;
   };
-  const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
+  const housegeld = (item: Report) => item.facts.housegeld ? `${money(item.facts.housegeld, locale)} ${text.monthly}${item.facts.housegeldYear ? ` (${item.facts.housegeldYear})` : ''}` : '—';
+  const amount = (value?: number) => value ? money(value, locale) : '—';
+  const space = (value?: number) => value ? area(value, locale) : '—';
   const rows = visibleComparisonRows([
     [text.address, address(first), address(second)],
     [text.neighborhood, firstNeighborhood || '—', secondNeighborhood || '—'],
-    [text.asking, first.facts.price ? money(first.facts.price) : '—', second.facts.price ? money(second.facts.price) : '—'],
-    [text.acquisition, first.facts.totalCost ? money(first.facts.totalCost) : '—', second.facts.totalCost ? money(second.facts.totalCost) : '—'],
-    [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', first.facts.parkingPrice ? money(first.facts.parkingPrice) : '—', second.facts.parkingPrice ? money(second.facts.parkingPrice) : '—'],
+    [text.asking, amount(first.facts.price), amount(second.facts.price)],
+    [text.acquisition, amount(first.facts.totalCost), amount(second.facts.totalCost)],
+    [locale === 'de' ? 'Garage/Stellplatz separat (nicht enthalten)' : 'Parking quoted separately (excluded)', amount(first.facts.parkingPrice), amount(second.facts.parkingPrice)],
     [text.commission, first.facts.buyerCommission ? known(first.facts.buyerCommission) : '—', second.facts.buyerCommission ? known(second.facts.buyerCommission) : '—'],
-    [text.perSqm, first.facts.area ? money(first.facts.price / first.facts.area) : '—', second.facts.area ? money(second.facts.price / second.facts.area) : '—'],
+    [text.perSqm, first.facts.price && first.facts.area ? money(first.facts.price / first.facts.area, locale) : '—', second.facts.price && second.facts.area ? money(second.facts.price / second.facts.area, locale) : '—'],
     [priceCheckCompare(first, locale).label, priceCheckCompare(first, locale).value, priceCheckCompare(second, locale).value],
-    [text.living, first.facts.area ? `${first.facts.area} m²` : '—', second.facts.area ? `${second.facts.area} m²` : '—'],
-    [text.usable, first.facts.usableArea ? `${first.facts.usableArea} m²` : '—', second.facts.usableArea ? `${second.facts.usableArea} m²` : '—'],
+    [text.living, space(first.facts.area), space(second.facts.area)],
+    [text.usable, space(first.facts.usableArea), space(second.facts.usableArea)],
     [text.rooms, known(first.facts.rooms), known(second.facts.rooms)],
     [text.floor, known(first.facts.floor), known(second.facts.floor)],
     [locale === 'de' ? 'Tageslicht' : 'Daylight', localizedTaxonomyValue(first, 'daylight', locale) || '—', localizedTaxonomyValue(second, 'daylight', locale) || '—'],
@@ -75,7 +77,7 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.condition, known(first.facts.condition), known(second.facts.condition)],
     [text.redFlags, redFlagSummary(first, locale), redFlagSummary(second, locale)],
     [text.housegeld, housegeld(first), housegeld(second)],
-    [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
+    [text.return, first.facts.advertisedYield ? percent(first.facts.advertisedYield, locale) : '—', second.facts.advertisedYield ? percent(second.facts.advertisedYield, locale) : '—'],
     [text.energy, energy(first), energy(second)],
     [copy[locale].report.notes, localizedWarnings(first, locale).join(' ') || '—', localizedWarnings(second, locale).join(' ') || '—'],
     [text.score, scoreCell(first, firstScore.total, locale), scoreCell(second, secondScore.total, locale)],

@@ -1,8 +1,8 @@
-import { scoreAvailable, reportVerdict, scoreExplanation } from '@/lib/report-integrity';
+import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { calculatePropertyScore, formatScore, scoreConfidence, scoreConfidenceLabel } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -10,8 +10,7 @@ import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
-
-const euros = (value: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+import { area, money, percent } from '@/lib/format';
 
 type FinanceSettings = { equity: number; interest: number; repayment: number; includeHousegeld: boolean };
 
@@ -20,6 +19,8 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   const reportText = copy[locale].report;
   const score = calculatePropertyScore(report);
   const showScore = scoreAvailable(report);
+  const verdict = reportVerdict(report, locale);
+  const basis = scoreBasisLine(report, locale);
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
@@ -32,11 +33,11 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   const known = (value?: string) => Boolean(value && !/not stated|unknown|not disclosed|could(?:n't| not) find/i.test(value));
   const localized = (value?: string) => localizedValue(value, locale);
   const facts: Array<[string, string]> = [
-    ...(report.facts.price ? [[reportText.asking, euros(report.facts.price)] as [string, string]] : []),
-    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, euros(report.facts.price / report.facts.area)] as [string, string]] : []),
-    ...(report.facts.area ? [[reportText.living, `${report.facts.area} m²`] as [string, string]] : []),
-    ...(report.facts.plotArea ? [[reportText.plot, `${report.facts.plotArea.toLocaleString(de ? 'de-DE' : 'en-GB')} m²`] as [string, string]] : []),
-    ...(report.facts.usableArea ? [[reportText.usable, `${report.facts.usableArea} m²`] as [string, string]] : []),
+    ...(report.facts.price ? [[reportText.asking, money(report.facts.price, locale)] as [string, string]] : []),
+    ...(report.facts.price && report.facts.area ? [[reportText.perSqm, money(report.facts.price / report.facts.area, locale)] as [string, string]] : []),
+    ...(report.facts.area ? [[reportText.living, area(report.facts.area, locale)] as [string, string]] : []),
+    ...(report.facts.plotArea ? [[reportText.plot, area(report.facts.plotArea, locale)] as [string, string]] : []),
+    ...(report.facts.usableArea ? [[reportText.usable, area(report.facts.usableArea, locale)] as [string, string]] : []),
     ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms)] as [string, string]] : []),
     ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor)] as [string, string]] : []),
     ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale)] as [string, string]] : []),
@@ -46,7 +47,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(known(report.facts.year) ? [[reportText.built, localized(report.facts.year)] as [string, string]] : []),
     ...(known(report.facts.energy) ? [[reportText.energy, localized(report.facts.energy)] as [string, string]] : []),
     ...(known(report.facts.heating) || report.facts.energySource ? [[reportText.heating, `${known(report.facts.heating) ? localized(report.facts.heating) : ''}${report.facts.energySource ? `${known(report.facts.heating) ? ' · ' : ''}${localized(report.facts.energySource)}` : ''}`] as [string, string]] : []),
-    ...(report.facts.housegeld ? [['Hausgeld', `${euros(report.facts.housegeld)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`] as [string, string]] : []),
+    ...(report.facts.housegeld ? [['Hausgeld', `${money(report.facts.housegeld, locale)} ${reportText.monthly}${report.facts.housegeldYear ? ` (${report.facts.housegeldYear})` : ''}`] as [string, string]] : []),
   ];
   const labels = de ? {
     document: 'IMMOBILIEN-BERICHT', overview: 'Auf einen Blick', matters: 'Was wichtig ist', questions: 'Vor dem Angebot fragen', finance: 'Finanzierung', location: 'Lage', source: 'Quelle', originalListing: 'Original-Inserat', notes: 'Hinweise zu den Daten', generated: 'Erstellt', monthly: 'Monatliche Kosten', score: 'Angebotsraster', details: 'Score-Details', loanPayment: 'Kreditrate', equity: 'Eigenkapital', terms: 'Kalkulationszins + Tilgung', total: 'Gesamte Kaufkosten', approximate: 'Die genaue Adresse wurde im Exposé nicht genannt.', disclaimer: 'Kein Wertgutachten oder Finanzierungsangebot', pdfSource: 'Exposé PDF', redFlags: 'Warnsignale', redFlagsEmpty: 'Im Angebotstext keine Warnsignale gefunden. Das ist keine Garantie, prüfe die Unterlagen.', serious: 'Ernst', check: 'Prüfen', fromListing: 'Aus dem Angebot:',
@@ -67,7 +68,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-hero">
         <div><p>{labels.document}</p><h1>{reportTitle(report, locale)}</h1>{subtitle ? <h2>{subtitle}</h2> : null}</div>
-        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{reportVerdict(report, locale)}</em><small className="print-confidence">{scoreConfidenceLabel(scoreConfidence(report), locale)}</small></div>
+        <div className="print-score"><span>{labels.score}</span><strong>{showScore ? formatScore(score.total, locale) : '—'}{showScore ? <small>/10</small> : null}</strong><em>{verdict}</em>{basis !== verdict ? <small className="print-confidence">{basis}</small> : null}</div>
       </section>
 
       <section className="print-summary">{summary.split(/\n\n+/).map(paragraph => <p key={paragraph}>{paragraph}</p>)}</section>
@@ -89,12 +90,12 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
       </section>
 
       <section className="print-finance print-section">
-        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{euros(scenario.knownOutlay)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{euros(scenario.loanPayment)} {de ? 'Kredit' : 'loan'} + {euros(report.facts.housegeld)} Hausgeld</small> : null}</div>
+        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{money(scenario.knownOutlay, locale)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{money(scenario.loanPayment, locale)} {de ? 'Kredit' : 'loan'} + {money(report.facts.housegeld, locale)} Hausgeld</small> : null}</div>
         <div className="print-finance-grid">
-          <div><small>{labels.loanPayment}</small><strong>{euros(scenario.loanPayment)}</strong></div>
-          <div><small>{labels.equity}</small><strong>{euros(finance.equity)}</strong></div>
-          <div><small>{labels.terms}</small><strong>{finance.interest.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% + {finance.repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</strong></div>
-          <div><small>{labels.total}</small><strong>{euros(costs.total)}</strong></div>
+          <div><small>{labels.loanPayment}</small><strong>{money(scenario.loanPayment, locale)}</strong></div>
+          <div><small>{labels.equity}</small><strong>{money(finance.equity, locale)}</strong></div>
+          <div><small>{labels.terms}</small><strong>{percent(finance.interest, locale)} + {percent(finance.repayment, locale, 1)}</strong></div>
+          <div><small>{labels.total}</small><strong>{money(costs.total, locale)}</strong></div>
         </div>
         <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>
