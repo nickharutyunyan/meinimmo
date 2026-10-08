@@ -273,7 +273,7 @@ test('price-check copy avoids deal language and portal names, and the score read
   assert.doesNotMatch(files, /\b(deal|bargain|undervalued|schnäppchen|unterbewertet)\b/i);
   assert.doesNotMatch(files, /ImmoScout|Ohne-Makler|ohne-makler/i);
   const score = readFileSync(new URL('../lib/property-score.ts', import.meta.url), 'utf8');
-  assert.match(score, /berlinPriceCheck/);
+  assert.match(score, /localPriceCheck/);
   const steglitz = report({ facts: { district: 'Lichterfelde', price: 300_000, area: 70 } });
   const steglitzEn = priceCheckPresentation(steglitz, 'en');
   const steglitzDe = priceCheckPresentation(steglitz, 'de');
