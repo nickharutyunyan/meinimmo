@@ -5,6 +5,7 @@ import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { formatScore, grossYieldLine, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
+import { glossListingQuote } from '@/lib/listing-gloss';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
 import { buyerCostView } from '@/lib/buyer-costs';
 import { cleanPdfDisplayName } from '@/lib/pdf-source';
@@ -98,7 +99,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
 
       <section className="print-section print-flags">
         <h3>{labels.redFlags}</h3>
-        {(report.redFlags || []).length ? <ul>{(report.redFlags || []).map(flag => <li key={flag.id}><strong>{flag.severity === 'high' ? labels.serious : labels.check}.</strong> {redFlagSentence(report, flag, locale)}{flag.evidence ? <blockquote><small>{labels.fromListing}</small> {flag.evidence}</blockquote> : null}</li>)}</ul> : <p>{labels.redFlagsEmpty}</p>}
+        {(report.redFlags || []).length ? <ul>{(report.redFlags || []).map(flag => <li key={flag.id}><strong>{flag.severity === 'high' ? labels.serious : labels.check}.</strong> {redFlagSentence(report, flag, locale)}{flag.evidence ? <blockquote><small>{labels.fromListing}</small> {glossListingQuote(flag.evidence, locale)}</blockquote> : null}</li>)}</ul> : <p>{labels.redFlagsEmpty}</p>}
       </section>
 
       <section className="print-split print-section">
@@ -121,7 +122,6 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
           </tbody>
         </table>
         {costView.statedNote ? <p>{costView.statedNote}</p> : null}
-        {costView.divergence ? <p>{costView.divergence}</p> : null}
         <p>{costView.footnote}</p>
         <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>

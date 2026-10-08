@@ -4,9 +4,9 @@ import { buyerCostBreakdown } from './buyer-costs.ts';
 const finiteNonNegative = (value: number | undefined) => Number.isFinite(value) && Number(value) >= 0 ? Number(value) : 0;
 
 /**
- * Buyer costs come from the listing when it states them. Otherwise they are
- * the itemised estimate in `buyer-costs.ts` (state transfer tax, notary, and
- * any commission the listing states). There is no flat percentage fallback.
+ * Financing uses the itemised lines in `buyer-costs.ts` (state transfer tax,
+ * notary, and any commission the listing states). A buyer-cost figure in the
+ * listing is not part of this total. There is no flat percentage fallback.
  */
 export function acquisitionCosts(input: CostSource) {
   const breakdown = buyerCostBreakdown(input);

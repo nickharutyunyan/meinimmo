@@ -322,7 +322,8 @@ test('the method explains the scale and that Low withholds the score', () => {
   assert.match(en, /0\.8/);
   assert.match(en, /1\.0/);
   assert.match(en, /Low means four or fewer key facts, and the score is withheld/);
-  assert.match(en, /40% over scores below 15% over/);
+  assert.match(en, /40% over scores lower than 15% over/);
+  assert.match(de, /40 % darüber liegt niedriger als 15 % darüber/);
   assert.match(en, /Kapitalanlage/);
   assert.doesNotMatch(en, /\bhome\b/i);
   assert.doesNotMatch(en, /for a buyer who wants to move in/);

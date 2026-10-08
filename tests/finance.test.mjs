@@ -4,12 +4,16 @@ import { acquisitionCosts, defaultEquity, financingScenario } from '../lib/finan
 
 test('rejects a monthly financing quote masquerading as total acquisition cost', () => {
   const costs = acquisitionCosts({ price: 480_000, buyerCosts: 38_400, totalCost: 1_531 });
-  assert.deepEqual(costs, {
-    price: 480_000,
-    buyerCosts: 38_400,
-    total: 518_400,
-    buyerCostsAreEstimated: false,
-  });
+  assert.equal(costs.price, 480_000);
+  assert.equal(costs.buyerCosts, 26_400);
+  assert.equal(costs.total, 506_400);
+  assert.equal(costs.buyerCostsHigh, 40_800);
+  assert.equal(costs.totalHigh, 520_800);
+  assert.equal(costs.price + costs.buyerCosts, costs.total);
+  assert.equal(costs.buyerCostsAreEstimated, true);
+  assert.equal(costs.buyerCostsAreRange, true);
+  assert.notEqual(costs.total, 1_531);
+  assert.notEqual(costs.buyerCosts, 38_400);
 });
 
 test('calculates a bounded annuity scenario from acquisition cost, equity and rates', () => {
@@ -47,8 +51,13 @@ test('itemised buyer costs replace the flat percentage when the listing omits th
 
 test('conflicting costs never produce a contradictory acquisition breakdown', () => {
   const costs = acquisitionCosts({ price: 192700, buyerCosts: 192700, totalCost: 207242 });
-  assert.equal(costs.buyerCosts, 14542);
   assert.equal(costs.price + costs.buyerCosts, costs.total);
-  assert.equal(acquisitionCosts({price: 172000, buyerCosts: 13105, totalCost:185104}).buyerCosts, 13105);
-  assert.equal(acquisitionCosts({price: 172000, buyerCosts: 0, totalCost:0}).buyerCostsAreEstimated, false);
+  assert.notEqual(costs.buyerCosts, 192700);
+  assert.notEqual(costs.total, 207242);
+  const berlin = acquisitionCosts({ price: 172000, city: 'Berlin', buyerCosts: 13105, totalCost: 185104, buyerCommission: 'Commission-free' });
+  assert.equal(berlin.buyerCosts, 13760);
+  assert.equal(berlin.price + berlin.buyerCosts, berlin.total);
+  const zero = acquisitionCosts({ price: 172000, buyerCosts: 0, totalCost: 0 });
+  assert.equal(zero.buyerCostsAreEstimated, true);
+  assert.equal(zero.price + zero.buyerCosts, zero.total);
 });

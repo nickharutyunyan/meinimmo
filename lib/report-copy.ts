@@ -7,7 +7,6 @@ import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 import { reportConflicts } from './report-integrity.ts';
 import type { FeedbackField } from './fact-provenance.ts';
-import { buyerCostDivergenceNote } from './buyer-costs.ts';
 import { energyClassGap } from './property-score.ts';
 
 const UNKNOWN = /not stated|unknown/i;
@@ -276,8 +275,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
   }).filter(warning => Boolean(warning) && !coveredByRedFlag(report, warning));
-  const divergence = buyerCostDivergenceNote(report, locale);
-  return divergence ? [...warnings, divergence] : warnings;
+  return warnings;
 }
 
 /** Conflicts already shown as a red flag or a data note stay out of the clarify box. */

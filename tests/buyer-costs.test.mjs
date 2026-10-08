@@ -129,7 +129,8 @@ test('an unidentified state is a labelled rate range, not a single assumed rate'
   assert.match(de.rows[0].label, /3,5\s%/);
   assert.match(de.rows[0].label, /6,5\s%/);
   assert.equal(en.summaryAmount, `${money(22_000, 'en')}–${money(34_000, 'en')}`);
-  assert.match(en.rows[1].basis, /Estimate/);
+  assert.match(en.rows[1].basis, /typically/);
+  assert.doesNotMatch(en.rows[1].basis, /Estimate:/);
   assert.match(en.rows[1].basis, /1\.5%/);
   assert.match(en.rows[1].basis, /2\.5%/);
 });
@@ -175,28 +176,26 @@ test('commission is used only as stated, including VAT, a euro amount, free, and
   assert.equal(withParking.estimateLow, 32_000);
 });
 
-test('stated buyer costs stay in the financing total, with a note only past the divergence threshold', () => {
+test('a stated ancillary figure stays out of the total and is only a comparison', () => {
   const listed = buyerCostBreakdown(listing({ city: 'Berlin', price: 172_000, buyerCosts: 13_105, totalCost: 185_104, buyerCommission: 'Commission-free' }));
-  assert.equal(listed.financingLow, 13_105);
-  assert.equal(listed.totalLow, 185_104);
+  assert.equal(listed.statedAncillary, 13_105);
+  assert.equal(listed.financingLow, 13_760);
+  assert.equal(listed.totalLow, 185_760);
   assert.equal(listed.estimateLow, 13_760);
-  assert.equal(listed.divergence, false);
-  assert.equal(buyerCostView(listing({ city: 'Berlin', price: 172_000, buyerCosts: 13_105, totalCost: 185_104, buyerCommission: 'Commission-free' }), 'en').divergence, undefined);
-
-  const under = listing({ city: 'Berlin', price: 100_000, buyerCosts: 9_000, buyerCommission: 'Commission-free' });
-  assert.equal(buyerCostBreakdown(under).estimateLow, 8_000);
-  assert.equal(buyerCostBreakdown(under).divergence, false);
+  const close = buyerCostView(listing({ city: 'Berlin', price: 172_000, buyerCosts: 13_105, totalCost: 185_104, buyerCommission: 'Commission-free' }), 'en');
+  assert.match(close.statedNote, /€13,105/);
+  assert.match(close.statedNote, /€13,760/);
 
   const over = listing({ city: 'Berlin', price: 100_000, buyerCosts: 9_001, buyerCommission: 'Commission-free' });
-  assert.equal(buyerCostBreakdown(over).divergence, true);
+  assert.equal(buyerCostBreakdown(over).financingLow, 8_000);
+  assert.equal(buyerCostBreakdown(over).totalLow, 108_000);
   const note = buyerCostView(over, 'en');
-  assert.match(note.divergence, /€9,001/);
-  assert.match(note.divergence, new RegExp(money(8_000, 'en').replace('€', '\\€')));
-  assert.match(note.divergence, /Berlin/);
-  assert.match(buyerCostView(over, 'de').divergence, /Berlin/);
-  assert.match(buyerCostView(over, 'de').divergence, /Frag nach/);
-  assert.equal(acquisitionCosts(over).buyerCosts, 9_001);
-  assert.equal(acquisitionCosts(over).buyerCostsAreEstimated, false);
+  assert.match(note.statedNote, /€9,001/);
+  assert.match(note.statedNote, /€8,000/);
+  assert.match(buyerCostView(over, 'de').statedNote, /9\.001/);
+  assert.match(buyerCostView(over, 'de').statedNote, /8\.000/);
+  assert.equal(acquisitionCosts(over).buyerCosts, 8_000);
+  assert.equal(acquisitionCosts(over).buyerCostsAreEstimated, true);
 });
 
 test('financing uses the itemised total, and the flat 8% fallback is gone', () => {
@@ -220,7 +219,7 @@ test('financing uses the itemised total, and the flat 8% fallback is gone', () =
   assert.doesNotMatch(source, /0\.08/);
   assert.equal(buyerCostComparisonValue(listing({ city: 'Berlin', buyerCommission: 'Commission-free' }), 'en'), `${money(32_000, 'en')} (est.)`);
   assert.equal(buyerCostComparisonValue(listing({ city: 'Berlin', buyerCommission: 'Commission-free' }), 'de'), `${money(32_000, 'de')} (geschätzt)`);
-  assert.equal(buyerCostComparisonValue(listing({ city: 'Berlin', price: 172_000, buyerCosts: 13_105, totalCost: 185_104 }), 'en'), money(13_105, 'en'));
+  assert.equal(buyerCostComparisonValue(listing({ city: 'Berlin', price: 172_000, buyerCosts: 13_105, totalCost: 185_104, buyerCommission: 'Commission-free' }), 'en'), `${money(13_760, 'en')} (est.)`);
 });
 
 test('buyer-cost copy is in both languages and does not name a listing portal', () => {
@@ -293,7 +292,32 @@ test('the total equals the price plus the displayed lines, stated or not', () =>
   assert.equal(withHousegeld.loanPayment, withHousegeld.loan * (3.5 + 2) / 100 / 12);
   assert.equal(withHousegeld.knownOutlay, withHousegeld.loanPayment + 187.92);
   assert.equal(withoutHousegeld.knownOutlay, withoutHousegeld.loanPayment);
-  assert.equal(withHousegeld.knownOutlay - withoutHousegeld.knownOutlay, 187.92);
+  assert.equal(Math.round(withHousegeld.knownOutlay * 100) - Math.round(withoutHousegeld.knownOutlay * 100), 18792);
+});
+
+test('buyer-cost sums keep cents and the total is that sum', () => {
+  const price = 1019;
+  const input = listing({ city: 'Köln', price, buyerCommission: '3,57 % inkl. MwSt.' });
+  const breakdown = buyerCostBreakdown(input);
+  const euroRounded = Math.round(price * 6.5 / 100) + Math.round(price * 2 / 100) + Math.round(price * 3.57 / 100);
+  assert.equal(euroRounded, 122);
+  assert.equal(breakdown.estimateLow, 123);
+  assert.equal(breakdown.totalLow, price + breakdown.estimateLow);
+  assert.notEqual(breakdown.estimateLow, euroRounded);
+  const cents = (value) => Math.round(Number(value) * 100);
+  for (const locale of ['en', 'de']) {
+    const view = buyerCostView(input, locale);
+    const parse = (raw) => {
+      const text = String(raw).replace(/\u00a0/g, '').replace(/\u202f/g, '').replace(/€/g, '').trim();
+      const numeric = locale === 'de' ? text.replace(/\./g, '').replace(',', '.') : text.replace(/,/g, '');
+      return Number(numeric);
+    };
+    const lines = view.rows.map((row) => parse(row.amount)).filter((value) => Number.isFinite(value));
+    const lineSum = lines.reduce((sum, value) => sum + cents(value), 0);
+    assert.equal(lineSum, 12300);
+    assert.equal(cents(parse(view.summaryAmount)), lineSum);
+    assert.equal(cents(parse(view.totalAmount)), cents(price) + lineSum);
+  }
 });
 
 test('the notary source states the estimate once, in English and German', () => {
@@ -313,8 +337,9 @@ test('the Adlershof listing still finances the stated buyer costs', async () => 
   const report = parseListing(source, 'https://example.test/listing/471956');
   const costs = acquisitionCosts(report);
   assert.equal(report.facts.city, 'Berlin');
-  assert.equal(costs.buyerCosts, 13_105);
-  assert.equal(costs.total, 185_104);
-  assert.equal(buyerCostBreakdown(report).divergence, false);
+  assert.equal(costs.buyerCosts, 13_760);
+  assert.equal(costs.total, 185_760);
+  assert.equal(costs.price + costs.buyerCosts, costs.total);
+  assert.equal(buyerCostBreakdown(report).statedAncillary, 13_105);
   assert.equal(buyerCostBreakdown(report).estimateLow, 13_760);
 });
