@@ -9,7 +9,8 @@ import { CONTENT_SECURITY_POLICY } from './content-security-policy.ts';
  */
 export const securityHeaders: { key: string; value: string }[] = [
   { key: 'Content-Security-Policy', value: CONTENT_SECURITY_POLICY },
-  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+  // This host only. A year-long includeSubDomains policy is a separate decision.
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },

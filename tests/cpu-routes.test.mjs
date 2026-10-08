@@ -3,10 +3,11 @@ import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportCacheRequest, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
+import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
 import { withTimeout } from '../lib/io-timeout.ts';
+import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { invalidateReportHtml, reportHtmlUrls } from '../lib/report-html-cache.ts';
-import { publishedBody, publishStaticPages } from '../scripts/publish-static-pages.mjs';
+import { publishedBody, publishStaticPages, writeReportCacheBuildId } from '../scripts/publish-static-pages.mjs';
 
 const headers = (pairs) => new Headers(pairs);
 const params = (query) => new URLSearchParams(query);
@@ -26,15 +27,18 @@ test('document GETs of public pages are cacheable and router data is not', () =>
   assert.equal(isRouterDataRequest(headers([['rsc', '1']]), params('')), true);
 });
 
-test('report documents are keyed without print or a query string', () => {
+test('report documents are keyed by build id, without print or a visitor query string', () => {
   assert.equal(reportDocumentId('/r/59531030123f2eba'), '59531030123f2eba');
   assert.equal(reportDocumentId('/de/r/59531030123f2eba/'), '59531030123f2eba');
   assert.equal(reportDocumentId('/r/59531030123f2eba/print'), '');
   assert.equal(reportDocumentId('/r/short'), '');
   assert.equal(reportDocumentId('/c/59531030123f2eba'), '');
-  const key = reportCacheRequest('https://reviewahouse.com/de/r/59531030123f2eba?fresh=1#map');
-  assert.equal(key.url, 'https://reviewahouse.com/de/r/59531030123f2eba');
-  assert.equal(key.method, 'GET');
+  const first = reportCacheRequest('https://reviewahouse.com/de/r/59531030123f2eba?fresh=1#map', 'build-one');
+  const second = reportCacheRequest('https://reviewahouse.com/de/r/59531030123f2eba/', 'build-two');
+  assert.equal(first.url, 'https://reviewahouse.com/de/r/59531030123f2eba?b=build-one');
+  assert.equal(second.url, 'https://reviewahouse.com/de/r/59531030123f2eba?b=build-two');
+  assert.notEqual(first.url, second.url);
+  assert.equal(first.method, 'GET');
 });
 
 test('prerender cache files become asset paths', () => {
@@ -74,20 +78,38 @@ test('publish writes the newest build and skips internal cache files', async () 
   await rm(root, { recursive: true, force: true });
 });
 
-test('saving a report deletes both locales on every configured origin', async () => {
+test('saving a report deletes both locales for the current build id', async () => {
   const deleted = [];
-  const previous = globalThis.caches;
+  const previousCache = globalThis.caches;
+  const previousBuild = process.env.OPEN_NEXT_BUILD_ID;
+  process.env.OPEN_NEXT_BUILD_ID = 'build-one';
   globalThis.caches = { default: { async delete(request) { deleted.push(request.url); return true; } } };
   try {
     await invalidateReportHtml('59531030123f2eba');
     await invalidateReportHtml('../etc');
   } finally {
-    globalThis.caches = previous;
+    globalThis.caches = previousCache;
+    if (previousBuild === undefined) delete process.env.OPEN_NEXT_BUILD_ID;
+    else process.env.OPEN_NEXT_BUILD_ID = previousBuild;
   }
-  assert.deepEqual(deleted, reportHtmlUrls('59531030123f2eba'));
-  assert.ok(deleted.includes('https://reviewahouse.com/r/59531030123f2eba'));
-  assert.ok(deleted.includes('https://www.reviewahouse.com/de/r/59531030123f2eba'));
-  assert.equal(reportHtmlUrls('short').length, 0);
+  assert.deepEqual(deleted, reportHtmlUrls('59531030123f2eba', 'build-one'));
+  assert.ok(deleted.includes('https://reviewahouse.com/r/59531030123f2eba?b=build-one'));
+  assert.ok(deleted.includes('https://www.reviewahouse.com/de/r/59531030123f2eba?b=build-one'));
+  assert.equal(reportHtmlUrls('short', 'build-one').length, 0);
+  assert.notEqual(reportHtmlUrls('59531030123f2eba', 'build-one')[0], reportHtmlUrls('59531030123f2eba', 'build-two')[0]);
+});
+
+test('the published build id is the report cache build id', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'build-id-'));
+  await writeFile(path.join(root, 'BUILD_ID'), 'build-one\n');
+  const destination = path.join(root, 'build-id.mjs');
+  assert.equal(await writeReportCacheBuildId(path.join(root, 'BUILD_ID'), destination), 'build-one');
+  assert.equal(await readFile(destination, 'utf8'), 'export const REPORT_CACHE_BUILD_ID = "build-one";\n');
+  await writeFile(path.join(root, 'BUILD_ID'), 'bad id\n');
+  await assert.rejects(writeReportCacheBuildId(path.join(root, 'BUILD_ID'), destination), /build id/);
+  await writeFile(path.join(root, 'BUILD_ID'), '\n');
+  await assert.rejects(writeReportCacheBuildId(path.join(root, 'BUILD_ID'), destination), /build id/);
+  await rm(root, { recursive: true, force: true });
 });
 
 test('a stalled promise rejects instead of hanging', async () => {
@@ -117,6 +139,8 @@ test('the worker serves prerendered documents before the Next handler', async ()
   assert.match(worker, /env\.ASSETS\.fetch/);
   assert.match(worker, /applySecurityHeaders/);
   assert.match(worker, /reportHtmlIsShared/);
+  assert.match(worker, /reportCacheRequest\(request\.url, REPORT_CACHE_BUILD_ID\)/);
+  assert.match(worker, /from '\.\/build-id\.mjs'/);
   const reportPage = await read('app/r/[id]/page.tsx');
   const germanReport = await read('app/de/r/[id]/page.tsx');
   const printPage = await read('app/r/[id]/print/page.tsx');

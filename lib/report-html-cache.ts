@@ -1,3 +1,4 @@
+import { reportCacheBuildId, reportCacheRequest } from './report-cache-key.ts';
 import { validReportId } from './report-note-validation.ts';
 
 /** Origins whose document cache is cleared when a report is saved. The Cache API is colo-local. */
@@ -9,17 +10,21 @@ export const REPORT_HTML_ORIGINS = [
   'http://localhost:3000',
 ];
 
-export function reportHtmlUrls(id: string) {
+export function reportHtmlUrls(id: string, buildId = reportCacheBuildId()) {
   if (!validReportId(id)) return [];
-  return REPORT_HTML_ORIGINS.flatMap(origin => [`${origin}/r/${id}`, `${origin}/de/r/${id}`]);
+  return REPORT_HTML_ORIGINS.flatMap(origin => [
+    reportCacheRequest(`${origin}/r/${id}`, buildId).url,
+    reportCacheRequest(`${origin}/de/r/${id}`, buildId).url,
+  ]);
 }
 
 export async function invalidateReportHtml(id: string) {
   const cache = (globalThis.caches as { default?: Cache } | undefined)?.default;
   if (!cache) return;
-  await Promise.all(reportHtmlUrls(id).map(async (url) => {
+  const buildId = reportCacheBuildId();
+  await Promise.all(reportHtmlUrls(id, buildId).map(async (url) => {
     try {
-      await cache.delete(new Request(url, { method: 'GET' }));
+      await cache.delete(reportCacheRequest(url, buildId));
     } catch {
       // Purging a colo cache must not fail the D1 write.
     }

@@ -23,6 +23,14 @@ async function walk(dir) {
   return files;
 }
 
+/** Stamp the Next build id into the module the report-cache key imports. */
+export async function writeReportCacheBuildId(buildIdPath, destination) {
+  const id = (await readFile(buildIdPath, 'utf8')).trim();
+  if (!id || /[\s"'\\]/.test(id)) throw new Error(`Refusing report cache build id ${JSON.stringify(id)}`);
+  await writeFile(destination, `export const REPORT_CACHE_BUILD_ID = ${JSON.stringify(id)};\n`);
+  return id;
+}
+
 export async function publishStaticPages(cacheDir, assetDir) {
   const builds = [];
   for (const entry of await readdir(cacheDir, { withFileTypes: true })) {
@@ -51,5 +59,7 @@ const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(pat
 if (invokedDirectly) {
   const root = path.resolve(path.dirname(path.resolve(process.argv[1])), '..');
   const written = await publishStaticPages(path.join(root, '.open-next/cache'), path.join(root, '.open-next/assets'));
+  const buildId = await writeReportCacheBuildId(path.join(root, '.next/BUILD_ID'), path.join(root, 'cloudflare/build-id.mjs'));
   console.log(`Published ${written.length} prerendered pages into .open-next/assets`);
+  console.log(`Report cache build id ${buildId}`);
 }

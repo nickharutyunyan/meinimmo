@@ -31,7 +31,7 @@ test('asset and report-cache responses carry the same security headers Next sets
   assert.match(csp, /https:\/\/www\.googletagmanager\.com/);
   assert.doesNotMatch(csp, /nonce-/);
   for (const host of LISTING_IMAGE_HOSTS) assert.ok(csp.includes(host), host);
-  assert.equal(asset.get('strict-transport-security'), 'max-age=31536000; includeSubDomains');
+  assert.equal(asset.get('strict-transport-security'), 'max-age=31536000');
   assert.equal(asset.get('x-frame-options'), 'DENY');
   assert.equal(asset.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.equal(asset.get('x-content-type-options'), 'nosniff');

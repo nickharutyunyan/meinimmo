@@ -50,7 +50,7 @@ Repeat until `processed` is an empty array. For local preview, put `BACKFILL_TOK
 
 Ordinary document requests for the home page, guide, terms, account shell, country landings, sitemap, and robots.txt are the prerendered files copied into Worker assets. Router data, `/api`, comparisons, and print still run in Next.js. The header loads sign-in state in the browser from `/api/auth/me`.
 
-`/r/[id]` and `/de/r/[id]` store their HTML in the Workers cache for the colo that rendered them. The key is the origin, the locale path, and the report id. Saving or replacing the report deletes those entries in that colo. The browser is sent `private, no-store`, and a stored entry expires after one day, which covers a colo the delete did not reach. Print stays uncached because each print reads the current mortgage rate.
+`/r/[id]` and `/de/r/[id]` store their HTML in the Workers cache for the colo that rendered them. The key is the origin, the locale path, the report id, and the Next build id, so a deploy does not keep HTML that points at the previous static chunks. Saving or replacing the report deletes the current build's entries in that colo. The browser is sent `private, no-store`, and a stored entry expires after one day, which covers a colo the delete did not reach. Signed listing photos stay in that HTML; the browser drops a photo after its own `exp`. Print stays uncached because each print reads the current mortgage rate.
 
 With `npm run preview` or `npx wrangler dev --port 8787` already running, `node scripts/measure-routes.mjs` prints time to first byte per route. `wrangler dev` reports wall time. Workers CPU time appears in production tail logs.
 

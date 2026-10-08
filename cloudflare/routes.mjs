@@ -62,12 +62,3 @@ export function reportHtmlIsShared(html) {
   if (html.includes('class="account-menu"') || html.includes('class="account-status"')) return false;
   return true;
 }
-
-/** Cache key: GET origin + locale path + id, with no query string. */
-export function reportCacheRequest(requestUrl) {
-  const url = new URL(requestUrl);
-  url.search = '';
-  url.hash = '';
-  url.pathname = normalizePathname(url.pathname);
-  return new Request(url.toString(), { method: 'GET' });
-}

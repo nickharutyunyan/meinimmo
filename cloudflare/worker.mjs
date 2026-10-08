@@ -1,6 +1,8 @@
 import nextWorker, { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from '../.open-next/worker.js';
+import { REPORT_CACHE_BUILD_ID } from './build-id.mjs';
+import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
-import { assetPathForPathname, isCacheableDocument, reportCacheRequest, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
+import { assetPathForPathname, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
 
@@ -43,7 +45,7 @@ function cacheableReport(response) {
 
 async function serveReport(request, env, ctx) {
   const cache = globalThis.caches?.default;
-  const key = reportCacheRequest(request.url);
+  const key = reportCacheRequest(request.url, REPORT_CACHE_BUILD_ID);
   if (cache) {
     try {
       const hit = await cache.match(key);
