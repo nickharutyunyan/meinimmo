@@ -1,5 +1,5 @@
 import { localizedWarnings } from '@/lib/report-copy';
-import { displayedPropertyScore, scoreAvailable, scoreExplanation } from '@/lib/report-integrity';
+import { displayedPropertyScore, scoreAvailable, scoreExplanation, scoreExplainerText } from '@/lib/report-integrity';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import type { Report } from '@/lib/types';
@@ -110,7 +110,7 @@ export function ComparisonView({ first, second, locale }: { first: Report; secon
       const property = item as Report;
       return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
-    <p className="finance-note">{copy[locale].report.scoreExplainer} <Link href={localePath(locale, '/method')}>{copy[locale].report.howWeReview}</Link></p>
+    <p className="finance-note">{scoreExplainerText(locale)} <Link href={localePath(locale, '/method')}>{copy[locale].report.howWeReview}</Link></p>
     {mixesPriceCheck ? <p className="finance-note">{text.mixedPrice}</p> : null}
     {priceNotes.length ? <p className="finance-note">{priceNotes.join(' · ')}</p> : null}
     {lowNotes.length ? <p className="finance-note">{lowNotes.join(' · ')}</p> : null}

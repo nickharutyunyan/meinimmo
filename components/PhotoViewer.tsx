@@ -20,6 +20,7 @@ export function PhotoViewer({
   now,
   listingUrl,
   locale,
+  sample = false,
   staged = false,
   onClose,
   onSelect,
@@ -31,6 +32,7 @@ export function PhotoViewer({
   now: number;
   listingUrl: string;
   locale: Locale;
+  sample?: boolean;
   staged?: boolean;
   onClose: () => void;
   onSelect: (index: number) => void;
@@ -231,7 +233,7 @@ export function PhotoViewer({
       </button>)}
     </div>
     <p className="photo-viewer-credit">
-      <span>{staged ? text.photoStaged : text.photoCredit}</span>
+      <span>{sample ? text.photoSample : staged ? text.photoStaged : text.photoCredit}</span>
       <a href={listingUrl} target="_blank" rel="noopener noreferrer nofollow">{text.photoOriginal}{'\u00A0'}<span aria-hidden="true">↗</span></a>
     </p>
   </div>, document.body);

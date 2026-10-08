@@ -394,7 +394,7 @@ const BUNDESLAND = String.raw`Schleswig-Holstein|Niedersachsen|Nordrhein-Westfal
 const BUNDESLAND_EXPRESSION = new RegExp(`^(?:${BUNDESLAND})$`, 'iu');
 const STREET_SUFFIX_EXPRESSION = new RegExp(STREET_SUFFIX, 'iu');
 const HEADER_STREET_EXPRESSION = new RegExp(
-  `^(?:(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*)?(${HEADER_STREET})(?:\\s+(${HOUSE_NO}))?\\s*,?\\s+(?:(${HEADER_AREA})\\s*,\\s*)?(\\d{5})\\s+(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(?:${BUNDESLAND}))?(?![\\p{L}\\d])`,
+  `^(?:(?:Adresse|Anschrift|Straße|Lage)\\s*[:\\-]\\s*)?(${HEADER_STREET})(?:\\s+(${HOUSE_NO}))?\\s*,?\\s+(?:(${HEADER_AREA})\\s*,\\s*)?(\\d{5})\\s+(${HEADER_CITY})(?:\\s*\\(([^)]{2,50})\\))?(?:\\s*[–—-]\\s*(${BUNDESLAND}))?(?![\\p{L}\\d])`,
   'u',
 );
 const HEADER_TOWN_EXPRESSION = new RegExp(
@@ -438,6 +438,9 @@ type AddressHeader = {
   malformedPostal?: string;
   city?: string;
   district?: string;
+  /** District was the tail of a hyphenated city such as München-Fürstenried-West. */
+  hyphenated?: boolean;
+  state?: string;
   found: boolean;
 };
 
@@ -466,12 +469,13 @@ function matchAddressHeader(value: string): AddressHeader | undefined {
     const postalCode = streetMatch[4];
     const city = tidy(streetMatch[5]);
     const parenthetical = tidy(streetMatch[6] || '');
+    const state = tidy(streetMatch[7] || '');
     const splitCity = splitHyphenCity(city, parenthetical || area);
     const hasSuffix = STREET_SUFFIX_EXPRESSION.test(name);
     const street = spellStreet(tidy(number ? `${name} ${number}` : name));
     const barePreposition = /^(?:Am|An|Auf|Im|Zum|Zur|Unter|Über|Ueber|Vor|Hinter|Bei|Ober|Nieder)$/iu.test(name);
     if ((number || hasSuffix) && !barePreposition && validStreet(street) && splitCity.city) {
-      return { street, postalCode, city: splitCity.city, district: splitCity.district, found: true };
+      return { street, postalCode, city: splitCity.city, district: splitCity.district, hyphenated: splitCity.hyphenated, state, found: true };
     }
   }
   const townMatch = value.match(HEADER_TOWN_EXPRESSION);
@@ -488,6 +492,8 @@ function matchAddressHeader(value: string): AddressHeader | undefined {
     malformedPostal: postal && !validPostal ? postal : undefined,
     city: named.city,
     district: named.district,
+    hyphenated: named.hyphenated,
+    state,
     found: true,
   };
 }
@@ -500,7 +506,7 @@ function parseAddressHeader(lines: string[]): AddressHeader {
     const parts = [lines[index]];
     for (let extra = 1; extra < 4 && index + extra < limit && headerFragment(lines[index + extra]); extra += 1) parts.push(lines[index + extra]);
     for (let size = parts.length; size >= 1; size -= 1) {
-      const joined = cleanAddressPlaceholders(tidy(parts.slice(0, size).join(' ')));
+      const joined = joinHeaderParts(parts.slice(0, size));
       const hit = matchAddressHeader(joined);
       if (!hit) continue;
       if (hit.street) return hit;
@@ -528,7 +534,7 @@ function visibleLocation(lines: string[], title: string) {
   const kiezSource = lines.slice(0, 100).filter(line => !/zwischen|unweit|nähe|near|between/i.test(line)).join(' ').slice(0, 8_000);
   const kiezStem = kiezSource.match(/(?:im|inmitten\s+des|gelegen\s+im)\s+([A-ZÄÖÜ][\p{L}äöüß-]{2,})(?:[\s-]+Kiez|kiez)\b/u)?.[1];
   const microNeighborhood = kiezStem ? `${kiezStem.replace(/-$/u, '')}kiez` : '';
-  const city = namedCity || tidy(postal?.[2] || '').match(/^([A-ZÄÖÜ][\p{L}äöüß.-]+)/u)?.[1] || '';
+  const city = (namedCity || tidy(postal?.[2] || '').match(/^([A-ZÄÖÜ][\p{L}äöüß.-]+)/u)?.[1] || '').replace(/[-–—]\s*$/u, '');
   const titleArea = city ? title.match(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*([\\p{L}ÄÖÜäöüß][\\p{L}ÄÖÜäöüß -]{1,45}?)(?:\\s*[|·–—]|$)`, 'iu')) : undefined;
   const statedCityArea = city ? text.match(new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*([A-ZÄÖÜ][\\p{L}äöüß-]{2,35})\\b`, 'iu'))?.[1] : '';
   return {
@@ -577,13 +583,37 @@ function spellStreet(value: string) {
 
 const HYPHEN_CITY = ['Frankfurt am Main', 'Berlin', 'Hamburg', 'München', 'Köln', 'Düsseldorf', 'Nürnberg', 'Bochum', 'Osnabrück', 'Saarbrücken'];
 
-function splitHyphenCity(city: string, district: string) {
-  if (district || !city.includes('-') && !city.includes('–')) return { city, district };
-  for (const name of HYPHEN_CITY) {
-    const rest = city.match(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–]\\s*(.+)$`, 'i'));
-    if (rest?.[1]) return { city: name, district: tidy(rest[1]) };
+function joinHeaderParts(parts: string[]) {
+  let joined = '';
+  for (const part of parts) {
+    if (!joined) {
+      joined = part;
+      continue;
+    }
+    joined = /[-–—]$/u.test(joined) ? `${joined}${part}` : `${joined} ${part}`;
   }
-  return { city, district };
+  return cleanAddressPlaceholders(tidy(joined));
+}
+
+function splitHyphenCity(city: string, district: string) {
+  const bare = city.replace(/[-–—]\s*$/u, '');
+  if (district || (!city.includes('-') && !city.includes('–') && !city.includes('—'))) return { city: bare, district, hyphenated: false };
+  for (const name of HYPHEN_CITY) {
+    const rest = city.match(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–—]\\s*(.+)$`, 'iu'));
+    if (rest?.[1]) return { city: name, district: tidy(rest[1]), hyphenated: true };
+  }
+  return { city: bare, district, hyphenated: false };
+}
+
+function statedFederalState(lines: string[], headerState: string) {
+  const named = tidy(headerState);
+  if (named && BUNDESLAND_EXPRESSION.test(named)) return named;
+  const head = lines.slice(0, 80).join('\n');
+  const labelled = head.match(new RegExp(`(?:Bundesland|Region)\\s*[:\\-]\\s*(${BUNDESLAND})(?![\\p{L}\\p{N}])`, 'iu'));
+  if (labelled?.[1]) return tidy(labelled[1]);
+  const dashed = head.match(new RegExp(`[–—-]\\s*(${BUNDESLAND})(?![\\p{L}\\p{N}])`, 'iu'));
+  if (dashed?.[1]) return tidy(dashed[1]);
+  return '';
 }
 
 function namedTransitStop(lines: string[]) {
@@ -835,9 +865,12 @@ function labelledRoomTokens(lines: string[]) {
       : undefined;
     if (shortLabel) found.push(shortLabel);
     if (/^(?:Anzahl\s+)?(?:Zimmer|Rooms?)$/i.test(line)) {
-      const neighbors = [...lines.slice(Math.max(0, index - 2), index).reverse(), ...lines.slice(index + 1, index + 3)];
-      const adjacent = neighbors.map(item => item.match(/^(\d+(?:[,.]\d+)?)$/)?.[1]).find(Boolean);
-      if (adjacent) found.push(adjacent);
+      const bare = (item: string) => item.trim().match(/^(\d+(?:[,.]\d+)?)$/)?.[1];
+      const roomKind = /^(?:Schlafzimmer|Wohnzimmer|Kinderzimmer|Badezimmer|Arbeitszimmer|Esszimmer|Gästezimmer|Gaestezimmer)$/i;
+      const nextCount = bare(lines[index + 1] || '');
+      const previousCount = bare(lines[index - 1] || '');
+      if (nextCount) found.push(nextCount);
+      else if (previousCount && !roomKind.test((lines[index - 2] || '').trim())) found.push(previousCount);
     }
   }
   return found;
@@ -1207,15 +1240,17 @@ export function parseListing(raw: string, source: string, preparedLines?: string
     : (headerLocation.postalCode || jsonLocation.postalCode || shownLocation.postalCode);
   const city = headerLocation.city || jsonLocation.city || shownLocation.city;
   const district = headerLocation.district || jsonLocation.district || shownLocation.district;
+  const shownCity = headerLocation.hyphenated && city && district ? `${city}-${district}` : (city || '').replace(/[-–—]\s*$/u, '');
+  const statedState = statedFederalState(lines, headerLocation.state || '') || undefined;
   const location = district || city;
   const visibleStreet = headerLocation.street || visiblePropertyStreet(lines);
   const statedAddress = jsonLocation.street
-    ? tidy(`${jsonLocation.street}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`)
+    ? tidy(`${jsonLocation.street}${postalCode ? `, ${postalCode}` : ''}${shownCity ? ` ${shownCity}` : ''}`)
     : headerLocation.street
-      ? formatStreetAddress(headerLocation.street, postalCode, city)
+      ? formatStreetAddress(headerLocation.street, postalCode, shownCity)
       : visibleAddress(lines, city, postalCode)
-        || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${city ? ` ${city}` : ''}`) : '');
-  const placeOnly = tidy([postalCode, city].filter(Boolean).join(' '));
+        || (/\b\d{1,4}[a-z]?\s*$/iu.test(visibleStreet) ? tidy(`${visibleStreet}${postalCode ? `, ${postalCode}` : ''}${shownCity ? ` ${shownCity}` : ''}`) : '');
+  const placeOnly = tidy([postalCode, shownCity].filter(Boolean).join(' '));
   const address = spellStreet(statedAddress || placeOnly || 'Address not stated');
   const street = spellStreet(jsonLocation.street || headerLocation.street || (statedAddress ? streetFromAddress(statedAddress) : visibleStreet));
   const exactStreet = hasHouseNumber(street);
@@ -1258,7 +1293,12 @@ export function parseListing(raw: string, source: string, preparedLines?: string
   const photoUrls = isRemoteListingSource(source) ? extractListingPhotoUrls(raw) : [];
   const photosExpireAt = listingPhotosExpireAt(photoUrls);
   const photoStaging = isRemoteListingSource(source) ? stagedPhotoMarks(raw, photoUrls) : undefined;
-  const stagedPhotos = photoStaging && (photoStaging.indexes.length > 0 || photoStaging.listingWide) ? photoStaging : undefined;
+  const stagedPhotos = photoStaging && (
+    photoStaging.indexes.length > 0
+    || photoStaging.listingWide
+    || (photoStaging.sampleIndexes?.length || 0) > 0
+    || photoStaging.listingWideSample
+  ) ? photoStaging : undefined;
   const facts = {
     price, area, usableArea: usableArea || livingPreference?.usable || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
@@ -1275,7 +1315,7 @@ export function parseListing(raw: string, source: string, preparedLines?: string
     groundRentMonth: lease?.month,
     groundRentInServiceCharge: lease?.inCharges || undefined,
     heatingYear: heatingInstall?.year,
-    postalCode: postalCode || undefined, city: city || undefined, district: district || undefined,
+    postalCode: postalCode || undefined, city: city || undefined, statedState, district: district || undefined,
     street: street || undefined,
     locationPrecision: street ? (exactStreet ? 'address' as const : 'street' as const) : district ? 'neighborhood' as const : postalCode ? 'postal' as const : city ? 'city' as const : undefined,
     transitStop: transitStop || undefined,

@@ -19,6 +19,7 @@ export const RED_FLAG_IDS = [
   'socialHousing',
   'listedBuilding',
   'aiStaging',
+  'sampleImages',
 ] as const;
 
 export type RedFlagId = typeof RED_FLAG_IDS[number];
@@ -480,6 +481,10 @@ const COPY: Record<RedFlagId, { en: string; de: string }> = {
     en: 'The listing mentions AI visualisations or virtual staging, without saying which photo. That comes from the listing text, not from the pictures themselves.',
     de: 'Das Angebot erwähnt eine KI-Visualisierung oder virtuelles Staging, ohne ein bestimmtes Foto zu nennen. Das steht im Text des Angebots, nicht in den Bildern selbst.',
   },
+  sampleImages: {
+    en: 'The listing labels these pictures as sample images. They are examples, not photographs of this property.',
+    de: 'Das Angebot kennzeichnet diese Bilder als Beispielbilder. Es sind Beispiele, keine Fotos dieser Einheit.',
+  },
 };
 
 const SHORT: Record<RedFlagId, { en: string; de: string }> = {
@@ -499,6 +504,7 @@ const SHORT: Record<RedFlagId, { en: string; de: string }> = {
   socialHousing: { en: 'Occupancy restriction', de: 'Belegungsbindung' },
   listedBuilding: { en: 'Listed building', de: 'Denkmalschutz' },
   aiStaging: { en: 'AI visualisation', de: 'KI-Visualisierung' },
+  sampleImages: { en: 'Sample image', de: 'Beispielbild' },
 };
 
 const QUESTIONS: Record<string, { en: string; de: string }> = {
@@ -658,6 +664,8 @@ export function detectRedFlags(lines: string[], report: Pick<Report, 'propertyTy
   const marks = report.facts.photoStaging;
   const photoCount = report.facts.photoUrls?.length || 0;
   if (marks && (marks.listingWide || (photoCount > 0 && marks.indexes.length * 2 > photoCount))) push(flags, 'aiStaging');
+  const sampleCount = marks?.sampleIndexes?.length || 0;
+  if (marks && (marks.listingWideSample || (photoCount > 0 && sampleCount * 2 > photoCount))) push(flags, 'sampleImages');
   const rank = (id: RedFlagId) => (HIGH.has(id) ? 0 : 1) * 100 + RED_FLAG_IDS.indexOf(id);
   return flags.sort((a, b) => rank(a.id) - rank(b.id));
 }

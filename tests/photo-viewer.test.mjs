@@ -114,7 +114,7 @@ test('viewer copy is the specified English and German text', async () => {
   assert.match(viewer, /title=\{text\.photoNext\}/);
   assert.match(viewer, /aria-label=\{text\.photoClose\}/);
   assert.match(viewer, /title=\{text\.photoClose\}/);
-  assert.match(viewer, /staged \? text\.photoStaged : text\.photoCredit/);
+  assert.match(viewer, /sample \? text\.photoSample : staged \? text\.photoStaged : text\.photoCredit/);
   assert.match(viewer, /rel="noopener noreferrer nofollow"/);
   assert.match(viewer, /referrerPolicy="no-referrer"/);
   assert.match(viewer, /target="_blank"/);

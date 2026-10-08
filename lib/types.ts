@@ -75,6 +75,8 @@ export type Facts = {
   privateGarden?: boolean;
   postalCode?: string;
   city?: string;
+  /** Federal state named by the listing, for example "Bayern". */
+  statedState?: string;
   district?: string;
   street?: string;
   transitStop?: string;
@@ -89,8 +91,16 @@ export type Facts = {
   };
   /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
   photoUrls?: string[];
-  /** Caption or listing-text marks for AI staging. Indexes point into the displayable photo list. Not a pixel check. */
-  photoStaging?: { indexes: number[]; listingWide: boolean };
+  /**
+   * Caption or listing-text marks. Indexes point into the displayable photo list.
+   * Not a pixel check. Sample images use the same per-listing treatment as AI renders.
+   */
+  photoStaging?: {
+    indexes: number[];
+    listingWide: boolean;
+    sampleIndexes?: number[];
+    listingWideSample?: boolean;
+  };
   /** Earliest `exp` unix time among stored `photoUrls`, as an ISO timestamp. Display does not use this as a strip-wide cutoff. */
   photosExpireAt?: string;
 };
@@ -194,6 +204,8 @@ export type Report = {
     lon: number;
     /** street: a street or house number was stated. postcode: only a coarser area was stated. */
     precision: 'street' | 'postcode';
+    /** State from a Nominatim result already stored. Extraction does not geocode to fill this. */
+    state?: 'BW' | 'BY' | 'BE' | 'BB' | 'HB' | 'HH' | 'HE' | 'MV' | 'NI' | 'NW' | 'RP' | 'SL' | 'SN' | 'ST' | 'SH' | 'TH';
   };
 };
 export type Comparison = { id: string; reportIds: [string, string]; createdAt: string };

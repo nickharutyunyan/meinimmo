@@ -233,16 +233,25 @@ export function extractListingPhotoUrls(html: string) {
 }
 
 const STAGING_PHRASE = String.raw`(?<![\p{L}\p{N}])(?:KI[-\s]+generiert(?:e[nrms]?)?|Visualisierung(?:en)?|virtuell\s+gestaged|virtual\s+staging)(?![\p{L}\p{N}])`;
+const SAMPLE_PHRASE = String.raw`(?<![\p{L}\p{N}])(?:Beispielbild(?:er)?|Musterbild(?:er)?|Symbolbild(?:er)?)(?![\p{L}\p{N}])`;
 
-function stagingMentioned(text: string) {
+function phraseMentioned(text: string, phrase: string) {
   if (!text) return false;
-  const expression = new RegExp(STAGING_PHRASE, 'giu');
+  const expression = new RegExp(phrase, 'giu');
   for (const match of text.matchAll(expression)) {
     const at = match.index ?? 0;
     const before = text.slice(Math.max(0, at - 40), at);
     if (!/(?:kein(?:e(?:m|n|r|s)?)?|nicht|ohne|\bno\b|\bnot\b)/i.test(before)) return true;
   }
   return false;
+}
+
+function stagingMentioned(text: string) {
+  return phraseMentioned(text, STAGING_PHRASE);
+}
+
+function sampleMentioned(text: string) {
+  return phraseMentioned(text, SAMPLE_PHRASE);
 }
 
 function visibleListingText(source: string) {
@@ -268,6 +277,7 @@ function visibleListingText(source: string) {
  */
 export function stagedPhotoMarks(html: string, photoUrls: readonly string[]) {
   const indexes = new Set<number>();
+  const samples = new Set<number>();
   const source = !html || html.length <= MAX_PHOTO_HTML_CHARS ? html || '' : html.slice(0, MAX_PHOTO_HTML_CHARS);
   if (source.includes('<')) {
     const slots = new Map<string, number>();
@@ -288,12 +298,23 @@ export function stagedPhotoMarks(html: string, photoUrls: readonly string[]) {
         ? preferredImageUrl(tag.attrs.src || '', tag.attrs.srcset || '')
         : tag.attrs.href || '').trim();
       const slot = slots.get(url);
-      if (url && slot !== undefined && stagingMentioned(caption)) indexes.add(slot);
+      if (!url || slot === undefined) continue;
+      if (stagingMentioned(caption)) indexes.add(slot);
+      if (sampleMentioned(caption)) samples.add(slot);
     }
   }
   const ordered = [...indexes].sort((left, right) => left - right);
-  if (ordered.length) return { indexes: ordered, listingWide: false };
-  return { indexes: ordered, listingWide: stagingMentioned(visibleListingText(source)) };
+  const sampleOrdered = [...samples].sort((left, right) => left - right);
+  const text = visibleListingText(source);
+  const marks: { indexes: number[]; listingWide: boolean; sampleIndexes?: number[]; listingWideSample?: boolean } = {
+    indexes: ordered,
+    listingWide: ordered.length ? false : stagingMentioned(text),
+  };
+  if (sampleOrdered.length || sampleMentioned(text)) {
+    marks.sampleIndexes = sampleOrdered;
+    marks.listingWideSample = sampleOrdered.length ? false : true;
+  }
+  return marks;
 }
 
 function mayContainListingPhotos(source: string) {

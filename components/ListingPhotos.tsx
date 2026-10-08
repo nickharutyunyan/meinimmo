@@ -7,7 +7,7 @@ import { isRemoteListingSource, listingPhotoSlot, listingPhotosToShow, listingTh
 import { nextActiveUrl } from '../lib/photo-viewer.ts';
 import { PhotoViewer } from './PhotoViewer.tsx';
 
-export function ListingPhotos({ urls, stagedIndexes = [], listingUrl, locale, renderedAt, initialFailed }: { urls?: string[]; stagedIndexes?: readonly number[]; listingUrl: string; locale: Locale; renderedAt?: number; initialFailed?: readonly string[] }) {
+export function ListingPhotos({ urls, stagedIndexes = [], sampleIndexes = [], listingWideSample = false, listingUrl, locale, renderedAt, initialFailed }: { urls?: string[]; stagedIndexes?: readonly number[]; sampleIndexes?: readonly number[]; listingWideSample?: boolean; listingUrl: string; locale: Locale; renderedAt?: number; initialFailed?: readonly string[] }) {
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set(initialFailed));
   // Expiry follows the img src. A cached document still drops a signed src
   // whose time passes after that render, once the browser has mounted.
@@ -71,14 +71,19 @@ export function ListingPhotos({ urls, stagedIndexes = [], listingUrl, locale, re
   const activeIndex = activeUrl ? photos.indexOf(activeUrl) : -1;
   const thumbFor = (url: string) => listingThumbnailUrl(url, listingUrl, listingPhotoSlot(urls, url));
   const stagedSlots = new Set(stagedIndexes);
+  const sampleSlots = new Set(sampleIndexes);
+  const photoIsSample = (url: string) => listingWideSample || sampleSlots.has(listingPhotoSlot(urls, url));
   const photoIsStaged = (url: string) => stagedSlots.has(listingPhotoSlot(urls, url));
+  const samplesOnly = listingWideSample || (photos.length > 0 && photos.every(photoIsSample));
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
-    <p id="listing-photos-caption" className="listing-photos-caption">{text.photosCaption}</p>
+    <p id="listing-photos-caption" className="listing-photos-caption">{samplesOnly ? text.photosSampleCaption : text.photosCaption}</p>
     <div className="listing-photos-strip">
       {photos.map((url, index) => {
-        const staged = photoIsStaged(url);
-        const name = staged ? `${label(index + 1)}. ${text.photoStaged}` : label(index + 1);
+        const sample = photoIsSample(url);
+        const staged = !sample && photoIsStaged(url);
+        const mark = sample ? text.photoSample : staged ? text.photoStaged : '';
+        const name = mark ? `${label(index + 1)}. ${mark}` : label(index + 1);
         return <button
         type="button"
         key={url}
@@ -110,7 +115,7 @@ export function ListingPhotos({ urls, stagedIndexes = [], listingUrl, locale, re
             markFailed(url);
           }}
         />
-        {staged ? <span className="listing-photo-badge">{text.photoStaged}</span> : null}
+        {mark ? <span className="listing-photo-badge">{mark}</span> : null}
       </button>;
       })}
     </div>
@@ -121,7 +126,8 @@ export function ListingPhotos({ urls, stagedIndexes = [], listingUrl, locale, re
       now={now}
       listingUrl={listingUrl}
       locale={locale}
-      staged={activeIndex >= 0 ? photoIsStaged(photos[activeIndex]) : false}
+      sample={activeIndex >= 0 ? photoIsSample(photos[activeIndex]) : false}
+      staged={activeIndex >= 0 ? photoIsStaged(photos[activeIndex]) && !photoIsSample(photos[activeIndex]) : false}
       onClose={() => {
         activeRef.current = null;
         setActiveUrl(null);
