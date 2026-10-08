@@ -37,7 +37,7 @@ test('keeps publisher metadata out of the property location and separates living
   const report = parseListing(html, 'https://example.test/listing');
   assert.equal(report.title, '2.5-room flat · Mitte');
   assert.equal(report.location, 'Mitte');
-  assert.equal(report.address, 'Address not stated');
+  assert.equal(report.address, '10179 Berlin');
   assert.equal(report.facts.city, 'Berlin');
   assert.equal(report.facts.area, 60);
   assert.equal(report.facts.usableArea, 66);
@@ -356,7 +356,8 @@ test('parses an ImmoScout PDF export without confusing price per m² or the agen
   assert.equal(report.facts.condition, 'Renovated');
   assert.equal(report.facts.district, 'Humannkiez');
   assert.equal(report.title, '3-room flat · Humannkiez');
-  assert.equal(report.address, 'Address not stated');
+  assert.equal(report.facts.street, undefined);
+  assert.equal(report.address, '10439 Berlin');
   assert.doesNotMatch(JSON.stringify(report), /Friedrich-Ebert|Eberswalde/);
 });
 
@@ -432,5 +433,79 @@ test('does not turn a nearby street into the property address', () => {
   assert.equal(report.facts.street, undefined);
   assert.notEqual(report.facts.locationPrecision, 'street');
   assert.doesNotMatch(report.title, /Danziger/);
-  assert.equal(report.address, 'Address not stated');
+  assert.equal(report.address, '10439 Berlin');
+  assert.equal(report.facts.city, 'Berlin');
+  assert.equal(report.facts.postalCode, '10439');
+});
+
+test('a labelled condition wins over a weaker word in the description', () => {
+  const report = parseListing(`
+    <title>Neuwertiger Holzbungalow in Erfde</title>
+    <main>
+      <div>Objektart</div><div>Haus</div>
+      <div>Kaufpreis</div><div>320.000 €</div>
+      <div>Wohnfläche</div><div>110 m²</div>
+      <div>Zimmer</div><div>4</div>
+      <div>Zustand</div><div>Neuwertig</div>
+      <p>Das Haus ist in einem sehr gepflegten, nahezu neuwertigen Zustand.</p>
+      <div>24836 Erfde</div>
+    </main>
+  `, 'https://example.test/condition');
+  assert.equal(report.propertyType, 'house');
+  assert.equal(report.facts.condition, 'Like new');
+});
+
+test('houses keep a labelled floor and ignore a floor mentioned only in prose', () => {
+  const labelled = parseListing(`
+    <title>Einfamilienhaus</title><main>
+      <div>Objektart</div><div>Haus</div>
+      <div>Kaufpreis</div><div>410.000 €</div>
+      <div>Wohnfläche</div><div>140 m²</div>
+      <div>Stockwerk</div><div>EG</div>
+      <p>Wohnung 4: 1. OG</p>
+      <div>44879 Bochum</div>
+    </main>
+  `, 'https://example.test/house-floor');
+  assert.equal(labelled.propertyType, 'house');
+  assert.equal(labelled.facts.floor, 'EG');
+  assert.equal(labelled.address, '44879 Bochum');
+
+  const proseOnly = parseListing(`
+    <title>Einfamilienhaus</title><main>
+      <div>Objektart</div><div>Haus</div>
+      <div>Kaufpreis</div><div>410.000 €</div>
+      <div>Wohnfläche</div><div>140 m²</div>
+      <p>Wohnung 4: 1. OG</p>
+      <div>44879 Bochum</div>
+    </main>
+  `, 'https://example.test/house-prose-floor');
+  assert.equal(proseOnly.facts.floor, 'not stated');
+
+  const flat = parseListing(`
+    <title>Eigentumswohnung</title><main>
+      <div>Objektart</div><div>Wohnung</div>
+      <div>Kaufpreis</div><div>410.000 €</div>
+      <div>Wohnfläche</div><div>70 m²</div>
+      <p>Die Wohnung liegt im 1. OG.</p>
+      <div>44879 Bochum</div>
+    </main>
+  `, 'https://example.test/flat-floor');
+  assert.equal(flat.propertyType, 'flat');
+  assert.equal(flat.facts.floor, '1. OG');
+});
+
+test('a rented house does not use flat unit wording', () => {
+  const report = parseListing(`
+    <title>Vermietetes Einfamilienhaus</title><main>
+      <div>Objektart</div><div>Haus</div>
+      <div>Kaufpreis</div><div>390.000 €</div>
+      <div>Wohnfläche</div><div>130 m²</div>
+      <div>Aktuelle Nutzung</div><div>Vermietet</div>
+      <div>24836 Erfde</div>
+    </main>
+  `, 'https://example.test/rented-house');
+  assert.equal(report.propertyType, 'house');
+  assert.equal(report.facts.tenancy, 'Rented');
+  assert.match(report.qualityWarnings.join(' '), /The house is rented but no verified yield was extracted/);
+  assert.doesNotMatch(report.qualityWarnings.join(' '), /The unit is rented/);
 });

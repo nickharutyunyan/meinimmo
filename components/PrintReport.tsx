@@ -1,6 +1,6 @@
 import { scoreAvailable, reportVerdict } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
-import { copy, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
+import { copy, financeFootnote, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, propertyScoreTitle } from '@/lib/property-score';
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
@@ -17,7 +17,6 @@ type FinanceSettings = { equity: number; interest: number; repayment: number; in
 export function PrintReport({ report, locale, finance, autoPrint }: { report: Report; locale: Locale; finance: FinanceSettings; autoPrint: boolean }) {
   const de = locale === 'de';
   const reportText = copy[locale].report;
-  const financeText = copy[locale].finance;
   const score = calculatePropertyScore(report);
   const showScore = scoreAvailable(report);
   const summary = localizedSummary(report, locale);
@@ -94,7 +93,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
           <div><small>{labels.terms}</small><strong>{finance.interest.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% + {finance.repayment.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</strong></div>
           <div><small>{labels.total}</small><strong>{euros(costs.total)}</strong></div>
         </div>
-        <p>{financeText.note}</p>
+        <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>
 
       <section className="print-split print-section print-bottom">
