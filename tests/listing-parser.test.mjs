@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkedCharacteristic, looksLikePropertyListing, parseListing } from '../lib/listing-parser.ts';
-import { localizedFeatures } from '../lib/i18n.ts';
+import { checkedCharacteristic, findSunOrientation, looksLikePropertyListing, parseListing, statesPrivateGarden } from '../lib/listing-parser.ts';
+import { localizedFeatures, localizedValue } from '../lib/i18n.ts';
+import { localizedConsiderations } from '../lib/report-copy.ts';
 
 const tableRow = (label, value) => `<tr><td><div>${label}</div></td><td><div>${value}</div></td></tr>`;
 
@@ -508,4 +509,51 @@ test('a rented house does not use flat unit wording', () => {
   assert.equal(report.facts.tenancy, 'Rented');
   assert.match(report.qualityWarnings.join(' '), /The house is rented but no verified yield was extracted/);
   assert.doesNotMatch(report.qualityWarnings.join(' '), /The unit is rented/);
+});
+
+test('compound balcony directions are extracted in a bounded way', () => {
+  const cases = [
+    ['Die Wohnung hat zwei Süd-/Südwestbalkone.', 'Süd-/Südwest'],
+    ['Balkon Süd-West mit Abendsonne.', 'Süd-West'],
+    ['Ein Südwestbalkon gehört zur Wohnung.', 'Südwest'],
+    ['Die Wohnräume sind nach Süden ausgerichtet.', 'nach Süden ausgerichtet'],
+    ['West-/Südbalkon zur ruhigen Seite.', 'West-/Süd'],
+    ['Die Wohnung ist Ost-West ausgerichtet.', 'Ost-West'],
+  ];
+  for (const [line, expected] of cases) assert.equal(findSunOrientation([line]), expected, line);
+  assert.equal(findSunOrientation(['Kein Südwestbalkon.']), '');
+  const html = `<title>Wohnung</title><main><p>Kaufpreis 400.000 €</p><p>Wohnfläche 70 m²</p><p>10439 Berlin</p><p>zwei Süd-/Südwestbalkone</p></main>`;
+  const parsed = parseListing(html, 'https://example.test/orientation');
+  assert.equal(parsed.sunOrientation, 'Süd-/Südwest');
+  assert.equal(localizedValue(parsed.sunOrientation, 'en'), 'Süd-/Südwest');
+  assert.equal(localizedValue(parsed.sunOrientation, 'de'), 'Süd-/Südwest');
+});
+
+test('terrace and garden advice follows what the listing actually states', () => {
+  const shared = parseListing(`<title>Wohnung mit Hof</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Die Wohnung hat einen Balkon. Der Gemeinschaftsgarten und der Innenhof werden gemeinschaftlich genutzt.</p>
+  </main>`, 'https://example.test/shared-garden');
+  const joined = [...shared.considerations, ...localizedConsiderations(shared, 'de')].join('\n');
+  assert.equal(shared.facts.privateGarden, undefined);
+  assert.doesNotMatch(joined, /Terrasse|terrace|Teilungserklärung|Sondernutzungsrecht/i);
+  const terrace = parseListing(`<title>Wohnung</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Zur Wohnung gehört eine Terrasse.</p>
+  </main>`, 'https://example.test/terrace');
+  assert.match(terrace.considerations.join(' '), /terrace rights/i);
+  assert.doesNotMatch(terrace.considerations.join(' '), /garden/i);
+  assert.match(localizedConsiderations(terrace, 'de').join(' '), /Terrassenrecht/);
+  assert.doesNotMatch(localizedConsiderations(terrace, 'de').join(' '), /Garten/);
+  const garden = ['Sondernutzungsrecht am Garten ist eingetragen.'];
+  assert.equal(statesPrivateGarden(garden), true);
+  const privateGarden = parseListing(`<title>Wohnung</title><main>
+    <div>Kaufpreis</div><div>300.000 €</div><div>Wohnfläche</div><div>60 m²</div><div>10115 Berlin</div>
+    <p>Sondernutzungsrecht am Garten.</p>
+  </main>`, 'https://example.test/private-garden');
+  assert.equal(privateGarden.facts.privateGarden, true);
+  assert.match(privateGarden.considerations.join(' '), /private garden use \(Sondernutzungsrecht\)/i);
+  assert.doesNotMatch(privateGarden.considerations.join(' '), /terrace/i);
+  assert.match(localizedConsiderations(privateGarden, 'de').join(' '), /private Gartennutzungsrecht \(Sondernutzungsrecht\)/);
+  assert.doesNotMatch([...privateGarden.considerations, ...localizedConsiderations(privateGarden, 'de')].join('\n'), /ImmoScout|Ohne-Makler|ohne-makler/i);
 });

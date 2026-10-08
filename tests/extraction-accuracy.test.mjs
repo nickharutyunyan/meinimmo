@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
 import { scoreAvailable } from '../lib/report-integrity.ts';
 import { resolveLocation } from '../lib/display.ts';
-import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor } from '../lib/report-copy.ts';
+import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor } from '../lib/report-copy.ts';
+import { localizedFactualTaxonomy, parseFactualTaxonomy, taxonomyFields } from '../lib/property-taxonomy.ts';
+import { localizedTenancy } from '../lib/i18n.ts';
+import { redFlagSentence } from '../lib/red-flags.ts';
+import { priceCheckPresentation } from '../lib/price-check-copy.ts';
 
 const fixture = (id) => readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8');
 const parse = (id) => parseListing(fixture(id), `https://www.ohne-makler.net/immobilie/${id}/`);
@@ -65,7 +69,8 @@ test('Osnabrück address keeps a street that has no standard suffix', () => {
   assert.equal(report.typeSource, 'structured');
   assert.equal(report.facts.rooms, '3');
   assert.doesNotMatch(report.qualityWarnings.join(' '), /street address is not disclosed/i);
-  assert.equal(report.score, null);
+  assert.equal(typeof report.score, 'number');
+  assert.equal(report.scoreBreakdown.price, null);
 });
 
 test('Berlin-Tegel keeps the labelled room count and shows a score', () => {
@@ -163,30 +168,66 @@ test('property type prefers structured fields, then keywords, then a scored-with
 test('Osnabrück shows the ground lease and the rented-until conflict, never vacant', () => {
   const html = fixture('502050');
   const report = parse('502050');
-  const lease = report.redFlags.find(flag => flag.id === 'leasehold');
-  assert.ok(lease);
-  assert.equal(lease.severity, 'high');
-  assert.ok(lease.evidence.length <= 220);
-  assert.equal(html.includes(lease.evidence), true);
+  const pacht = report.redFlags.find(flag => flag.id === 'pacht');
+  const rented = report.redFlags.find(flag => flag.id === 'rentedOccupied');
+  assert.ok(pacht);
+  assert.equal(pacht.severity, 'high');
+  assert.ok(pacht.evidence.length <= 220);
+  assert.equal(html.includes(pacht.evidence), true);
+  assert.match(pacht.evidence, /Pachtgrundstück/);
+  assert.equal(report.redFlags.some(flag => flag.id === 'leasehold'), false);
+  assert.match(redFlagSentence(report, pacht, 'en'), /Land is leased \(Pachtgrundstück\)/);
+  assert.match(redFlagSentence(report, pacht, 'de'), /^Pachtgrundstück:/);
+  assert.doesNotMatch(`${redFlagSentence(report, pacht, 'en')} ${redFlagSentence(report, pacht, 'de')}`, /Erbbaurecht|Erbbauzins/);
+  assert.ok(rented);
+  assert.equal(html.includes(rented.evidence), true);
+  assert.match(redFlagSentence(report, rented, 'en'), /3 to 10 years depending on the area/);
+  assert.match(redFlagSentence(report, rented, 'de'), /je nach Ort 3 bis 10 Jahre gesperrt sein/);
+  assert.doesNotMatch(`${redFlagSentence(report, rented, 'en')} ${redFlagSentence(report, rented, 'de')}`, /Berlin/);
+  assert.equal(report.facts.city, 'Osnabrück');
   assert.equal(report.facts.tenancy, 'Rented');
   assert.equal(report.facts.tenancyConflict, true);
   assert.equal(report.facts.rentedUntilText, 'Ende November 2026');
   assert.equal(report.facts.availabilityDate, '2026-12-01');
   assert.equal(report.facts.groundLease, true);
+  assert.equal(report.facts.groundLeaseKind, 'pacht');
   assert.equal(report.facts.groundRentYear, 997);
   assert.equal(report.facts.groundRentMonth, 83);
   assert.equal(report.facts.groundRentInServiceCharge, true);
   const corpus = facing(report);
-  assert.match(corpus, /Pacht|Erbpacht|Erbbau|lease|ground rent/i);
+  assert.match(corpus, /Pacht|lease|annual rent/i);
   assert.match(corpus, /November|Dezember|December|until the end|bis Ende|currently rented|is rented until/i);
   assert.match(report.summary, /until the end of November 2026/);
   assert.match(report.summary, /free from 1 December 2026/);
-  assert.match(report.summary, /ground rent/i);
+  assert.match(report.summary, /The land is leased \(Pachtgrundstück\)/);
+  assert.match(report.summary, /Annual rent is about €997 a year/);
+  assert.doesNotMatch(report.summary, /Erbbaurecht|ground rent/i);
   assert.doesNotMatch(corpus, /\bvacant\b/i);
-  assert.match(offerQuestionsFor(report, 'en')[0], /leasehold term/);
-  assert.match(offerQuestionsFor(report, 'de')[0], /Restlaufzeit/);
+  assert.doesNotMatch(corpus, /Berlin/);
+  assert.equal(priceCheckPresentation(report, 'en').kind, 'hidden');
+  assert.equal(priceCheckPresentation(report, 'de').kind, 'hidden');
+  assert.match(offerQuestionsFor(report, 'en')[0], /lease contract/);
+  assert.match(offerQuestionsFor(report, 'de')[0], /Pachtvertrag/);
   assert.match(localizedSummary(report, 'de'), /Pachtgrundstück/);
-  assert.match(localizedSummary(report, 'de'), /widerspricht/);
+  assert.match(localizedSummary(report, 'de'), /bis Ende November 2026/);
+  assert.doesNotMatch(localizedSummary(report, 'de'), /widerspricht/);
+  assert.doesNotMatch(`${report.summary}\n${localizedSummary(report, 'de')}\n${localizedWarnings(report, 'en').join('\n')}\n${localizedWarnings(report, 'de').join('\n')}`, /key-facts table says it is not rented|widerspricht/);
+  for (const locale of ['en', 'de']) {
+    const notes = localizedWarnings(report, locale);
+    const clarify = clarifyBeforeDecision(report, locale);
+    for (const item of clarify) assert.equal(notes.includes(item), false, item);
+    assert.doesNotMatch(clarify.join('\n'), /key-facts table says it is not rented|widerspricht/);
+  }
+  const taxonomy = parseFactualTaxonomy({
+    model: 'jev-test',
+    answers: Object.fromEntries(taxonomyFields.map(field => [field, { type: 'choice', choice: field === 'occupancy' ? 'not_rented' : 'unknown', confidence: 0.99 }])),
+  }, report, 'hash');
+  const profiled = { ...report, taxonomy };
+  assert.equal(localizedFactualTaxonomy(profiled, 'en').find(row => row.startsWith('Rental status:')), `Rental status: ${localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, 'en')}`);
+  assert.equal(localizedFactualTaxonomy(profiled, 'de').find(row => row.startsWith('Vermietung:')), `Vermietung: ${localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, 'de')}`);
+  assert.doesNotMatch(localizedFactualTaxonomy(profiled, 'en').join('\n'), /Not rented/);
+  assert.doesNotMatch(localizedFactualTaxonomy(profiled, 'de').join('\n'), /Nicht vermietet/);
+  assert.doesNotMatch(localizedSummary(report, 'de'), /Erbbaurecht|Erbbauzins/);
 });
 
 test('Berlin does not invent a balcony or terrace from other flats, and is sold as-is', () => {

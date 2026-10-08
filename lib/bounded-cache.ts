@@ -19,5 +19,6 @@ export function createBoundedMap<K, V>(max: number) {
       return true;
     },
     delete: (key: K) => map.delete(key),
+    clear() { map.clear(); },
   };
 }

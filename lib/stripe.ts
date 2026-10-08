@@ -18,6 +18,7 @@ async function stripeClient() {
     apiVersion: '2026-07-29.dahlia',
     httpClient: Stripe.createFetchHttpClient(),
     maxNetworkRetries: 2,
+    timeout: 10_000,
   });
 }
 

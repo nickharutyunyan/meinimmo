@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { scoreAvailable, reportVerdict, reportConflicts, scoreExplanation } from '@/lib/report-integrity';
+import { scoreAvailable, reportVerdict, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, formatScore, scoreConfidence, scoreConfidenceLabel } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
-import { localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
+import { clarifyBeforeDecision, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { AdSlot } from './AdSlot';
 import { Brand } from './Brand';
@@ -25,6 +25,7 @@ import { cleanPdfDisplayName, pdfDownloadName } from '@/lib/pdf-source';
 import { ReportNote } from './ReportNote';
 import { ReportPrintButton } from './ReportPrintButton';
 import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxonomy';
+import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
 
@@ -115,6 +116,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
+  const clarify = clarifyBeforeDecision(report, locale);
   const features = localizedFeatures(facts.features, locale);
   const redFlags = report.redFlags || [];
   const propertyCategories = localizedFactualTaxonomy(report, locale);
@@ -144,6 +146,8 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         <div className="report-title-block"><div className="report-market-line"><p className="eyebrow">{text.brief}</p><CountrySwitch locale={locale}/></div><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
+      <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} />
+
       <section className="verdict">
         <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreConfidenceLabel(scoreConfidence(report), locale)}</span><span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover"><p>{scoreExplanation(report, locale)}</p><div className="score-method">{Object.entries(text.components).map(([key, label]) => {
           const value = breakdown[key as keyof typeof breakdown];
@@ -154,7 +158,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
         <div className="verdict-copy"><h2>{verdictText}</h2><div className="summary-copy">{summary.split(/\n\n+/).map((paragraph) => <p key={paragraph}><GlossaryText locale={locale}>{paragraph}</GlossaryText></p>)}</div></div>
       </section>
 
-      {reportConflicts(report).length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{warnings.filter(w => !/exact street|exact floor/.test(w)).map(w => <p key={w}>{w}</p>)}</section> : null}
+      {clarify.length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{clarify.map(w => <p key={w}>{w}</p>)}</section> : null}
       <div className="report-grid">
         <div>
           <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value]) => <div key={key}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div>)}</div></section>

@@ -3,7 +3,8 @@ import type { Report } from './types';
 import { factualLocation } from './display.ts';
 import { formatAvailabilityDate } from './availability.ts';
 import { isNewOrFirstOccupancy } from './property-condition.ts';
-import { groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
+import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
+import { reportConflicts } from './report-integrity.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const stated = (value?: string) => Boolean(value && !UNKNOWN.test(value));
@@ -22,11 +23,24 @@ export function questionsAreConcise(value: unknown): value is string[] {
     && !isObviousAddressQuestion(item));
 }
 
+function factualRentedSummary(facts: Report['facts'], locale: Locale) {
+  const until = locale === 'de' ? facts.rentedUntilText : formatRentedUntil(facts.rentedUntilText, 'en');
+  const from = formatAvailabilityDate(facts.availabilityDate, locale);
+  if (locale === 'de') {
+    return `Die Immobilie wird vermietet verkauft${until ? ` bis ${until}` : ''}${from ? ` und ist ab ${from} frei` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`;
+  }
+  return `It is sold rented${until ? ` until ${until}` : ''}${from ? ` and free from ${from}` : ''}; verify the current net cold rent, lease terms and the seller's yield calculation before relying on that figure.`;
+}
+
 export function localizedSummary(report: Report, locale: Locale) {
   if (locale === 'en') {
-    const correctedCondition = localizedValue(report.facts.condition, 'en') === 'Renovated'
-      ? report.summary.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
+    const conflict = tenancyConflictSentence(report.facts, 'en');
+    const withoutConflict = (report.redFlags || []).some(flag => flag.id === 'rentedOccupied') && report.summary.includes(conflict)
+      ? report.summary.replace(conflict, factualRentedSummary(report.facts, 'en'))
       : report.summary;
+    const correctedCondition = localizedValue(report.facts.condition, 'en') === 'Renovated'
+      ? withoutConflict.replace(/described as (?:saniert|renoviert|new condition|like new)/i, 'described as renovated')
+      : withoutConflict;
     return correctedCondition
     .replace('The listing states that it is available to move into; confirm the handover date in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.')
     .replace('It is described as owner-occupied; confirm the agreed handover date and vacant possession in the purchase contract.', 'The listing states that it is not rented; confirm the handover date and vacant possession in the purchase contract.');
@@ -51,12 +65,11 @@ export function localizedSummary(report: Report, locale: Locale) {
   ].filter(Boolean).join(', ');
   const first = `${house ? 'Dieses' : 'Diese'} ${roomPrefix}${type}${place}${space}.${price}${building ? ` Dazu kommen ${building}.` : ''}`;
   const availableFrom = formatAvailabilityDate(facts.availabilityDate, 'de');
-  const occupancy = facts.tenancyConflict
-    ? tenancyConflictSentence(facts, 'de')
-    : facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom && facts.tenancy !== 'Rented'
+  const rentedUntil = facts.rentedUntilText;
+  const occupancy = facts.tenancy === 'Rented'
+    ? `Die Immobilie wird vermietet verkauft${rentedUntil ? ` bis ${rentedUntil}` : ''}${availableFrom ? ` und ist ab ${availableFrom} frei` : ''}${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
+    : facts.tenancy === 'Occupancy unclear' ? 'Das Portal meldet nicht vermietet, die Beschreibung nennt aber noch Bewohner. Kläre deren rechtlichen Status und die freie Übergabe.' : availableFrom
     ? `Laut Angebot ist die Immobilie ab ${availableFrom} bezugsfrei. Sichere die freie Übergabe zu diesem Termin im Kaufvertrag ab.`
-    : facts.tenancy === 'Rented'
-    ? `Die Immobilie wird vermietet verkauft${facts.advertisedYield ? `; angegeben sind ${facts.advertisedYield.toLocaleString('de-DE', { maximumFractionDigits: 2 })} % Rendite` : ''}. Lass dir Nettokaltmiete, Mietvertrag und Renditerechnung zeigen.`
     : ['Not rented', 'Available to move in', 'Vacant', 'Owner-occupied'].includes(facts.tenancy || '')
       ? 'Laut Angebot ist die Immobilie nicht vermietet. Kläre den Termin der freien Übergabe im Kaufvertrag.'
       : '';
@@ -83,16 +96,36 @@ export function localizedConsiderations(report: Report, locale: Locale) {
   }
   if (!stated(facts.floor) && !house) items.push('Kläre Etage, Aufzug sowie Straßen- oder Hoflage.');
   if (stated(facts.energy)) items.push(`Vergleiche den ${facts.energyCertificate || 'Energieausweis'} mit echten Energieabrechnungen.`);
-  if (!house && facts.features?.some((feature) => /terrasse|garten/i.test(feature))) items.push('Prüfe, ob Terrasse und Garten rechtlich in der Teilungserklärung stehen und wer für die Pflege zuständig ist.');
+  const rights = !house ? terraceGardenConsideration(facts, 'de') : '';
+  if (rights) items.push(rights);
   if (!items.length) items.push(house
     ? 'Fordere das vollständige Exposé, den Energieausweis und eine klare Aufstellung der laufenden Kosten an.'
     : 'Fordere das vollständige Exposé, den Energieausweis, WEG-Unterlagen und eine klare Aufstellung der laufenden Kosten an.');
   return items.slice(0, 4);
 }
 
+function coveredByRedFlag(report: Report, warning: string) {
+  const flags = new Set((report.redFlags || []).map(flag => flag.id));
+  if (flags.has('rentedOccupied') && /key-facts table says it is not rented|which conflicts with that description|widerspricht sich/i.test(warning)) return true;
+  return false;
+}
+
+export function terraceGardenConsideration(facts: Pick<Report['facts'], 'features' | 'privateGarden'>, locale: Locale) {
+  const terrace = Boolean(facts.features?.some(feature => /terrasse|terrace/i.test(feature)));
+  const garden = Boolean(facts.privateGarden);
+  if (!terrace && !garden) return '';
+  if (locale === 'de') {
+    if (terrace && garden) return 'Prüfe, ob Terrasse und privates Gartennutzungsrecht (Sondernutzungsrecht) in der Teilungserklärung stehen und wer für die Pflege zuständig ist.';
+    if (terrace) return 'Prüfe, ob das Terrassenrecht in der Teilungserklärung steht und wer für die Pflege zuständig ist.';
+    return 'Prüfe, ob das private Gartennutzungsrecht (Sondernutzungsrecht) in der Teilungserklärung steht und wer für die Pflege zuständig ist.';
+  }
+  if (terrace && garden) return 'Confirm that terrace rights and private garden use (Sondernutzungsrecht) are recorded in the Teilungserklärung and clarify maintenance responsibility.';
+  if (terrace) return 'Confirm that terrace rights are recorded in the Teilungserklärung and clarify maintenance responsibility.';
+  return 'Confirm that private garden use (Sondernutzungsrecht) is recorded in the Teilungserklärung and clarify maintenance responsibility.';
+}
+
 export function localizedWarnings(report: Report, locale: Locale) {
-  if (locale === 'en') return report.qualityWarnings || [];
-  return (report.qualityWarnings || []).map((warning) => {
+  const warnings = locale === 'en' ? (report.qualityWarnings || []) : (report.qualityWarnings || []).map((warning) => {
     if (/separately quotes/.test(warning)) return `Das Angebot nennt separat ${report.facts.parkingPrice?.toLocaleString('de-DE')} € für Garage oder Stellplatz. Kläre, ob dieser Kauf verpflichtend und zusätzlich ist; der Betrag ist nicht in der angegebenen Gesamtsumme enthalten.`;
     if (/needs a fresh source review/.test(warning)) return 'Dieser gespeicherte Bericht muss erneut aus der Quelle geprüft werden. Importiere das Angebot oder lade das Exposé neu hoch.';
     if (/purchase price, buyer costs/.test(warning)) return 'Kaufpreis, Kaufnebenkosten und Gesamtsumme widersprechen sich. Die Finanzierung nutzt die angegebene Gesamtsumme; kläre die Aufschlüsselung.';
@@ -113,6 +146,14 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
   });
+  return warnings.filter(warning => !coveredByRedFlag(report, warning));
+}
+
+/** Conflicts already shown as a red flag or a data note stay out of the clarify box. */
+export function clarifyBeforeDecision(report: Report, locale: Locale) {
+  const notes = new Set(localizedWarnings(report, locale));
+  const onlyHere = reportConflicts(report).filter(item => !(report.qualityWarnings || []).includes(item));
+  return localizedWarnings({ ...report, qualityWarnings: onlyHere }, locale).filter(item => !notes.has(item));
 }
 
 export function offerQuestionsFor(report: Report, locale: Locale = 'en') {

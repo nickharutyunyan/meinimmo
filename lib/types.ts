@@ -31,6 +31,8 @@ export type Facts = {
   /** Timber-frame construction, when the listing states it for this building. */
   construction?: string;
   groundLease?: boolean;
+  /** Erbbaurecht and a Pachtgrundstück are different rights. */
+  groundLeaseKind?: 'leasehold' | 'pacht' | 'both';
   groundRentYear?: number;
   groundRentMonth?: number;
   groundRentInServiceCharge?: boolean;
@@ -38,6 +40,8 @@ export type Facts = {
   advertisedYield?: number;
   condition?: string;
   features?: string[];
+  /** Garden is stated as private use (Sondernutzungsrecht), not a shared courtyard. */
+  privateGarden?: boolean;
   postalCode?: string;
   city?: string;
   district?: string;
@@ -52,6 +56,10 @@ export type Facts = {
     parkMentioned?: boolean;
     dailyNeedsMentioned?: boolean;
   };
+  /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
+  photoUrls?: string[];
+  /** Earliest `exp` unix time among `photoUrls`, as an ISO timestamp. */
+  photosExpireAt?: string;
 };
 
 export type ScoreBreakdown = {

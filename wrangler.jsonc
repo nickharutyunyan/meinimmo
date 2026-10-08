@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "goodhomes",
-  "main": ".open-next/worker.js",
+  "main": "cloudflare/worker.mjs",
   "workers_dev": true,
   "routes": [
     {
@@ -20,7 +20,14 @@
   ],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "run_worker_first": [
+      "/*",
+      "!/_next/static/*",
+      "!/downloads/*"
+    ]
   },
   "services": [
     {

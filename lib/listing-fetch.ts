@@ -5,6 +5,13 @@ export class ListingFetchError extends Error {
   constructor(code: ListingFetchError['code']) { super(code); this.code = code; }
 }
 
+/** A portal timeout is a gateway failure. Other import problems stay client errors. */
+export function listingImportStatus(code: ListingFetchError['code']) {
+  if (code === 'too_large') return 413;
+  if (code === 'timeout') return 504;
+  return 422;
+}
+
 export async function fetchListing(source: string, fetcher: typeof fetch = fetch, timeoutMs = 15_000) {
   let url = publicListingUrl(source);
   if (!url) throw new ListingFetchError('invalid');

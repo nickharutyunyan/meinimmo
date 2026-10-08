@@ -3,6 +3,7 @@ import { formatAvailabilityDate } from './availability.ts';
 
 export const RED_FLAG_IDS = [
   'leasehold',
+  'pacht',
   'lifeInterest',
   'specialLevy',
   'teileigentum',
@@ -21,7 +22,7 @@ export const RED_FLAG_IDS = [
 export type RedFlagId = typeof RED_FLAG_IDS[number];
 export type RedFlag = { id: RedFlagId; severity: 'high' | 'caution'; evidence?: string };
 
-const HIGH = new Set<RedFlagId>(['leasehold', 'lifeInterest', 'specialLevy', 'teileigentum', 'commissionAboveShare']);
+const HIGH = new Set<RedFlagId>(['leasehold', 'pacht', 'lifeInterest', 'specialLevy', 'teileigentum', 'commissionAboveShare']);
 
 const USUAL_BUYER_COMMISSION_PERCENT = 3.57;
 
@@ -74,11 +75,54 @@ function clearMatch(line: string, pattern: RegExp) {
   return undefined;
 }
 
+const MAX_EVIDENCE = 220;
+/** A date such as "1. Dezember" is not a sentence end. */
+const SENTENCE_BREAK = /(?<=[.!?])\s+(?!(?:Januar|Februar|M[aä]rz|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|May|June|July|October)\b)/i;
+
+export function splitSentences(line: string) {
+  return line.split(SENTENCE_BREAK);
+}
+
+function clipAtWord(text: string, focus: number) {
+  if (text.length <= MAX_EVIDENCE) return text;
+  const mark = '…';
+  let start = 0;
+  let prefix = '';
+  if (focus > 160) {
+    const rough = Math.max(0, focus - 80);
+    const space = text.indexOf(' ', rough);
+    start = space >= 0 && space < focus ? space + 1 : rough;
+    prefix = mark;
+  }
+  const budget = MAX_EVIDENCE - prefix.length - mark.length;
+  let end = Math.min(text.length, start + budget);
+  if (end < text.length) {
+    const space = text.lastIndexOf(' ', end);
+    if (space > start + 24) end = space;
+    return `${prefix}${text.slice(start, end).trim()}${mark}`;
+  }
+  return `${prefix}${text.slice(start).trim()}`;
+}
+
+function sentenceAt(text: string, focus: number) {
+  const expression = new RegExp(SENTENCE_BREAK.source, 'gi');
+  let start = 0;
+  for (const match of text.matchAll(expression)) {
+    const at = match.index ?? 0;
+    if (focus < at) return { text: text.slice(start, at), start };
+    start = at + match[0].length;
+  }
+  return { text: text.slice(start), start };
+}
+
+/** Prefer a whole sentence. A longer quote ends on a word and shows an ellipsis. */
 function evidenceQuote(line: string, index = 0) {
   const clean = line.replace(/\s+/g, ' ').trim();
-  if (clean.length <= 220) return clean;
-  const start = Math.max(0, Math.min(index, clean.length - 220));
-  return clean.slice(start, start + 220).trim();
+  if (clean.length <= MAX_EVIDENCE) return clean;
+  const focus = Math.max(0, Math.min(index, clean.length - 1));
+  const sentence = sentenceAt(clean, focus);
+  if (sentence.text.length <= MAX_EVIDENCE) return sentence.text;
+  return clipAtWord(sentence.text, Math.max(0, focus - sentence.start));
 }
 
 function push(flags: RedFlag[], id: RedFlagId, evidence?: string) {
@@ -86,7 +130,10 @@ function push(flags: RedFlag[], id: RedFlagId, evidence?: string) {
   flags.push({ id, severity: HIGH.has(id) ? 'high' : 'caution', ...(evidence ? { evidence } : {}) });
 }
 
-const LEASEHOLD = /\b(?:Erbbaurecht\w*|Erbbauzins|Erbpacht|Pachtgrundstück|Pacht|leasehold|ground lease)\b/i;
+/** Erbbaurecht / Erbpacht only. A Pachtgrundstück is a different right and must not match here. */
+const LEASEHOLD = /\b(?:Erbbaurecht\w*|Erbbauzins|Erbpacht|leasehold|ground lease)\b/i;
+/** Land lease (Pacht). Letters stay outside the match so "Erbpacht" and "Pächter" do not qualify. */
+const PACHT = /(?<![\p{L}\p{N}])(?:Pachtgrundstück|Pachtland|Landpacht|Pacht)(?![\p{L}\p{N}])|\bland lease\b|\bleased land\b|\bland is leased\b/iu;
 const LIFE_INTEREST = /\b(?:Nießbrauch|Niessbrauch|lebenslanges?\s+Wohnrecht|Wohnungsrecht|Wohnrecht\w*|Leibrente|Verrentung|right of residence|usufruct)\b/i;
 const LEVY = /Sonderumlage/i;
 const LEVY_QUALIFIER = /beschlossen|geplant|anstehend|fällig|in Höhe von|\d+\s?€/i;
@@ -168,7 +215,25 @@ function sentenceSaysRented(sentence: string) {
 }
 
 export function lineSaysRented(line: string) {
-  return line.split(/(?<=[.!?])\s+/).some(sentenceSaysRented);
+  return splitSentences(line).some(sentenceSaysRented);
+}
+
+function conversionLockEndedQuote(lines: string[]) {
+  for (const line of lines) {
+    if (!/Sperrfrist/i.test(line)) continue;
+    for (const part of splitSentences(line)) {
+      if (!/Sperrfrist/i.test(part)) continue;
+      if (/nicht mehr|abgelaufen|entf[aä]llt|entfallen/i.test(part) || /keine[^\n]{0,40}Sperrfrist/i.test(part)) {
+        return part.replace(/\s+/g, ' ').trim();
+      }
+    }
+  }
+  return undefined;
+}
+
+export function conversionLockHasEnded(evidence?: string) {
+  if (!evidence || !/Sperrfrist/i.test(evidence)) return false;
+  return /nicht mehr|abgelaufen|entf[aä]llt|entfallen/i.test(evidence) || /keine[^\n]{0,40}Sperrfrist/i.test(evidence);
 }
 
 function isoDate(year: number, month: number, day: number) {
@@ -179,7 +244,7 @@ function isoDate(year: number, month: number, day: number) {
 
 export function findTenancyConflict(lines: string[]) {
   for (const line of listingFactLines(lines)) {
-    const sentence = line.split(/(?<=[.!?])\s+/).find(sentenceSaysRented);
+    const sentence = splitSentences(line).find(sentenceSaysRented);
     if (!sentence) continue;
     const until = sentence.match(/\bbis\s+((?:Ende\s+)?(?:\d{1,2}\.?\s*)?[A-Za-zÄÖÜäöü]+\s+\d{4})/i)?.[1]?.replace(/\s+/g, ' ').trim();
     const written = sentence.match(/\bab\s+(\d{1,2})\.?\s*(Januar|Februar|M[aä]rz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s*(\d{4})/i);
@@ -214,25 +279,46 @@ function groundRentAmounts(text: string) {
   return { year: parse(year), month: parse(month) };
 }
 
-export function findGroundLease(lines: string[]) {
-  const scoped = listingFactLines(lines);
+type TenureHit = { evidence: string; year?: number; month?: number; inCharges: boolean };
+
+function collectTenure(lines: string[], pattern: RegExp): TenureHit | undefined {
   let evidence = '';
   let year: number | undefined;
   let month: number | undefined;
   let inCharges = false;
-  for (let index = 0; index < scoped.length; index += 1) {
-    const line = scoped[index];
-    const match = clearMatch(line, LEASEHOLD);
+  let seen = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const match = clearMatch(line, pattern);
     if (!match) continue;
-    const window = `${line}\n${scoped[index + 1] || ''}`;
+    seen = true;
+    const window = `${line}\n${lines[index + 1] || ''}`;
     const amounts = groundRentAmounts(window);
     if (!evidence || amounts.year || amounts.month) evidence = evidenceQuote(line, match.index);
     year = year || amounts.year;
     month = month || amounts.month;
     if (/enthalten|inklusive|in den [^\n]{0,40}(?:Hausgeld|Betriebskosten)/i.test(window)) inCharges = true;
   }
-  if (!evidence) return undefined;
+  if (!seen) return undefined;
   return { evidence, year, month, inCharges };
+}
+
+export function findGroundLease(lines: string[]) {
+  const scoped = listingFactLines(lines);
+  const leasehold = collectTenure(scoped, LEASEHOLD);
+  const pacht = collectTenure(scoped, PACHT);
+  if (!leasehold && !pacht) return undefined;
+  const money = [pacht, leasehold].find(hit => hit && (hit.year || hit.month)) || pacht || leasehold;
+  const kind = pacht && leasehold ? 'both' as const : pacht ? 'pacht' as const : 'leasehold' as const;
+  return {
+    kind,
+    evidence: (kind === 'pacht' ? pacht : leasehold)?.evidence || pacht?.evidence || '',
+    leasehold,
+    pacht,
+    year: money?.year,
+    month: money?.month,
+    inCharges: Boolean(pacht?.inCharges || leasehold?.inCharges),
+  };
 }
 
 export function findSoldAsIs(lines: string[]) {
@@ -270,28 +356,71 @@ export function tenancyConflictSentence(facts: Pick<Report['facts'], 'rentedUnti
   return `The description says the property is rented${untilBit}${fromBit}. The key-facts table says it is not rented, which conflicts with that description.`;
 }
 
-export function groundLeaseSentence(facts: Pick<Report['facts'], 'groundLease' | 'groundRentYear' | 'groundRentMonth' | 'groundRentInServiceCharge'>, locale: 'en' | 'de') {
-  if (!facts.groundLease) return '';
+function rentAmountClause(facts: Pick<Report['facts'], 'groundRentYear' | 'groundRentMonth' | 'groundRentInServiceCharge'>, locale: 'en' | 'de', kind: 'pacht' | 'leasehold') {
   const year = facts.groundRentYear;
   const month = facts.groundRentMonth;
+  const included = facts.groundRentInServiceCharge;
   if (locale === 'de') {
     const parts = [year ? `etwa ${year.toLocaleString('de-DE')} € im Jahr` : '', month ? `${month.toLocaleString('de-DE')} € im Monat` : ''].filter(Boolean);
-    const amount = parts.length
-      ? ` Die Pacht beträgt ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' und ist im Hausgeld enthalten' : ''}.`
-      : '';
-    return `Das Grundstück ist ein Pachtgrundstück.${amount}`;
+    if (!parts.length) return '';
+    const label = kind === 'pacht' ? 'Die Pacht' : 'Der Erbbauzins';
+    return ` ${label} beträgt ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${included ? ' und ist im Hausgeld enthalten' : ''}.`;
   }
   const parts = [year ? `€${year.toLocaleString('en-GB')} a year` : '', month ? `€${month.toLocaleString('en-GB')} a month` : ''].filter(Boolean);
-  const amount = parts.length
-    ? ` Ground rent is about ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' and is included in the Hausgeld' : ''}.`
-    : ' Ground rent is payable on top of the purchase.';
-  return `The land is a ground lease (Pachtgrundstück).${amount}`;
+  if (!parts.length) {
+    return kind === 'pacht'
+      ? ' The annual rent is payable on top of the purchase.'
+      : ' Ground rent (Erbbauzins) is payable on top of the purchase.';
+  }
+  const label = kind === 'pacht' ? 'Annual rent is about' : 'Ground rent (Erbbauzins) is about';
+  return ` ${label} ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${included ? ' and is included in the Hausgeld' : ''}.`;
+}
+
+export function groundLeaseSentence(facts: Pick<Report['facts'], 'groundLease' | 'groundLeaseKind' | 'groundRentYear' | 'groundRentMonth' | 'groundRentInServiceCharge'>, locale: 'en' | 'de') {
+  if (!facts.groundLease) return '';
+  const kind = facts.groundLeaseKind;
+  if (!kind) {
+    const year = facts.groundRentYear;
+    const month = facts.groundRentMonth;
+    if (locale === 'de') {
+      const parts = [year ? `etwa ${year.toLocaleString('de-DE')} € im Jahr` : '', month ? `${month.toLocaleString('de-DE')} € im Monat` : ''].filter(Boolean);
+      const amount = parts.length
+        ? ` Die Pacht beträgt ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' und ist im Hausgeld enthalten' : ''}.`
+        : '';
+      return `Das Grundstück ist ein Pachtgrundstück.${amount}`;
+    }
+    const parts = [year ? `€${year.toLocaleString('en-GB')} a year` : '', month ? `€${month.toLocaleString('en-GB')} a month` : ''].filter(Boolean);
+    const amount = parts.length
+      ? ` Ground rent is about ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' and is included in the Hausgeld' : ''}.`
+      : ' Ground rent is payable on top of the purchase.';
+    return `The land is a ground lease (Pachtgrundstück).${amount}`;
+  }
+  const moneyKind = kind === 'leasehold' ? 'leasehold' : 'pacht';
+  const amount = rentAmountClause(facts, locale, moneyKind);
+  if (locale === 'de') {
+    const lead = kind === 'both'
+      ? 'Das Grundstück steht im Erbbaurecht und ist zugleich ein Pachtgrundstück.'
+      : kind === 'leasehold'
+        ? 'Das Grundstück steht im Erbbaurecht.'
+        : 'Das Grundstück ist ein Pachtgrundstück.';
+    return `${lead}${amount}`;
+  }
+  const lead = kind === 'both'
+    ? 'The land is both leasehold (Erbbaurecht) and leased (Pachtgrundstück).'
+    : kind === 'leasehold'
+      ? 'The land is leasehold (Erbbaurecht).'
+      : 'The land is leased (Pachtgrundstück).';
+  return `${lead}${amount}`;
 }
 
 const COPY: Record<RedFlagId, { en: string; de: string }> = {
   leasehold: {
     en: 'Leasehold (Erbbaurecht): you buy the building but not the land, and pay ground rent. Ask for the remaining term, the current Erbbauzins and how it is adjusted. Banks often lend less on leasehold.',
     de: 'Erbbaurecht: Du kaufst das Gebäude, nicht das Grundstück, und zahlst Erbbauzins. Frag nach Restlaufzeit, aktuellem Erbbauzins und Anpassungsklausel. Banken finanzieren Erbbaurechte oft schlechter.',
+  },
+  pacht: {
+    en: 'Land is leased (Pachtgrundstück): the land is not sold with the property. Ask for the lease contract, the remaining term, the annual rent and what happens at the end of the term. Check with the bank, since many lenders will not finance it.',
+    de: 'Pachtgrundstück: Das Grundstück wird nicht mitverkauft. Frag nach dem Pachtvertrag, der Restlaufzeit, der jährlichen Pacht und was am Ende der Laufzeit passiert. Kläre das mit der Bank, viele finanzieren ein Pachtgrundstück nicht.',
   },
   lifeInterest: {
     en: 'The listing mentions a right of residence, usufruct or annuity sale. Someone may keep living in the property or receive payments. Ask for the exact entry in the land register.',
@@ -314,8 +443,8 @@ const COPY: Record<RedFlagId, { en: string; de: string }> = {
     de: 'Das sieht nach einer Zwangsversteigerung aus. Ablauf, Besichtigung und Zahlung folgen anderen Regeln als ein normaler Kauf. Lies das Verkehrswertgutachten und die Bekanntmachung des Gerichts.',
   },
   rentedOccupied: {
-    en: 'Sold with a tenant: you cannot simply move in. If the flat was converted into a condominium during the tenancy, notice for personal use can be barred for years (§ 577a BGB; up to 10 years in Berlin).',
-    de: 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Wurde die Wohnung während des Mietverhältnisses in Eigentum umgewandelt, kann eine Eigenbedarfskündigung jahrelang ausgeschlossen sein (§ 577a BGB; in Berlin bis zu 10 Jahre).',
+    en: 'Sold with a tenant: you cannot simply move in. Owner-occupier notice is restricted, and after a conversion to condominiums it can be blocked for 3 to 10 years depending on the area.',
+    de: 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Eigenbedarf ist eingeschränkt; nach Umwandlung in Eigentum kann er je nach Ort 3 bis 10 Jahre gesperrt sein.',
   },
   commissionAboveShare: {
     en: 'The buyer\'s commission is above the usual 3.57%. For flats and single-family houses, a buyer may not pay a higher share than the seller (§ 656c BGB). Ask for the seller\'s share in writing.',
@@ -349,6 +478,7 @@ const COPY: Record<RedFlagId, { en: string; de: string }> = {
 
 const SHORT: Record<RedFlagId, { en: string; de: string }> = {
   leasehold: { en: 'Leasehold', de: 'Erbbaurecht' },
+  pacht: { en: 'Land is leased (Pachtgrundstück)', de: 'Pachtgrundstück' },
   lifeInterest: { en: 'Right of residence', de: 'Wohnrecht' },
   specialLevy: { en: 'Special levy', de: 'Sonderumlage' },
   teileigentum: { en: 'Teileigentum', de: 'Teileigentum' },
@@ -369,6 +499,10 @@ const QUESTIONS: Record<string, { en: string; de: string }> = {
     en: 'What is the remaining leasehold term, the current Erbbauzins, and how is it adjusted?',
     de: 'Wie lang ist die Restlaufzeit, wie hoch ist der aktuelle Erbbauzins, und wie wird er angepasst?',
   },
+  pacht: {
+    en: 'Please send the lease contract: what is the remaining term, the annual rent, and what happens at the end of the term?',
+    de: 'Bitte den Pachtvertrag schicken: Wie lang ist die Restlaufzeit, wie hoch ist die jährliche Pacht, und was passiert am Ende der Laufzeit?',
+  },
   lifeInterest: {
     en: 'What is the exact land-register entry for the right of residence or usufruct?',
     de: 'Wie lautet der genaue Grundbucheintrag zu Wohnrecht oder Nießbrauch?',
@@ -387,11 +521,29 @@ const QUESTIONS: Record<string, { en: string; de: string }> = {
   },
 };
 
+function cityIsBerlin(report: Pick<Report, 'address' | 'facts'> & { location?: string }) {
+  const city = (report.facts?.city || '').replace(/^kreisfreie\s+stadt\s+/i, '').trim();
+  if (city) return /^berlin(?:\b|[-,])/i.test(city);
+  const location = report.location || '';
+  if (/^berlin(?:\b|[-,])/i.test(location)) return true;
+  return /\bberlin\b/i.test(report.address || '');
+}
+
 export function redFlagSentence(report: Report, flag: RedFlag, locale: 'en' | 'de') {
+  if (flag.id === 'rentedOccupied' && conversionLockHasEnded(flag.evidence)) {
+    return locale === 'de'
+      ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Das Angebot sagt, die umwandlungsbedingte Sperrfrist nach § 577a BGB besteht nicht mehr.'
+      : 'Sold with a tenant: you cannot simply move in. The listing says the conversion lock under § 577a BGB (Sperrfrist) no longer applies.';
+  }
   if (flag.id === 'rentedOccupied' && report.propertyType === 'house') {
     return locale === 'de'
       ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Frag nach dem Mietvertrag, der Kündigungsfrist und ob das Haus frei übergeben werden kann.'
       : 'Sold with a tenant: you cannot simply move in. Ask for the lease, the notice period and whether the house can be handed over vacant.';
+  }
+  if (flag.id === 'rentedOccupied' && cityIsBerlin(report)) {
+    return locale === 'de'
+      ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. In Berlin kann die Kündigungssperrfrist nach einer Umwandlung in Eigentumswohnungen eine Eigenbedarfskündigung bis zu 10 Jahre ausschließen (§ 577a BGB).'
+      : 'Sold with a tenant: you cannot simply move in. In Berlin, the Kündigungssperrfrist after a conversion to condominiums can block owner-occupier notice for up to 10 years (§ 577a BGB).';
   }
   const text = COPY[flag.id][locale];
   if (flag.id !== 'heatingAge') return text;
@@ -425,7 +577,8 @@ export function detectRedFlags(lines: string[], report: Pick<Report, 'propertyTy
   const scoped = listingFactLines(lines);
   const flags: RedFlag[] = [];
   const lease = findGroundLease(scoped);
-  if (lease) push(flags, 'leasehold', lease.evidence);
+  if (lease?.leasehold) push(flags, 'leasehold', lease.leasehold.evidence);
+  if (lease?.pacht) push(flags, 'pacht', lease.pacht.evidence);
   for (const line of scoped) {
     const life = clearMatch(line, LIFE_INTEREST);
     if (life) { push(flags, 'lifeInterest', evidenceQuote(line, life.index)); break; }
@@ -456,10 +609,12 @@ export function detectRedFlags(lines: string[], report: Pick<Report, 'propertyTy
     if (sale) { push(flags, 'forcedSale', evidenceQuote(line, sale.index)); break; }
   }
   if (report.facts.tenancy === 'Rented') {
+    const lock = conversionLockEndedQuote(scoped);
     const line = scoped.find(lineSaysRented) || scoped.find(item => /\bvermietet\b/i.test(item) && !/(?:nicht|un)\s*vermietet/i.test(item));
-    const sentence = line?.split(/(?<=[.!?])\s+/).find(sentenceSaysRented) || '';
+    const sentence = line ? splitSentences(line).find(sentenceSaysRented) || '' : '';
     const at = line && sentence ? line.indexOf(sentence) : 0;
-    push(flags, 'rentedOccupied', line ? evidenceQuote(line, Math.max(0, at)) : undefined);
+    const quote = lock || (line ? evidenceQuote(line, Math.max(0, at)) : undefined);
+    push(flags, 'rentedOccupied', quote ? evidenceQuote(quote) : undefined);
   }
   const heating = heatingInstallYear(scoped);
   const asOf = Number(report.createdAt.slice(0, 4));

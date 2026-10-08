@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
 import { reportConflicts, reportVerdict, scoreAvailable, scoreExplanation, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { berlinPriceCheck } from '../lib/price-check.ts';
+import { localizedTenancy } from '../lib/i18n.ts';
 import {
   activeScoreWeights,
   calculatePropertyScore,
@@ -99,6 +100,7 @@ function shell(overrides = {}) {
     typeSource: 'structured',
     source: 'test',
     createdAt: '2026-10-08T00:00:00.000Z',
+    extractionVersion: EXTRACTION_VERSION,
     score: null,
     summary: '',
     considerations: [],
@@ -269,7 +271,7 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
 });
 
 test('saved fixtures score price only for the Berlin flat, without a new extraction version', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100802);
+  assert.equal(EXTRACTION_VERSION, 2026100803);
   const parsed = (id) => parseListing(
     readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8'),
     `https://example.test/${id}`,
@@ -294,8 +296,13 @@ test('saved fixtures score price only for the Berlin flat, without a new extract
 
   assert.equal(osnabruckScore.breakdown.price, null);
   assert.equal(scoreConfidence(osnabruck).present, 8);
-  assert.equal(scoreAvailable(osnabruck), false);
-  assert.equal(scoreExplanation(osnabruck, 'en'), 'Score withheld: the listing contradicts itself on rental status.');
-  assert.equal(scoreExplanation(osnabruck, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Vermietung.');
+  assert.equal(scoreConfidence(osnabruck).level, 'high');
+  assert.equal(osnabruck.facts.tenancyConflict, true);
+  assert.equal(reportConflicts(osnabruck).length, 0);
+  assert.equal(scoreAvailable(osnabruck), true);
+  assert.equal(localizedTenancy(osnabruck.facts.tenancy, osnabruck.facts.availabilityDate, 'en'), 'Rented, free from 1 December 2026');
+  assert.equal(localizedTenancy(osnabruck.facts.tenancy, osnabruck.facts.availabilityDate, 'de'), 'Vermietet, frei ab 1. Dezember 2026');
+  assert.doesNotMatch(scoreExplanation(osnabruck, 'en'), /contradict/);
+  assert.doesNotMatch(scoreExplanation(osnabruck, 'de'), /widerspricht/);
   assert.equal(reportConflicts(osnabruck).some(problem => /separately quotes/i.test(problem)), false);
 });

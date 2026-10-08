@@ -10,7 +10,7 @@ import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
 import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
 import { MAX_PDF_BYTES } from '@/lib/pdf-source';
-import { requestJson } from '@/lib/client-request';
+import { requestJson, shownRequestError } from '@/lib/client-request';
 import { pdfTextFromItems } from '@/lib/pdf-text';
 
 const PDF_PAGE_BATCH_SIZE = 4;
@@ -114,7 +114,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
       await assess(pasteOpen ? { text: listingText, name: locale === 'de' ? 'Eingefügtes Immobilienangebot' : 'Pasted property listing' } : { url });
     } catch (error) {
       const fallback = locale === 'de' ? 'Die Verbindung ist fehlgeschlagen oder hat zu lange gedauert. Versuche es erneut. Deine Eingabe bleibt erhalten.' : 'The connection failed or took too long. Please try again. Your input has been kept.';
-      setStatus(error instanceof Error && !/fetch|network|request_timeout|json|unexpected|load failed/i.test(error.message) ? error.message : fallback);
+      setStatus(shownRequestError(error instanceof Error ? error.message : undefined, fallback));
     } finally { inFlight.current = false; setBusy(false); }
   }
 

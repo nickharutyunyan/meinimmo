@@ -3,20 +3,41 @@ import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
 import { missingKeyFacts, scoreConfidence } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100802;
+export const EXTRACTION_VERSION = 2026100803;
+
+export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
+
+/**
+ * Old or missing extraction versions stay readable. A report saved before
+ * extractionVersion existed omits the field and is stale: the score is
+ * withheld and the backfill can select it. Armenian reports use their own rubric.
+ */
+export function reportIsStale(report: Pick<Report, 'country' | 'extractionVersion' | 'sourceUnavailable'>) {
+  if (report.sourceUnavailable) return true;
+  if (report.country === 'AM') return false;
+  if (report.extractionVersion == null) return true;
+  return report.extractionVersion !== EXTRACTION_VERSION;
+}
+
+/** Attach the stale warning for this response. Does not read archived HTML or write D1. */
+export function presentStoredReport<T extends Report>(report: T): T {
+  if (!reportIsStale(report)) return report;
+  if ((report.qualityWarnings || []).includes(STALE_REPORT_WARNING)) return report;
+  return { ...report, qualityWarnings: [...(report.qualityWarnings || []), STALE_REPORT_WARNING] };
+}
 
 const CONFLICT_NOTE = /conflicting|conflicts with|occupants remain|class and consumption|needs a fresh source review/i;
 
 export function reportConflicts(report: Report) {
   const problems: string[] = [];
   const f = report.facts;
-  if (report.sourceUnavailable || (report.extractionVersion !== undefined && report.extractionVersion !== EXTRACTION_VERSION)) problems.push('This saved report needs a fresh source review. Re-import the listing or upload its Exposé.');
+  if (reportIsStale(report)) problems.push(STALE_REPORT_WARNING);
   if (f.street && !validStreet(f.street)) problems.push('The extracted street is not a valid property location.');
   if (f.buyerCosts !== undefined && f.totalCost >= f.price && Math.abs(f.price + f.buyerCosts - f.totalCost) > 2) problems.push('The stated purchase price, buyer costs and total do not agree. Financing uses the stated total; confirm the breakdown.');
   if (/^New build$/i.test(f.condition || '') && Number(f.year) < Number(report.createdAt.slice(0, 4)) - 5) problems.push('Construction year and new-build condition conflict. Confirm the actual condition.');
   // A separately priced garage stays a data note. It is not a conflict and must not withhold the score.
+  // A table-vs-text tenancy that R3 already resolved to one status is not a contradiction either.
   problems.push(...(report.qualityWarnings || []).filter(w => CONFLICT_NOTE.test(w) && !/separately quotes/i.test(w)));
-  if (f.tenancyConflict && !problems.some(problem => /conflicts with|occupants remain|rental status/i.test(problem))) problems.push('The listing contradicts itself on rental status.');
   return [...new Set(problems)];
 }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseListing } from '../lib/listing-parser.ts';
-import { reportConflicts, scoreAvailable, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { presentStoredReport, reportConflicts, reportIsStale, scoreAvailable, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { guardEnrichment, openRouterFactCheckAccepted } from '../lib/verification-guard.ts';
 import { fetchListing } from '../lib/listing-fetch.ts';
 
@@ -19,6 +19,18 @@ test('source conflicts suppress the verdict even when AI flags claim verificatio
  r.extractionVersion = EXTRACTION_VERSION;
  r.sourceUnavailable = true;
  assert.equal(scoreAvailable(r), false);
+ delete r.sourceUnavailable;
+ delete r.extractionVersion;
+ assert.equal(r.extractionVersion, undefined);
+ assert.equal(reportIsStale(r), true);
+ assert.equal(scoreAvailable(r), false);
+ assert.match(reportConflicts(r).join(' '), /fresh source review/);
+ const served = presentStoredReport(r);
+ assert.match(served.qualityWarnings.join(' '), /fresh source review/);
+ assert.equal(presentStoredReport(served), served);
+ assert.equal(reportIsStale({ ...r, country: 'AM', sourceUnavailable: false }), false);
+ assert.equal(served.facts.city, 'Berlin');
+ assert.equal(served.facts.price, 400000);
 });
 test('AI extraction cannot overwrite evidence or call partial output fully verified', () => {
  const original = parseListing(source, 'test');
