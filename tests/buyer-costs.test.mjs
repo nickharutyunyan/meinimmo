@@ -156,9 +156,11 @@ test('commission is used only as stated, including VAT, a euro amount, free, and
   assert.match(buyerCostView(listing({ city: 'Berlin', buyerCommission: '12.500 €' }), 'de').rows[2].basis, /Laut Angebot/);
 
   const free = buyerCostView(listing({ city: 'Berlin', buyerCommission: 'Commission-free' }), 'en');
-  assert.equal(free.rows[2].amount, money(0, 'en'));
+  assert.equal(free.rows[2].amount, '€0');
   assert.match(free.rows[2].basis, /commission-free/);
-  assert.match(buyerCostView(listing({ city: 'Berlin', buyerCommission: 'provisionsfrei' }), 'de').rows[2].basis, /provisionsfrei/);
+  const freeDe = buyerCostView(listing({ city: 'Berlin', buyerCommission: 'provisionsfrei' }), 'de');
+  assert.equal(freeDe.rows[2].amount.replace(/\u00a0/g, ' '), '0 €');
+  assert.match(freeDe.rows[2].basis, /provisionsfrei/);
 
   const omitted = buyerCostView(listing({ city: 'Berlin' }), 'en');
   assert.equal(omitted.rows[2].amount, '');

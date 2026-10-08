@@ -3,6 +3,7 @@ import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './locatio
 import { guardEnrichment, openRouterFactCheckAccepted } from './verification-guard';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
+import { absorbVerifiedQuotes, verifiedQuotesFromAi } from './fact-evidence';
 import { htmlToLines, parseListingNumber, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
 import { displayAddress, resolveLocation } from './display';
 import { isObviousAddressQuestion, offerQuestionsFor } from './report-copy';
@@ -158,6 +159,16 @@ function mergeVerifiedFacts(report: Report, value: unknown, source: string) {
   if (energy) facts.energy = energy.toUpperCase();
 
   report.facts = facts;
+  report.factEvidence = absorbVerifiedQuotes(report.factEvidence, verifiedQuotesFromAi({
+    price: priceEvidence,
+    rooms: roomsEvidence,
+    area: areaEvidence,
+    housegeld: housegeldEvidence,
+    occupancy: occupancyEvidence,
+    year: yearEvidence,
+    floor: floorEvidence,
+    energy: energyEvidence,
+  }), facts, report.address);
   return report;
 }
 

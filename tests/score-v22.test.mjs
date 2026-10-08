@@ -87,7 +87,7 @@ const SCORES = {
 };
 
 test('saved reports keep the v2.2 totals, and a shown score is never Low', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100805);
+  assert.equal(EXTRACTION_VERSION, 2026100806);
   for (const [name, expected] of Object.entries(SCORES)) {
     const report = saved(name);
     const score = calculatePropertyScore(report);

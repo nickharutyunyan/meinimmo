@@ -4,6 +4,7 @@ import { report } from '@/lib/store';
 import { cachedMortgageRate } from '@/lib/current-mortgage-rate';
 import { reportPageMetadata } from '@/lib/page-meta';
 import { ReportView } from '@/components/ReportView';
+import { factFeedbackReady } from '@/lib/fact-feedback-store';
 import { ArmeniaReport } from '@/components/ArmeniaReport';
 
 const getReport = cache(report);
@@ -27,5 +28,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!item) notFound();
   if (item.country === 'AM') return <ArmeniaReport report={item} />;
   const mortgageRate = await cachedMortgageRate();
-  return <ReportView report={item} locale="en" mortgageRate={mortgageRate} renderedAt={Date.now()} />;
+  const reportingEnabled = await factFeedbackReady().catch(() => false);
+  return <ReportView report={item} locale="en" mortgageRate={mortgageRate} renderedAt={Date.now()} reportingEnabled={reportingEnabled} />;
 }

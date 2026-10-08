@@ -1,6 +1,29 @@
 import type { FactualTaxonomy, TaxonomyEvidence } from './property-taxonomy';
 import type { RedFlag } from './red-flags';
 
+/** Fields a buyer can trace to one listing sentence. Derived figures are not stored here. */
+export type FactKey =
+  | 'price'
+  | 'area'
+  | 'usableArea'
+  | 'rooms'
+  | 'year'
+  | 'floor'
+  | 'energy'
+  | 'energyDemand'
+  | 'heating'
+  | 'housegeld'
+  | 'buyerCommission'
+  | 'buyerCosts'
+  | 'tenancy'
+  | 'availabilityDate'
+  | 'address'
+  | 'advertisedYield';
+
+export type StatedFactEvidence = { excerpt: string; kind: 'stated' };
+
+export type FactEvidence = Partial<Record<FactKey, StatedFactEvidence>>;
+
 export type Facts = {
   price: number;
   area: number;
@@ -101,7 +124,10 @@ export type Report = {
   verificationAttempted?: boolean;
   sourceUnavailable?: boolean;
   sourceReviewAttemptedAt?: string;
+  /** Legacy excerpts. Kept for reports saved before value-matched evidence. Not shown. */
   evidence?: Record<string, string[]>;
+  /** Value-matched listing quotes, stored at parse time. Views do not re-parse. */
+  factEvidence?: FactEvidence;
   country?: 'DE' | 'AM';
   armenia?: {
     currency: 'AMD';

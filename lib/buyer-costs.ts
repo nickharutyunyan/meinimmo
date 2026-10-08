@@ -1,5 +1,5 @@
 import type { Locale } from './i18n.ts';
-import { money, percent } from './format.ts';
+import { money, moneyEuros, percent } from './format.ts';
 import { buyerCommissionPercent } from './red-flags.ts';
 
 /**
@@ -552,7 +552,7 @@ function brokerCopy(line: BuyerCostLine, price: number, commission: Commission, 
     return {
       key: 'broker',
       label,
-      amount: money(0, locale),
+      amount: moneyEuros(0, locale),
       share: shareText(0, 0, price, locale),
       basis: locale === 'de' ? 'Keine (provisionsfrei).' : 'None (commission-free).',
     };
@@ -561,7 +561,7 @@ function brokerCopy(line: BuyerCostLine, price: number, commission: Commission, 
     return {
       key: 'broker',
       label,
-      amount: money(line.low, locale),
+      amount: moneyEuros(line.low, locale),
       share: shareText(line.low, line.high, price, locale),
       basis: locale === 'de' ? 'Laut Angebot.' : 'Stated in the listing.',
     };
@@ -578,7 +578,7 @@ function brokerCopy(line: BuyerCostLine, price: number, commission: Commission, 
   return {
     key: 'broker',
     label,
-    amount: money(line.low, locale),
+    amount: moneyEuros(line.low, locale),
     share: shareText(line.low, line.high, price, locale),
     basis,
   };

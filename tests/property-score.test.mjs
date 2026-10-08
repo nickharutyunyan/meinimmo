@@ -335,7 +335,7 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
 });
 
 test('saved fixtures score price only for the Berlin flat', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100805);
+  assert.equal(EXTRACTION_VERSION, 2026100806);
   const parsed = (id) => parseListing(
     readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8'),
     `https://example.test/${id}`,

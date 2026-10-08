@@ -7,7 +7,8 @@ import { canonicalCondition } from './property-condition.ts';
 import { detectRedFlags, findGroundLease, findHeatingInstallYear, findSoldAsIs, findTenancyConflict, findTimberFrame, splitSentences } from './red-flags.ts';
 import { money } from './format.ts';
 import { localizedConsiderations, localizedSummary } from './report-copy.ts';
-import { EXTRACTION_VERSION, attachCalculatedScore, evidenceForFacts, reportConflicts } from './report-integrity.ts';
+import { factEvidence, isContactLine } from './fact-evidence.ts';
+import { EXTRACTION_VERSION, attachCalculatedScore, reportConflicts } from './report-integrity.ts';
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
@@ -214,11 +215,11 @@ function elementText(raw: string, tag: string) {
   return '';
 }
 
-function pageTitle(raw: string) {
+function pageTitle(raw: string, lines?: string[]) {
   const tagged = elementText(raw, 'h1') || elementText(raw, 'title');
   if (tagged) return tidy(tagged);
   if (/<[a-z]/i.test(raw)) return '';
-  return htmlToLines(raw).find(line => line.length >= 12 && /\p{L}/u.test(line)) || '';
+  return (lines || htmlToLines(raw)).find(line => line.length >= 12 && /\p{L}/u.test(line)) || '';
 }
 
 function aroundLabel(lines: string[], label: RegExp, value: RegExp, before = 2, after = 3) {
@@ -966,7 +967,7 @@ function findInvestmentUse(title: string, lines: string[]) {
 export function parseListing(raw: string, source: string): Report {
   const lines = htmlToLines(raw);
   const text = lines.join(' \n ').slice(0, 30_000);
-  const title = pageTitle(raw);
+  const title = pageTitle(raw, lines);
   const currency = /(\d[\d.,]*)\s*(?:€|EUR|e(?=\s|$))/i;
   const areaValue = /(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
 
@@ -1011,7 +1012,7 @@ export function parseListing(raw: string, source: string): Report {
   const conditionRaw = checkedCharacteristic(firstMatch(lines, /\b(?:Objektzustand|Bauzustand|Zustand|Condition)\b\s*[:\-]?\s*([^|;]{3,60})$/i)
     || aroundLabel(lines, /^(?:Objektzustand|Bauzustand|Zustand|Condition)$/i, /^(.{3,60})$/, 0, 2), 'condition');
   const locationStart = lines.findIndex(line => /^(?:Lage|Lagebeschreibung|Location)$/i.test(line));
-  const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart);
+  const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart).filter(line => !isContactLine(line));
   const condition = normalizedCondition(conditionRaw, `${title} ${propertyLines.join(' ').slice(0, 12_000)}`);
   const tenancyRaw = checkedCharacteristic(firstMatch(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)\s*[:\-]?\s+(.{3,45})$/i) || aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2), 'tenancy');
   const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
@@ -1171,7 +1172,7 @@ export function parseListing(raw: string, source: string): Report {
 
   const report: Report = {
     extractionVersion: EXTRACTION_VERSION,
-    evidence: evidenceForFacts(lines, facts),
+    factEvidence: factEvidence(lines, facts, address),
     id: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
     title: '',
     address,
@@ -1209,7 +1210,7 @@ export function refreshDerivedReport(report: Report) {
 
 export function unsupportedListingReason(raw: string) {
   const lines = htmlToLines(raw);
-  const title = pageTitle(raw);
+  const title = pageTitle(raw, lines);
   if (/\b(?:Autohaus|Gewerbezentrum|Ladenlokal|Bürofläche|Einzelhandel|Gewerbegrundstück)\b/i.test(title) || lines.some(line => /^Objektart\s+(?:Einzelhandel|Büro|Gewerbe|Grundstück)/i.test(line))) return 'Only residential apartments and houses for purchase are supported in Germany.';
   if (!lines.some(line => /Kaufpreis|purchase price|asking price/i.test(line)) && lines.some(line => /Kaltmiete|zur Vermietung|zur Miete|for rent/i.test(line))) return 'This is a rental listing. Use a residential property for purchase.';
   return undefined;
