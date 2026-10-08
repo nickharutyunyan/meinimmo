@@ -141,6 +141,15 @@
   .print-controls button { font-size: 11px; }
 }
 
+.print-price-check {
+  margin: 3mm 0 0;
+  color: #2c4038;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.print-price-check a { color: inherit; }
+
 .print-flags ul { margin: 2mm 0 0; padding-left: 4mm; }
 .print-flags li { margin: 2mm 0; font-size: 11px; line-height: 1.45; }
 .print-flags blockquote { margin: 1mm 0 2mm; padding-left: 3mm; border-left: 1px solid #cfcbbf; color: #5c6b65; font-size: 10px; overflow-wrap: anywhere; }

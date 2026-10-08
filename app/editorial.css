@@ -2154,6 +2154,26 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   .comparison-mobile dd { font-size: 14px; overflow-wrap: anywhere; }
 }
 
+.price-check > p:not(.eyebrow) {
+  max-width: 68ch;
+  margin: 12px 0 0;
+  color: #2c4038;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.price-check .price-check-note,
+.price-check .price-check-source {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.price-check a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 350px) {
   .nav-links a:nth-child(3) { display: none; }
 }
