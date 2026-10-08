@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assetPathForPathname, cacheFileToAssetPath, isCacheableDocument, isRouterDataRequest, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
+import { applyDocumentLanguage, assetPathForPathname, cacheFileToAssetPath, documentLanguage, isCacheableDocument, isRouterDataRequest, pathnameForPublishedAsset, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
 import { withTimeout } from '../lib/io-timeout.ts';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { invalidateReportHtml, reportHtmlUrls } from '../lib/report-html-cache.ts';
@@ -117,6 +117,20 @@ test('a stalled promise rejects instead of hanging', async () => {
   assert.equal(await withTimeout(Promise.resolve('ok'), 30), 'ok');
 });
 
+test('German document HTML carries lang=de and English stays lang=en', () => {
+  assert.equal(documentLanguage('/de'), 'de');
+  assert.equal(documentLanguage('/de/r/abc'), 'de');
+  assert.equal(documentLanguage('/'), 'en');
+  assert.equal(documentLanguage('/r/abc'), 'en');
+  assert.equal(documentLanguage('/am'), 'en');
+  const english = '<html lang="en"><head><title>Bericht</title></head></html>';
+  assert.equal(applyDocumentLanguage(english, '/de/r/abc'), '<html lang="de"><head><title>Bericht</title></head></html>');
+  assert.equal(applyDocumentLanguage(english, '/r/abc'), english);
+  assert.equal(applyDocumentLanguage('<html><body></body></html>', '/de'), '<html lang="de"><body></body></html>');
+  assert.equal(pathnameForPublishedAsset('de/index.html'), '/de');
+  assert.equal(pathnameForPublishedAsset('index.html'), '/');
+});
+
 test('cached report HTML is the anonymous document', () => {
   const shared = '<a class="account-nav" href="/account">Sign in</a><section class="card private-note"><p>YOUR NOTE</p><textarea></textarea>';
   assert.equal(reportHtmlIsShared(shared), true);
@@ -139,6 +153,7 @@ test('the worker serves prerendered documents before the Next handler', async ()
   assert.match(worker, /env\.ASSETS\.fetch/);
   assert.match(worker, /applySecurityHeaders/);
   assert.match(worker, /reportHtmlIsShared/);
+  assert.match(worker, /applyDocumentLanguage/);
   assert.match(worker, /reportCacheRequest\(request\.url, REPORT_CACHE_BUILD_ID\)/);
   assert.match(worker, /from '\.\/build-id\.mjs'/);
   const reportPage = await read('app/r/[id]/page.tsx');

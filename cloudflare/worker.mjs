@@ -2,7 +2,7 @@ import nextWorker, { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from 
 import { REPORT_CACHE_BUILD_ID } from './build-id.mjs';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
-import { assetPathForPathname, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
+import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
 
@@ -103,16 +103,27 @@ async function fetchNext(request, env, ctx) {
   }
 }
 
+async function withDocumentLanguage(response, pathname, method) {
+  if (method === 'HEAD' || documentLanguage(pathname) === 'en') return response;
+  const type = response.headers.get('content-type') || '';
+  if (!type.includes('text/html')) return response;
+  const html = applyDocumentLanguage(await response.text(), pathname);
+  const headers = new Headers(response.headers);
+  headers.delete('content-length');
+  return new Response(html, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    let response;
     if (isCacheableDocument(request.method, url.pathname, request.headers, url.searchParams)) {
-      if (request.method === 'GET' && reportDocumentId(url.pathname)) return serveReport(request, env, ctx);
-      if (!reportDocumentId(url.pathname)) {
+      if (request.method === 'GET' && reportDocumentId(url.pathname)) response = await serveReport(request, env, ctx);
+      else if (!reportDocumentId(url.pathname)) {
         const asset = await fetchAsset(request, env, url.pathname);
-        if (asset) return asset;
-      }
-    }
-    return fetchNext(request, env, ctx);
+        response = asset || await fetchNext(request, env, ctx);
+      } else response = await fetchNext(request, env, ctx);
+    } else response = await fetchNext(request, env, ctx);
+    return withDocumentLanguage(response, url.pathname, request.method);
   },
 };

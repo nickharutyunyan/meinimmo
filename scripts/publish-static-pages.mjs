@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { cacheFileToAssetPath } from '../cloudflare/routes.mjs';
+import { applyDocumentLanguage, cacheFileToAssetPath, pathnameForPublishedAsset } from '../cloudflare/routes.mjs';
 
 export function publishedBody(cache) {
   if (cache && typeof cache.html === 'string') return { body: cache.html, contentType: 'text/html; charset=utf-8' };
@@ -47,9 +47,12 @@ export async function publishStaticPages(cacheDir, assetDir) {
     if (!assetRelative) continue;
     const published = publishedBody(JSON.parse(await readFile(file, 'utf8')));
     if (!published) continue;
+    const body = published.contentType.includes('text/html')
+      ? applyDocumentLanguage(published.body, pathnameForPublishedAsset(assetRelative))
+      : published.body;
     const destination = path.join(assetDir, assetRelative);
     await mkdir(path.dirname(destination), { recursive: true });
-    await writeFile(destination, published.body);
+    await writeFile(destination, body);
     written.push(assetRelative);
   }
   return written;

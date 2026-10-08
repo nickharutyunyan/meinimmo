@@ -118,7 +118,10 @@ test('English reports localize common German floor and heating labels', () => {
   assert.equal(localizedValue('EG', 'en'), 'Ground floor');
   assert.equal(localizedValue('Etagenheizung', 'en'), 'Individual heating system');
   assert.equal(localizedValue('Zentralheizung', 'en'), 'Central heating');
+  assert.equal(localizedValue('Fernwärme', 'en'), 'District heating');
+  assert.equal(localizedValue('Luft-/Wasserwärme', 'en'), 'Air-to-water heat pump');
   assert.equal(localizedValue('3. OG', 'de'), '3. OG');
+  assert.equal(localizedValue('Fernwärme', 'de'), 'Fernwärme');
 });
 
 test('explicit buyer commission wording is localized clearly', () => {

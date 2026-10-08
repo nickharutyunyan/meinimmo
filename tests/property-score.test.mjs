@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
-import { reportConflicts, reportVerdict, scoreAvailable, scoreExplanation, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { reportConflicts, reportVerdict, scoreAvailable, scoreBasisLine, scoreExplanation, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { berlinPriceCheck } from '../lib/price-check.ts';
 import { localizedTenancy } from '../lib/i18n.ts';
 import {
@@ -230,6 +230,53 @@ test('four of eight key facts withholds the score in English and German', () => 
   assert.equal(scoreExplanation(conflicted, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Zimmerzahl.');
 });
 
+test('German withhold reasons use the right preposition for each fact', () => {
+  const cases = [
+    [shell({ qualityWarnings: ['The description says occupants remain.'] }), 'bei der Vermietung'],
+    [shell({ qualityWarnings: ['The listing gives conflicting room counts.'] }), 'bei der Zimmerzahl'],
+    [shell({ qualityWarnings: ['The energy class and consumption figures conflict.'] }), 'beim Energieausweis'],
+    [shell({ facts: { price: 100_000, buyerCosts: 20_000, totalCost: 100_000 } }), 'beim Kaufpreis'],
+    [shell({ facts: { condition: 'New build', year: '2001' } }), 'beim Baujahr'],
+  ];
+  for (const [report, phrase] of cases) {
+    const text = scoreExplanation(report, 'de');
+    assert.match(text, new RegExp(phrase));
+    assert.doesNotMatch(text, /bei dem/);
+  }
+  const both = shell({ qualityWarnings: ['The energy class and consumption figures conflict.', 'The listing gives conflicting room counts.'] });
+  assert.equal(scoreExplanation(both, 'de'), 'Kein Score: Das Angebot widerspricht sich beim Energieausweis und bei der Zimmerzahl.');
+});
+
+test('a withheld score replaces the confidence line with the reason', () => {
+  const conflicted = shell({ qualityWarnings: ['The listing gives conflicting room counts. Confirm the floor plan.'] });
+  assert.equal(scoreConfidence(conflicted).level, 'high');
+  assert.equal(scoreAvailable(conflicted), false);
+  assert.equal(scoreBasisLine(conflicted, 'en'), 'Score withheld: the listing contradicts itself on the room count.');
+  assert.equal(scoreBasisLine(conflicted, 'de'), 'Kein Score: Das Angebot widerspricht sich bei der Zimmerzahl.');
+  assert.doesNotMatch(scoreBasisLine(conflicted, 'en'), /Confidence/);
+  assert.doesNotMatch(scoreBasisLine(conflicted, 'de'), /Verlässlichkeit/);
+  assert.match(scoreBasisLine(shell(), 'en'), /^Confidence: High · 8 of 8 key facts$/);
+  assert.match(scoreBasisLine(shell(), 'de'), /^Verlässlichkeit: Hoch · 8 von 8 Kernangaben$/);
+
+  const staleAndConflict = shell({
+    extractionVersion: 1,
+    qualityWarnings: [
+      'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.',
+      'The listing gives conflicting room counts. Confirm the floor plan.',
+    ],
+  });
+  const en = scoreBasisLine(staleAndConflict, 'en');
+  const de = scoreBasisLine(staleAndConflict, 'de');
+  assert.equal(en, 'Score withheld: the listing contradicts itself on the room count. Score withheld: this saved report needs a fresh source review.');
+  assert.equal(de, 'Kein Score: Das Angebot widerspricht sich bei der Zimmerzahl. Kein Score: Dieser gespeicherte Bericht braucht eine neue Quellenprüfung.');
+  for (const line of [en, de]) {
+    const parts = line.split(/(?<=\.)\s+/);
+    assert.equal(new Set(parts).size, parts.length);
+  }
+  assert.ok(en.indexOf('room count') < en.indexOf('fresh source review'));
+  assert.ok(de.indexOf('Zimmerzahl') < de.indexOf('Quellenprüfung'));
+});
+
 test('missing walking time and sun orientation do not withhold the score', () => {
   const sparse = shell({
     sunOrientation: 'not stated',
@@ -270,8 +317,8 @@ test('a separately priced garage is a note, not a conflict, and stays out of the
   assert.match(lichterfelde.qualityWarnings.join(' '), /separately quotes/);
 });
 
-test('saved fixtures score price only for the Berlin flat, without a new extraction version', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100803);
+test('saved fixtures score price only for the Berlin flat at the current extraction version', () => {
+  assert.equal(EXTRACTION_VERSION, 2026100804);
   const parsed = (id) => parseListing(
     readFileSync(new URL(`./fixtures/listings/ohne-makler-${id}.html`, import.meta.url), 'utf8'),
     `https://example.test/${id}`,
