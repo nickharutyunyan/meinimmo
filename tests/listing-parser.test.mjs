@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { checkedCharacteristic, findSunOrientation, looksLikePropertyListing, parseListing, statesPrivateGarden } from '../lib/listing-parser.ts';
+import { EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { localizedFeatures, localizedValue } from '../lib/i18n.ts';
 import { localizedConsiderations } from '../lib/report-copy.ts';
 
@@ -556,4 +557,40 @@ test('terrace and garden advice follows what the listing actually states', () =>
   assert.doesNotMatch(privateGarden.considerations.join(' '), /terrace/i);
   assert.match(localizedConsiderations(privateGarden, 'de').join(' '), /private Gartennutzungsrecht \(Sondernutzungsrecht\)/);
   assert.doesNotMatch([...privateGarden.considerations, ...localizedConsiderations(privateGarden, 'de')].join('\n'), /ImmoScout|Ohne-Makler|ohne-makler/i);
+});
+
+test('keeps a multi-unit house room total and a stated energy class that disagrees with demand', () => {
+  assert.equal(EXTRACTION_VERSION, 2026100803);
+  const html = `<html><head><title>NEUWERTIGES MEHRFAMILIENHAUS IN BOCHUM-LINDEN – ATTRAKTIVE KAPITALANLAGE MIT 6 WOHNEINHEITEN</title></head><body><main>
+    <div>44879 Bochum (Linden) – Nordrhein-Westfalen</div>
+    <div>Kaufpreis: 1.180.000 €</div>
+    <div>17</div><div>Zimmer</div>
+    <div>439,12 m²</div><div>Wohnfläche</div>
+    <p>Dieses im Jahr 2022 errichtete Mehrfamilienhaus in Bochum-Linden bietet sechs Wohnungen. Auf vier Wohnebenen stehen insgesamt rund 439,12 m² Wohnfläche zur Verfügung.</p>
+    <p>Wohnung 1: UG - 97,00 m² Vier-Zimmer-Wohnung im Sockelgeschoss.</p>
+    <p>Wohnung 2: EG - 72,04 m² Drei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 3: EG - 58,09 m² Zwei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 4: 1. OG - 72,04 m² Drei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 5: 1. OG - 58,09 m² Zwei-Zimmer-Wohnung mit Balkon.</p>
+    <p>Wohnung 6: SG - 81,86 m² Drei-Zimmer-Wohnung mit Dachterrasse.</p>
+    <div>Aktuelle Nutzung</div><div>Vermietet</div>
+    <div>Objektart</div><div>Haus</div>
+    <div>Energieeffizienzklasse</div><div>A</div>
+    <div>Energieausweistyp</div><div>Bedarfsausweis</div>
+    <div>Endenergiebedarf</div><div>24,00 kWh/(m²a)</div>
+  </main></body></html>`;
+  const report = parseListing(html, 'https://example.test/bochum-linden');
+  assert.equal(report.extractionVersion, 2026100803);
+  assert.equal(report.propertyType, 'house');
+  assert.equal(report.facts.rooms, '17');
+  assert.equal(report.facts.area, 439.12);
+  assert.equal(report.facts.city, 'Bochum');
+  assert.equal(report.facts.district, 'Linden');
+  assert.equal(report.facts.energy, 'A');
+  assert.equal(report.facts.energyDemand, 24);
+  assert.equal(report.facts.energyCertificate, 'Bedarfsausweis');
+  assert.equal(report.facts.price, 1180000);
+  assert.equal(report.title, '17-room house · Linden');
+  assert.equal(report.score, null);
+  assert.ok(report.qualityWarnings.some(warning => /energy class and consumption/i.test(warning)));
 });

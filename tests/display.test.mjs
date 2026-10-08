@@ -128,3 +128,48 @@ test('uses only property type when both rooms and area are unavailable', () => {
   assert.equal(reportTitle(report), 'House · Prenzlauer Berg');
   assert.doesNotMatch(reportTitle(report), /2024-built/);
 });
+
+test('omits an unknown room count from English and German titles', () => {
+  const unknowns = ['not stated', 'not  stated', 'not\u00a0stated', 'k.A.', 'k. A.', 'keine Angabe', 'nicht angegeben', 'n/a', '—', '0', ''];
+  for (const rooms of unknowns) {
+    const report = { ...base, facts: { ...base.facts, rooms } };
+    assert.equal(reportTitle(report), '81 m² flat · Prenzlauer Berg', JSON.stringify(rooms));
+    assert.equal(reportTitle(report, 'de'), '81 m² Wohnung · Prenzlauer Berg', JSON.stringify(rooms));
+    assert.doesNotMatch(reportTitle(report), /room/i);
+    assert.doesNotMatch(reportTitle(report, 'de'), /Zimmer/);
+  }
+  const counted = { ...base, facts: { ...base.facts, rooms: '2,5' } };
+  assert.equal(reportTitle(counted), '2.5-room flat · Prenzlauer Berg');
+  assert.equal(reportTitle(counted, 'de'), '2,5-Zimmer-Wohnung · Prenzlauer Berg');
+});
+
+test('shows a town once in the title and the map label', () => {
+  const street = {
+    ...base,
+    address: 'Uthmannstr. 13, Reinbek',
+    location: 'Reinbek',
+    facts: { ...base.facts, city: 'Reinbek', district: undefined, street: 'Uthmannstr. 13, Reinbek' },
+  };
+  const streetLocation = resolveLocation(street);
+  assert.equal(streetLocation.basis, 'street');
+  assert.equal(streetLocation.mapLabel, 'Uthmannstr. 13, Reinbek');
+  assert.equal(reportTitle(street), '3-room flat · Uthmannstr. 13, Reinbek');
+  assert.equal(reportTitle(street, 'de'), '3-Zimmer-Wohnung · Uthmannstr. 13, Reinbek');
+  assert.equal(reportSubtitle(street), 'Uthmannstr. 13, Reinbek');
+  assert.doesNotMatch(`${streetLocation.mapLabel} ${reportTitle(street)}`, /Reinbek\s+Reinbek/i);
+
+  const doubled = { ...street, address: 'Uthmannstr. 13, Reinbek Reinbek' };
+  assert.equal(resolveLocation(doubled).mapLabel, 'Uthmannstr. 13, Reinbek');
+  assert.equal(reportTitle(doubled), '3-room flat · Uthmannstr. 13, Reinbek');
+
+  const town = { ...street, address: 'Reinbek, Reinbek', location: 'Reinbek Reinbek', facts: { ...street.facts, street: 'Reinbek' } };
+  const townLocation = resolveLocation(town);
+  assert.equal(townLocation.basis, 'city');
+  assert.equal(townLocation.mapLabel, 'Reinbek');
+  assert.equal(reportTitle(town), '3-room flat · Reinbek');
+  assert.equal(reportTitle(town, 'de'), '3-Zimmer-Wohnung · Reinbek');
+
+  const named = { ...street, address: 'Am Reinbek', facts: { ...street.facts, street: 'Am Reinbek' } };
+  assert.equal(resolveLocation(named).mapLabel, 'Am Reinbek');
+  assert.equal(reportTitle(named), '3-room flat · Am Reinbek');
+});

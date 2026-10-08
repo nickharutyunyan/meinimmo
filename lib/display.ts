@@ -40,10 +40,10 @@ function escapeExpression(value: string) {
 }
 
 function streetOnly(address: string, city: string) {
-  return displayAddress(address)
+  return collapseRepeatedTown(displayAddress(address)
     .replace(new RegExp(`,?\\s*\\b\\d{5}\\b\\s*${city ? escapeExpression(city) : '[\\p{L}äöüß.-]+'}\\s*$`, 'iu'), '')
     .replace(/,?\s*\b\d{5}\b\s*$/u, '')
-    .trim();
+    .trim(), city);
 }
 
 function foldPlace(value: string) {
@@ -55,10 +55,24 @@ function samePlace(left: string, right: string) {
   return Boolean(left && right && foldPlace(left) === foldPlace(right));
 }
 
+/** "Reinbek, Reinbek" and "Reinbek Reinbek" are one town. A single trailing town stays. */
+function collapseRepeatedTown(value: string, city: string) {
+  const current = (value || '').trim();
+  if (!current || !city) return current;
+  const town = escapeExpression(city);
+  const trailing = new RegExp(`(?:\\s*[,–—-]\\s*|\\s+)${town}\\s*$`, 'iu');
+  if (!trailing.test(current)) return current;
+  const without = current.replace(trailing, '').replace(/[\s,–—-]+$/g, '').trim();
+  if (!without || samePlace(without, city)) return city;
+  if (new RegExp(`(?:^|[\\s,–—-])${town}\\s*$`, 'iu').test(without)) return without;
+  return current;
+}
+
 function appendCity(place: string, city: string) {
-  if (!city) return place;
-  if (!place) return city;
-  return new RegExp(`\\b${escapeExpression(city)}\\b`, 'i').test(place) ? place : `${place}, ${city}`;
+  const collapsed = collapseRepeatedTown(place, city);
+  if (!city) return collapsed;
+  if (!collapsed) return city;
+  return new RegExp(`\\b${escapeExpression(city)}\\b`, 'i').test(collapsed) ? collapsed : `${collapsed}, ${city}`;
 }
 
 function preciseArea(value: string, city: string) {
@@ -107,7 +121,9 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
 
   if (exact && cleanAddress) return { exact: true, city, titleLocation, mapQuery: `${cleanAddress}, Germany`, mapLabel: titleLocation, basis: 'address' };
   if (street) {
-    const streetArea = `${street}${postal ? `, ${postal}` : ''}${city ? ` ${city}` : ''}`;
+    const streetArea = postal
+      ? `${street}, ${postal}${city && !new RegExp(`\\b${escapeExpression(city)}\\b`, 'i').test(street) ? ` ${city}` : ''}`
+      : appendCity(street, city);
     return { exact: false, city, titleLocation: appendCity(street, city), mapQuery: `${streetArea}, Germany`, mapLabel: streetArea, basis: 'street' };
   }
   if (district) return { exact: false, city, titleLocation, mapQuery: `${district}${postal ? `, ${postal}` : ''}${city ? ` ${city}` : ''}, Germany`, mapLabel: appendCity(district, city), basis: 'neighborhood' };
@@ -124,11 +140,20 @@ export function factualLocation(report: Pick<Report, 'address' | 'location' | 's
   return resolveLocation(report).titleLocation;
 }
 
+/** A title room count is a positive number. "not stated", "k. A." and blanks are omitted. */
+function statedRoomCount(value?: string) {
+  const compact = (value || '').replace(/[\s\u00a0]+/g, '').replace(',', '.');
+  if (!/^\d+(?:\.\d+)?$/.test(compact)) return '';
+  const amount = Number(compact);
+  if (!Number.isFinite(amount) || amount <= 0 || amount >= 40) return '';
+  return compact;
+}
+
 function descriptor(report: Pick<Report, 'propertyType' | 'facts'>, locale: Locale) {
   if (report.propertyType === 'land') return `${report.facts.area ? `${report.facts.area} m² ` : ''}${locale === 'de' ? 'Grundstück' : 'land plot'}`;
-  const rooms = report.facts.rooms;
+  const rooms = statedRoomCount(report.facts.rooms);
   const type = locale === 'de' ? (report.propertyType === 'flat' ? 'Wohnung' : 'Haus') : report.propertyType;
-  if (known(rooms)) return locale === 'de' ? `${rooms.replace('.', ',')}-Zimmer-${type}` : `${rooms.replace(',', '.')}-room ${type}`;
+  if (rooms) return locale === 'de' ? `${rooms.replace('.', ',')}-Zimmer-${type}` : `${rooms}-room ${type}`;
   if (report.facts.area) {
     const area = new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-GB', { maximumFractionDigits: 1 }).format(report.facts.area);
     return `${area} m² ${type}`;
@@ -147,7 +172,7 @@ export function reportTitleLocation(report: Pick<Report, 'address' | 'location' 
   const resolved = resolveLocation(report);
   const cleanAddress = displayAddress(report.address || '');
   const street = resolved.basis === 'address' || resolved.basis === 'street'
-    ? safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || cleanAddressPlaceholders(report.facts.street || ''))
+    ? collapseRepeatedTown(safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || cleanAddressPlaceholders(report.facts.street || '')), resolved.city)
     : '';
   const district = reportNeighborhood(report);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';

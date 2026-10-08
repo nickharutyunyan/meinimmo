@@ -15,4 +15,13 @@ test('print reports link the brand, identify PDF sources and keep the concise fo
   assert.match(component, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
   assert.match(component, /<a href=\{mapsUrl\}>\{location\.mapLabel \|\| subtitle\}<span aria-hidden="true">↗<\/span><\/a>/);
   assert.match(css, /\.print-footer p\s*\{[^}]*white-space:\s*nowrap;/);
+  assert.match(component, /originalListing: 'Original listing'/);
+  assert.match(component, /originalListing: 'Original-Inserat'/);
+  assert.match(component, /<a href=\{report\.source\}>\{labels\.originalListing\}<\/a>/);
+  assert.doesNotMatch(component, />\{report\.source\}</);
+  const surfaces = ['components/PrintReport.tsx', 'components/ReportView.tsx', 'components/ComparisonView.tsx'];
+  for (const path of surfaces) {
+    const text = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(text, /ohne-makler|immoscout/i, path);
+  }
 });
