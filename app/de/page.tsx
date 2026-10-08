@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/LandingPage';
 
-const title = 'ReviewAHouse — Immobilienangebote prüfen & vergleichen';
+const title = 'Review a House — Immobilienangebote prüfen & vergleichen';
 const description = 'Prüfe deutsche Immobilienangebote mit klaren Berichten, Lage- und Energiedaten, direkten Vergleichen und einem anpassbaren Finanzierungsrechner.';
 
 export const metadata: Metadata = {

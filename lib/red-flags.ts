@@ -1,5 +1,6 @@
 import type { Report } from './types';
 import { formatAvailabilityDate } from './availability.ts';
+import { money } from './format.ts';
 
 export const RED_FLAG_IDS = [
   'leasehold',
@@ -361,18 +362,18 @@ function rentAmountClause(facts: Pick<Report['facts'], 'groundRentYear' | 'groun
   const month = facts.groundRentMonth;
   const included = facts.groundRentInServiceCharge;
   if (locale === 'de') {
-    const parts = [year ? `etwa ${year.toLocaleString('de-DE')} € im Jahr` : '', month ? `${month.toLocaleString('de-DE')} € im Monat` : ''].filter(Boolean);
+    const parts = [year ? `etwa ${money(year, 'de')} im Jahr` : '', month ? `${money(month, 'de')} im Monat` : ''].filter(Boolean);
     if (!parts.length) return '';
     const label = kind === 'pacht' ? 'Die Pacht' : 'Der Erbbauzins';
     return ` ${label} beträgt ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${included ? ' und ist im Hausgeld enthalten' : ''}.`;
   }
-  const parts = [year ? `€${year.toLocaleString('en-GB')} a year` : '', month ? `€${month.toLocaleString('en-GB')} a month` : ''].filter(Boolean);
+  const parts = [year ? `${money(year, 'en')} a year` : '', month ? `${money(month, 'en')} a month` : ''].filter(Boolean);
   if (!parts.length) {
     return kind === 'pacht'
-      ? ' The annual rent is payable on top of the purchase.'
+      ? ' The rent is payable on top of the purchase.'
       : ' Ground rent (Erbbauzins) is payable on top of the purchase.';
   }
-  const label = kind === 'pacht' ? 'Annual rent is about' : 'Ground rent (Erbbauzins) is about';
+  const label = kind === 'pacht' ? 'The rent is about' : 'Ground rent (Erbbauzins) is about';
   return ` ${label} ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${included ? ' and is included in the Hausgeld' : ''}.`;
 }
 
@@ -383,16 +384,16 @@ export function groundLeaseSentence(facts: Pick<Report['facts'], 'groundLease' |
     const year = facts.groundRentYear;
     const month = facts.groundRentMonth;
     if (locale === 'de') {
-      const parts = [year ? `etwa ${year.toLocaleString('de-DE')} € im Jahr` : '', month ? `${month.toLocaleString('de-DE')} € im Monat` : ''].filter(Boolean);
+      const parts = [year ? `etwa ${money(year, 'de')} im Jahr` : '', month ? `${money(month, 'de')} im Monat` : ''].filter(Boolean);
       const amount = parts.length
         ? ` Die Pacht beträgt ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' und ist im Hausgeld enthalten' : ''}.`
         : '';
       return `Das Grundstück ist ein Pachtgrundstück.${amount}`;
     }
-    const parts = [year ? `€${year.toLocaleString('en-GB')} a year` : '', month ? `€${month.toLocaleString('en-GB')} a month` : ''].filter(Boolean);
+    const parts = [year ? `${money(year, 'en')} a year` : '', month ? `${money(month, 'en')} a month` : ''].filter(Boolean);
     const amount = parts.length
-      ? ` Ground rent is about ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' and is included in the Hausgeld' : ''}.`
-      : ' Ground rent is payable on top of the purchase.';
+      ? ` The rent is about ${year && month ? `${parts[0]} (${parts[1]})` : parts[0]}${facts.groundRentInServiceCharge ? ' and is included in the Hausgeld' : ''}.`
+      : ' The rent is payable on top of the purchase.';
     return `The land is a ground lease (Pachtgrundstück).${amount}`;
   }
   const moneyKind = kind === 'leasehold' ? 'leasehold' : 'pacht';

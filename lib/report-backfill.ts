@@ -1,3 +1,4 @@
+import { attachCalculatedScore } from './report-integrity.ts';
 import { constantTimeEqual } from './security.ts';
 import type { Report } from './types.ts';
 
@@ -30,7 +31,7 @@ export function mergedBackfillReport(previous: Report, parsed: Report, attempted
     facts.photoUrls = previous.facts.photoUrls;
     if (previous.facts.photosExpireAt) facts.photosExpireAt = previous.facts.photosExpireAt;
   }
-  return {
+  return attachCalculatedScore({
     ...parsed,
     facts,
     id: previous.id,
@@ -49,7 +50,7 @@ export function mergedBackfillReport(previous: Report, parsed: Report, attempted
     locationEvidence: previous.locationEvidence,
     offerQuestions: previous.aiEnriched ? previous.offerQuestions : parsed.offerQuestions,
     offerQuestionsDe: previous.aiEnriched ? previous.offerQuestionsDe : parsed.offerQuestionsDe,
-  };
+  });
 }
 
 /** One call re-extracts at most this many saved reports. */

@@ -49,12 +49,12 @@ export function priceCheckLead(check: PriceCheck, locale: Locale, listedArea?: s
     const relation = close
       ? 'etwa auf dem Niveau des durchschnittlichen Kaufpreises'
       : `${Math.abs(check.deltaPct).toLocaleString('de-DE')} % ${check.deltaPct > 0 ? 'über' : 'unter'} dem durchschnittlichen Kaufpreis`;
-    return `Der Angebotspreis von ${asking} liegt ${relation} 2025 für Eigentumswohnungen in ${area} (${mean}, ${sales} Verkäufe; übliche Spanne ${range}).`;
+    return `Der Angebotspreis von ${asking} liegt ${relation} 2025 für Eigentumswohnungen in ${area}: ${mean}, ${sales} Verkäufe; übliche Spanne ${range}.`;
   }
   const relation = close
     ? 'about the same as'
     : `${Math.abs(check.deltaPct).toLocaleString('en-GB')}% ${check.deltaPct > 0 ? 'above' : 'below'}`;
-  return `Asking ${asking} is ${relation} the 2025 average sales price for flats in ${area} (${mean}, ${sales} sales; typical range ${range}).`;
+  return `Asking ${asking} is ${relation} the 2025 average sales price for flats in ${area}: ${mean}, ${sales} sales; typical range ${range}.`;
 }
 
 function positionNote(check: PriceCheck, locale: Locale) {

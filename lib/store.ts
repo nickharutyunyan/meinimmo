@@ -6,7 +6,7 @@ import { acquisitionCosts } from './finance.ts';
 import { checkedCharacteristic, refreshDerivedReport } from './listing-parser.ts';
 
 import { cleanReportAddress } from './location-validation.ts';
-import { EXTRACTION_VERSION, presentStoredReport } from './report-integrity.ts';
+import { EXTRACTION_VERSION, attachCalculatedScore, presentStoredReport } from './report-integrity.ts';
 import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL } from './report-backfill.ts';
 import { withTimeout } from './io-timeout.ts';
 import { invalidateReportHtml } from './report-html-cache.ts';
@@ -24,7 +24,7 @@ function parse<T>(row: StoredRow | null) {
 }
 
 function normalizedReport(item: Report) {
-  if (item.country === 'AM') return presentStoredReport(item);
+  if (item.country === 'AM') return attachCalculatedScore(presentStoredReport(item));
   const clean = cleanReportAddress(item);
   if (clean !== item) item = refreshDerivedReport(clean);
   const condition = canonicalCondition(item.facts.condition);
@@ -45,7 +45,7 @@ function normalizedReport(item: Report) {
     && !hasUnsupportedReserveConclusion
     ? item
     : refreshDerivedReport({ ...item, summary, facts: { ...item.facts, condition, totalCost, energy, heating, energySource, energyCertificate } });
-  return presentStoredReport(ready);
+  return attachCalculatedScore(presentStoredReport(ready));
 }
 
 export async function saveReportSource(id: string, source: string) {

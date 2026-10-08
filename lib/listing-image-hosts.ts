@@ -5,6 +5,9 @@
  */
 export const LISTING_IMAGE_HOSTS = ['https://media.ohne-makler.net'] as const;
 
+/** Smaller frames the report requests. Listing HTML is not scraped for these. */
+export const LISTING_THUMBNAIL_HOSTS = ['https://www.ohne-makler.net'] as const;
+
 const LISTING_IMAGE_HOST_NAMES = LISTING_IMAGE_HOSTS.map((entry) => entry.slice(entry.indexOf('://') + 3).toLowerCase());
 
 export function listingImageHostAllowed(url: URL) {
