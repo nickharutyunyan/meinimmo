@@ -10,10 +10,13 @@ function sources(csp, name) {
 
 test('one CSP covers every locale and allows only the GA4 hosts the tag uses', async () => {
   const config = await readFile(new URL('../next.config.ts', import.meta.url), 'utf8');
-  assert.equal([...config.matchAll(/Content-Security-Policy/g)].length, 1);
+  const headers = JSON.parse(await readFile(new URL('../cloudflare/security-headers.json', import.meta.url), 'utf8'));
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  assert.equal([...config.matchAll(/security-headers\.json/g)].length, 1);
   assert.match(config, /source:\s*'\/\(\.\*\)'/);
-  const csp = config.match(/Content-Security-Policy',\s*value:\s*"([^"]+)"/)?.[1];
-  assert.ok(csp);
+  assert.match(worker, /security-headers\.json/);
+  const csp = headers['Content-Security-Policy'];
+  assert.equal(typeof csp, 'string');
 
   const script = sources(csp, 'script-src');
   const connect = sources(csp, 'connect-src');

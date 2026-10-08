@@ -15,7 +15,7 @@ export function reportHtmlUrls(id: string) {
 }
 
 export async function invalidateReportHtml(id: string) {
-  const cache = globalThis.caches?.default;
+  const cache = (globalThis.caches as { default?: Cache } | undefined)?.default;
   if (!cache) return;
   await Promise.all(reportHtmlUrls(id).map(async (url) => {
     try {
