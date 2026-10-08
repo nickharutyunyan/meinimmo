@@ -6,7 +6,7 @@ import { displayedPropertyScore, scoreAvailable, reportVerdict, scoreBasisLine, 
 import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { formatScore, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
+import { formatScore, grossYieldLine, priceNotCheckedLine, scoreAdjustmentLine } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
 import { clarifyBeforeDecision, glanceFacts, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
@@ -96,6 +96,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
   const showScore = scoreAvailable(report);
   const priceNote = showScore ? priceNotCheckedLine(report, locale) : '';
   const adjustmentLines = showScore ? propertyScore.adjustments.map((item) => scoreAdjustmentLine(item, locale)) : [];
+  const yieldNote = showScore ? grossYieldLine(report, locale) : '';
   const summary = localizedSummary(report, locale);
   const considerations = localizedConsiderations(report, locale);
   const warnings = localizedWarnings(report, locale);
@@ -132,7 +133,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
       <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} renderedAt={renderedAt} />
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreBasisLine(report, locale)}</span>{priceNote ? <span className="score-note">{priceNote}</span> : null}{adjustmentLines.map((line) => <span className="score-note" key={line}>{line}</span>)}<span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreBasisLine(report, locale)}</span>{priceNote ? <span className="score-note">{priceNote}</span> : null}{adjustmentLines.map((line) => <span className="score-note" key={line}>{line}</span>)}{yieldNote ? <span className="score-note">{yieldNote}</span> : null}<span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {
           const value = breakdown[key as keyof typeof breakdown];
           const unscored = value === null;
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);

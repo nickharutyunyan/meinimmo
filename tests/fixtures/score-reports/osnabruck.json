@@ -1,0 +1,83 @@
+{
+  "id": "db99dbe605cbd1c1",
+  "title": "3-room flat · Molenseten 60",
+  "address": "Molenseten 60, 49086 Osnabrück",
+  "location": "Voxtrup",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/502050/",
+  "createdAt": "2026-10-08T12:48:12.487Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 235000,
+    "area": 98.5,
+    "usableArea": 16,
+    "rooms": "3",
+    "year": "1974",
+    "floor": "1. OG",
+    "energy": "not stated",
+    "heating": "Zentralheizung",
+    "energySource": "Gas",
+    "energyDemand": 104.3,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 250415,
+    "buyerCosts": 15415,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 495,
+    "parkingPrice": 12500,
+    "tenancy": "Rented",
+    "tenancyConflict": true,
+    "rentedUntilText": "Ende November 2026",
+    "availabilityDate": "2026-12-01",
+    "condition": "Renovated",
+    "features": [
+      "Balkon",
+      "Einbauküche",
+      "Keller"
+    ],
+    "groundLease": true,
+    "groundLeaseKind": "pacht",
+    "groundRentYear": 997,
+    "groundRentMonth": 83,
+    "groundRentInServiceCharge": true,
+    "postalCode": "49086",
+    "city": "Osnabrück",
+    "district": "Voxtrup",
+    "street": "Molenseten 60",
+    "locationPrecision": "address",
+    "neighborhood": {
+      "transitMentioned": false,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The listing separately quotes €12,500 for parking. Confirm whether this is additional and required; it is not included in the stated total.",
+    "The unit is rented but no verified yield was extracted."
+  ],
+  "redFlags": [
+    {
+      "id": "pacht",
+      "severity": "high",
+      "evidence": "Das Grundstück der Gemeinschaft ist ein Pachtgrundstück mit einer jährlichen Belastung von 997.-€/mtl.:83.-€."
+    },
+    {
+      "id": "rentedOccupied",
+      "severity": "caution",
+      "evidence": "Die Wohnung ist bis Ende November 2026 vermietet und steht somit ab 01.Dezember 2026 oder später zum Einzug durch die neuen Eigentümer breit."
+    }
+  ],
+  "score": 4.41,
+  "scoreBreakdown": {
+    "price": null,
+    "neighborhood": 5.5,
+    "space": 8.2,
+    "building": 7.3,
+    "energy": 5.5,
+    "light": 6.5,
+    "costs": 5.2,
+    "source": 10
+  }
+}

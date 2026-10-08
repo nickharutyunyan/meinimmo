@@ -1,5 +1,6 @@
 import type { Report, ScoreBreakdown } from './types';
-import { score as formatLocaleScore } from './format.ts';
+import { formatAvailabilityDate } from './availability.ts';
+import { percent, score as formatLocaleScore } from './format.ts';
 import { copy, type Locale } from './i18n.ts';
 import { berlinPriceCheck } from './price-check.ts';
 
@@ -41,17 +42,41 @@ export function lowerEnergyClass(stated: string, demand: number) {
   const statedIndex = energyClassIndex(stated);
   const demandIndex = energyClassIndex(fromDemand);
   if (statedIndex < 0) return fromDemand;
-  if (demandIndex < 0) return stated.trim().toUpperCase();
+  if (demandIndex < 0) return textFact(stated).trim().toUpperCase();
   return ENERGY_CLASS_ORDER[Math.max(statedIndex, demandIndex)];
 }
 
 /** Whole heating-oil terms. Substrings such as Rollläden, Solar and Holz do not match. */
 const OIL_HEATING = /(?<![\p{L}\p{N}])(?:heizöl|heizoel|ölheizung|oelheizung|heating oil|oil heating|öl|oel|oil)(?![\p{L}\p{N}])/iu;
 
-export const LEASEHOLD_PENALTY = 1.5;
-export const RENTED_OCCUPIER_PENALTY = 0.8;
+/** Heat pump, including the short forms a listing uses for air-to-water. */
+export function isHeatPumpPhrase(value: string) {
+  return /w[aä]rmepumpe|luft\s*[-/]\s*wasser|wasserw[aä]rme|(?<![\p{L}\p{N}])l\s*\/\s*w\s*-?\s*wp(?![\p{L}\p{N}])/iu.test(value);
+}
 
-export type ScoreAdjustment = { id: 'leasehold' | 'rented'; points: number };
+export const LEASEHOLD_PENALTY = 1.5;
+/** Free within six months. Does not cap confidence. */
+export const RENTED_SOON_PENALTY = 0.2;
+/** Fixed end date six to 24 months out. */
+export const RENTED_FIXED_PENALTY = 0.4;
+/** Open-ended tenancy. */
+export const RENTED_OCCUPIER_PENALTY = 0.8;
+/** Open-ended for 10 years or more, or an active Sperrfrist. */
+export const RENTED_LONG_PENALTY = 1.0;
+
+export type TenancyDeductionKind = 'soon' | 'dated' | 'open' | 'long';
+
+export type ScoreAdjustment = {
+  id: 'leasehold' | 'rented';
+  points: number;
+  tenancy?: {
+    kind: TenancyDeductionKind;
+    freeFrom?: string;
+    approximate?: boolean;
+    sinceYear?: number;
+    evictionBan?: boolean;
+  };
+};
 
 const UNKNOWN = /not stated|unknown/i;
 const clamp = (value: number, minimum = 0, maximum = 10) => Math.min(maximum, Math.max(minimum, value));
@@ -64,17 +89,42 @@ function band(value: number, points: Array<[number, number]>, fallback: number) 
 }
 
 /**
- * Official local delta, before yield and buyer-cost adjustments.
- * ≤ −15 → 8.5; −15 < d ≤ −5 → 7.5; −5 < d < 5 → 6; 5 ≤ d < 15 → 4.5; ≥ 15 → 3.
- * A thin sales sample is pulled halfway toward 6.
+ * Price sub-score from the official local delta.
+ * Flat inside the old ±10% bands, then a straight line from +15% (3) to +50% (1)
+ * so a listing 40% over the reference scores below one that is 15% over.
+ * Outside −20% to +50% the score holds. A thin sales sample is pulled halfway toward 6.
  */
+const PRICE_KNOTS: Array<[number, number]> = [
+  [-20, 8.5],
+  [-15, 8.5],
+  [-14, 7.5],
+  [-5, 7.5],
+  [-4, 6],
+  [4, 6],
+  [5, 4.5],
+  [10, 4.5],
+  [15, 3],
+  [50, 1],
+];
+
+function interpolateKnots(value: number, knots: Array<[number, number]>) {
+  if (value <= knots[0][0]) return knots[0][1];
+  const last = knots[knots.length - 1];
+  if (value >= last[0]) return last[1];
+  for (let index = 1; index < knots.length; index += 1) {
+    const [right, rightScore] = knots[index];
+    const [left, leftScore] = knots[index - 1];
+    if (value > right) continue;
+    const span = right - left;
+    const t = span === 0 ? 0 : (value - left) / span;
+    return leftScore + t * (rightScore - leftScore);
+  }
+  return last[1];
+}
+
 export function scorePriceFromDelta(deltaPct: number, confidence: 'normal' | 'low' = 'normal') {
-  const bandScore = deltaPct <= -15 ? 8.5
-    : deltaPct <= -5 ? 7.5
-      : deltaPct < 5 ? 6
-        : deltaPct < 15 ? 4.5
-          : 3;
-  return confidence === 'low' ? (bandScore + 6) / 2 : bandScore;
+  const bandScore = round(interpolateKnots(deltaPct, PRICE_KNOTS), 2);
+  return confidence === 'low' ? round((bandScore + 6) / 2, 2) : bandScore;
 }
 
 function priceScore(report: Report): number | null {
@@ -120,14 +170,16 @@ function roomCount(value: string) {
 function spaceScore(report: Report) {
   const { area, rooms } = report.facts;
   if (!area) return 3.5;
+  // Both parts rise with size and then hold. A larger flat does not lose points
+  // for having more metres per room, and a small studio does not beat a larger one.
   const areaScore = report.propertyType === 'house'
-    ? band(area, [[70, 4], [100, 6.3], [160, 9], [220, 8.7]], 8.2)
-    : band(area, [[30, 4], [45, 6], [65, 7.8], [95, 9.2], [130, 8.8]], 8.2);
+    ? band(area, [[70, 4], [100, 6.3], [160, 9], [250, 9.3]], 9.5)
+    : band(area, [[30, 4], [45, 6], [65, 7.8], [95, 9.2]], 9.4);
   const count = roomCount(rooms);
   if (!count) return areaScore;
   const areaPerRoom = area / count;
-  const layoutScore = band(areaPerRoom, [[14, 3.5], [17, 5.5], [22, 7.7], [32, 9.3], [40, 8]], 6.5);
-  return clamp(layoutScore * 0.7 + areaScore * 0.3);
+  const layoutScore = band(areaPerRoom, [[14, 3.5], [17, 5.5], [22, 7.7], [32, 9.3]], 9.3);
+  return clamp(layoutScore * 0.55 + areaScore * 0.45);
 }
 
 function yearScore(value: unknown) {
@@ -188,7 +240,7 @@ function energyScore(report: Report) {
   let score = scoredClass ? classes[scoredClass] ?? 5 : 0;
   if (!score && energyDemand) score = band(energyDemand, [[30, 9.8], [50, 9], [75, 8], [100, 6.8], [130, 5.5], [160, 4], [200, 2.5]], 1.5);
   const system = `${energySource || ''} ${heating || ''}`;
-  const efficientSystem = /w[aä]rmepumpe|umweltw[aä]rme|erdw[aä]rme|geotherm|solartherm|solar/i.test(system);
+  const efficientSystem = isHeatPumpPhrase(system) || /umweltw[aä]rme|erdw[aä]rme|geotherm|solartherm|solar/i.test(system);
   const recentYear = Number(textFact(report.facts.year).match(/\b20\d{2}\b/)?.[0] || 0);
   const newConstruction = recentYear >= 2020
     && /erstbezug|neubau|new build|new construction|under construction/i.test(report.facts.condition || '');
@@ -201,7 +253,7 @@ function energyScore(report: Report) {
     : newConstruction ? 7.8
       : efficientSystem ? 7
         : 4.5;
-  if (hasMeasuredPerformance && /w[aä]rmepumpe|fernw[aä]rme|solartherm|(?<![\p{L}\p{N}])solar(?![\p{L}\p{N}])/iu.test(system)) score += 0.4;
+  if (hasMeasuredPerformance && (isHeatPumpPhrase(system) || /fernw[aä]rme|solartherm|(?<![\p{L}\p{N}])solar(?![\p{L}\p{N}])/iu.test(system))) score += 0.4;
   if (OIL_HEATING.test(system) || /(?<![\p{L}\p{N}])(?:coal|kohle)(?![\p{L}\p{N}])/iu.test(system)) score -= 0.7;
   return clamp(score);
 }
@@ -322,6 +374,109 @@ function isTenanted(report: Pick<Report, 'facts' | 'propertyType'>) {
   return report.facts.tenancy === 'Rented' && report.propertyType !== 'land';
 }
 
+/** A whole building bought for the rent, or a listing marketed as a Kapitalanlage. A flat inside a Mehrfamilienhaus is not one. */
+export function isInvestmentProperty(report: Pick<Report, 'facts' | 'propertyType' | 'title' | 'summary'>) {
+  if (report.facts.investmentUse) return true;
+  const text = `${report.title || ''}\n${report.summary || ''}`;
+  if (/\bKapitalanlage\b/i.test(text)) return true;
+  const title = report.title || '';
+  if (/\bMehrfamilienhaus\b/i.test(title) && !/\b(?:Wohnung|Apartment|Eigentumswohnung)\b/i.test(title)) return true;
+  const rooms = roomCount(report.facts.rooms);
+  return report.propertyType === 'house' && rooms >= 10 && report.facts.area >= 200;
+}
+
+/** The heating line the page shows. A heat-pump energy source fills a blank heating field. */
+export function alignHeatingFacts<T extends { heating?: string; energySource?: string }>(facts: T): T {
+  if (known(facts.heating)) return facts;
+  if (facts.energySource && isHeatPumpPhrase(facts.energySource)) return { ...facts, heating: facts.energySource };
+  return facts;
+}
+
+function reportAsOf(report: Pick<Report, 'createdAt'>) {
+  const date = new Date(report.createdAt);
+  return Number.isNaN(date.getTime()) ? new Date('2026-10-08T00:00:00Z') : date;
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date.getTime());
+  const day = next.getUTCDate();
+  next.setUTCDate(1);
+  next.setUTCMonth(next.getUTCMonth() + months);
+  const last = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+  next.setUTCDate(Math.min(day, last));
+  return next;
+}
+
+const MONTH_INDEX: Record<string, number> = {
+  januar: 1, january: 1, februar: 2, february: 2, märz: 3, maerz: 3, march: 3,
+  april: 4, mai: 5, may: 5, juni: 6, june: 6, juli: 7, july: 7, august: 8,
+  september: 9, oktober: 10, october: 10, november: 11, dezember: 12, december: 12,
+};
+
+function isoFromParts(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+/** The date a tenant leaves, from the stored availability or a written end such as "Ende März 2027". */
+function tenancyFreeFrom(facts: Report['facts']): { iso: string; approximate: boolean } | undefined {
+  const quarter = facts.availabilityDate?.match(/^(~?)(20\d{2})-Q([1-4])$/);
+  if (quarter) {
+    const month = (Number(quarter[3]) - 1) * 3 + 1;
+    const iso = isoFromParts(Number(quarter[2]), month, 1);
+    return iso ? { iso, approximate: true } : undefined;
+  }
+  if (facts.availabilityDate && /^\d{4}-\d{2}-\d{2}$/.test(facts.availabilityDate)) {
+    return { iso: facts.availabilityDate, approximate: false };
+  }
+  const written = facts.rentedUntilText?.match(/(?:Ende\s+)?([A-Za-zÄÖÜäöü]+)\s+(20\d{2})/i);
+  if (!written) return undefined;
+  const month = MONTH_INDEX[written[1].toLocaleLowerCase('de-DE')];
+  if (!month) return undefined;
+  const endOfMonth = written[0].toLocaleLowerCase('de-DE').startsWith('ende');
+  const year = Number(written[2]);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const iso = isoFromParts(year, month, endOfMonth ? lastDay : 1);
+  return iso ? { iso, approximate: true } : undefined;
+}
+
+function rentedAdjustment(report: Report): ScoreAdjustment | undefined {
+  if (!isTenanted(report) || isInvestmentProperty(report)) return undefined;
+  const asOf = reportAsOf(report);
+  const free = tenancyFreeFrom(report.facts);
+  const sinceYear = report.facts.tenancySinceYear;
+  const longTenure = Boolean(sinceYear && asOf.getUTCFullYear() - sinceYear >= 10);
+  const evictionBan = Boolean(report.facts.evictionBan);
+  const freeDate = free ? new Date(`${free.iso}T00:00:00Z`) : undefined;
+  let kind: TenancyDeductionKind = 'open';
+  let points = -RENTED_OCCUPIER_PENALTY;
+  if (freeDate && freeDate.getTime() <= addMonths(asOf, 6).getTime()) {
+    kind = 'soon';
+    points = -RENTED_SOON_PENALTY;
+  } else if (freeDate && freeDate.getTime() <= addMonths(asOf, 24).getTime()) {
+    kind = 'dated';
+    points = -RENTED_FIXED_PENALTY;
+  } else if (!freeDate && (longTenure || evictionBan)) {
+    kind = 'long';
+    points = -RENTED_LONG_PENALTY;
+  } else if (freeDate && (longTenure || evictionBan)) {
+    kind = 'long';
+    points = -RENTED_LONG_PENALTY;
+  }
+  return {
+    id: 'rented',
+    points,
+    tenancy: {
+      kind,
+      freeFrom: free?.iso,
+      approximate: free?.approximate,
+      sinceYear: longTenure ? sinceYear : undefined,
+      evictionBan: evictionBan || undefined,
+    },
+  };
+}
+
 /** Outside Berlin there is no official sales table, so price is not a checked fact. */
 export function lacksLocalPriceReference(report: Pick<Report, 'country' | 'facts'>) {
   if (report.country === 'AM') return false;
@@ -333,7 +488,8 @@ export function lacksLocalPriceReference(report: Pick<Report, 'country' | 'facts
 export function scoreAdjustments(report: Report): ScoreAdjustment[] {
   const adjustments: ScoreAdjustment[] = [];
   if (hasLeasehold(report)) adjustments.push({ id: 'leasehold', points: -LEASEHOLD_PENALTY });
-  if (isTenanted(report)) adjustments.push({ id: 'rented', points: -RENTED_OCCUPIER_PENALTY });
+  const rented = rentedAdjustment(report);
+  if (rented) adjustments.push(rented);
   return adjustments;
 }
 
@@ -342,19 +498,21 @@ function capConfidence(level: ScoreConfidence['level'], cap: ScoreConfidence['le
   return rank[level] <= rank[cap] ? level : cap;
 }
 
-function dropConfidence(level: ScoreConfidence['level']): ScoreConfidence['level'] {
-  if (level === 'high') return 'medium';
-  return 'low';
+function tenancyCapsConfidence(report: Report) {
+  const rented = rentedAdjustment(report);
+  return Boolean(rented && rented.tenancy?.kind !== 'soon');
 }
 
 /** Eight key facts. Houses count floor and Hausgeld as present. A caution on a field keeps it out. */
 export function scoreConfidence(report: Report): ScoreConfidence {
   const present = KEY_FACTS.filter((fact) => keyFactStated(report, fact) && !keyFactBlocked(report, fact)).length;
   let level: ScoreConfidence['level'] = present >= 7 ? 'high' : present >= 5 ? 'medium' : 'low';
-  // Leasehold, a sitting tenant, or no local price table: Medium at best. They do not stack.
-  if (hasLeasehold(report) || isTenanted(report) || lacksLocalPriceReference(report)) level = capConfidence(level, 'medium');
-  // One energy class off the stated demand lowers confidence by one further step.
-  if (energyClassGap(report) === 1) level = dropConfidence(level);
+  // Leasehold, a sitting tenant who is not leaving within six months, or no local price table: Medium at best. They do not stack.
+  if (hasLeasehold(report) || tenancyCapsConfidence(report) || lacksLocalPriceReference(report)) level = capConfidence(level, 'medium');
+  // One energy class off the stated demand can take High down to Medium, and no further.
+  // Low means withheld (four or fewer key facts), so a shown score is never Low.
+  if (energyClassGap(report) === 1 && level === 'high') level = 'medium';
+  if (present >= 5 && level === 'low') level = 'medium';
   return { present, total: 8, level };
 }
 
@@ -375,9 +533,48 @@ export function scoreConfidenceLabel(confidence: ScoreConfidence, locale: Locale
     .replace('{total}', String(confidence.total));
 }
 
+function monthYear(iso: string, locale: Locale) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-GB', {
+    month: 'long', year: 'numeric', timeZone: 'UTC',
+  }).format(date);
+}
+
+function rentedAdjustmentLine(adjustment: ScoreAdjustment, locale: Locale) {
+  const points = formatLocaleScore(Math.abs(adjustment.points), locale);
+  const tenancy = adjustment.tenancy;
+  const free = tenancy?.freeFrom ? formatAvailabilityDate(tenancy.freeFrom, locale) : '';
+  const about = tenancy?.freeFrom ? monthYear(tenancy.freeFrom, locale) : '';
+  if (locale === 'de') {
+    if (tenancy?.kind === 'soon' && free) return tenancy.approximate ? `Frei ab etwa ${about}: −${points}.` : `Frei ab ${free}: −${points}.`;
+    if (tenancy?.kind === 'dated' && (free || about)) return tenancy.approximate ? `Vermietet bis etwa ${about}: −${points}.` : `Vermietet bis ${free}: −${points}.`;
+    if (tenancy?.kind === 'long' && tenancy.sinceYear && tenancy.evictionBan) return `Vermietet seit ${tenancy.sinceYear}; die Sperrfrist gilt noch: −${points}.`;
+    if (tenancy?.kind === 'long' && tenancy.sinceYear) return `Vermietet seit ${tenancy.sinceYear}: −${points}.`;
+    if (tenancy?.kind === 'long') return `Die Sperrfrist gilt noch: −${points}.`;
+    return `Vermietet, unbefristet: −${points}.`;
+  }
+  if (tenancy?.kind === 'soon' && free) return tenancy.approximate ? `Free from about ${about}: −${points}.` : `Free from ${free}: −${points}.`;
+  if (tenancy?.kind === 'dated' && (free || about)) return tenancy.approximate ? `Rented until about ${about}: −${points}.` : `Rented until ${free}: −${points}.`;
+  if (tenancy?.kind === 'long' && tenancy.sinceYear && tenancy.evictionBan) return `Rented since ${tenancy.sinceYear}; the Sperrfrist still applies: −${points}.`;
+  if (tenancy?.kind === 'long' && tenancy.sinceYear) return `Rented since ${tenancy.sinceYear}: −${points}.`;
+  if (tenancy?.kind === 'long') return `Sperrfrist still applies: −${points}.`;
+  return `Rented, open-ended: −${points}.`;
+}
+
 export function scoreAdjustmentLine(adjustment: ScoreAdjustment, locale: Locale) {
+  if (adjustment.id === 'rented') return rentedAdjustmentLine(adjustment, locale);
   const points = formatLocaleScore(Math.abs(adjustment.points), locale);
   return copy[locale].report.scoreAdjustment[adjustment.id].replace('{points}', points);
+}
+
+/** Gross yield from the stated net cold rent. Shown on rented and investment properties. */
+export function grossYieldLine(report: Report, locale: Locale) {
+  const yieldPct = report.facts.grossYield;
+  if (!yieldPct || yieldPct <= 0) return '';
+  if (report.facts.tenancy !== 'Rented' && !isInvestmentProperty(report)) return '';
+  const figure = percent(yieldPct, locale);
+  return locale === 'de' ? `Bruttorendite ${figure}.` : `Gross yield ${figure}.`;
 }
 
 export function priceNotCheckedLine(report: Report, locale: Locale) {
@@ -390,6 +587,8 @@ export function priceNotCheckedLine(report: Report, locale: Locale) {
  * the weighted total so the penalty stays visible at the weights above.
  */
 export function calculatePropertyScore(report: Report) {
+  const facts = alignHeatingFacts(report.facts);
+  if (facts !== report.facts) report = { ...report, facts };
   const price = priceScore(report);
   const breakdown: ScoreBreakdown = {
     price: price === null ? null : round(price, 1),

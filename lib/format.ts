@@ -14,7 +14,9 @@ function finite(value: unknown) {
 function currencyDigits(amount: number) {
   const abs = Math.abs(amount);
   const whole = Math.round(abs * 100) % 100 === 0;
-  return abs >= 100 && whole ? 0 : 2;
+  // Whole euros from €10 up, including a monthly €83. Smaller amounts keep the cents.
+  if (whole && abs >= 10) return 0;
+  return 2;
 }
 
 function currency(amount: number, locale: Locale, digits: number) {

@@ -1,0 +1,59 @@
+{
+  "id": "5422e25ee4465f02",
+  "title": "2-room flat · Steglitz",
+  "address": "12203 Berlin-Steglitz",
+  "location": "Steglitz",
+  "propertyType": "flat",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/501508/",
+  "createdAt": "2026-10-03T21:41:21.924Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 297000,
+    "area": 68,
+    "rooms": "2",
+    "year": "1938",
+    "floor": "Hochparterre",
+    "energy": "D",
+    "heating": "Zentralheizung",
+    "energySource": "Gas",
+    "energyDemand": 116,
+    "energyCertificate": "Verbrauchsausweis",
+    "totalCost": 319211,
+    "buyerCosts": 22211,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "housegeld": 142.59,
+    "tenancy": "Not rented",
+    "condition": "Like new",
+    "features": [
+      "Terrasse",
+      "Garten"
+    ],
+    "postalCode": "12203",
+    "city": "Berlin-Steglitz",
+    "district": "Steglitz",
+    "locationPrecision": "neighborhood",
+    "neighborhood": {
+      "transitMentioned": true,
+      "parkMentioned": true,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "Exact street address is not disclosed in the listing."
+  ],
+  "redFlags": [],
+  "score": 7.15,
+  "scoreBreakdown": {
+    "price": 6,
+    "neighborhood": 6.4,
+    "space": 8.4,
+    "building": 8.4,
+    "energy": 6.1,
+    "light": 6.5,
+    "costs": 9.4,
+    "source": 10
+  }
+}
