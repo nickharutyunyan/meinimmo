@@ -121,7 +121,7 @@ export type CologneResolution =
   | { status: 'tooFew'; name: string };
 
 function plzCandidates(postal: string) {
-  const rows = (koeln.mapping.plzToStadtteil as Record<string, PlzShare[]>)[postal];
+  const rows = (koeln.mapping.plzToStadtteil as unknown as Record<string, PlzShare[]>)[postal];
   return rows || [];
 }
 
@@ -159,7 +159,7 @@ export function resolveCologneArea(name: string, postal = ''): CologneResolution
 }
 
 function centralShare(postal: string) {
-  const rows = (muenchen.mapping.plzToStadtbezirk as Record<string, PlzShare[]>)[postal] || [];
+  const rows = (muenchen.mapping.plzToStadtbezirk as unknown as Record<string, PlzShare[]>)[postal] || [];
   return rows.reduce((sum, [name, share]) => sum + (MUNICH_CENTRAL.has(foldAreaName(name)) ? share : 0), 0);
 }
 

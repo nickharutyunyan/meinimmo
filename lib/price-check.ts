@@ -310,7 +310,6 @@ function munichCheck(report: Report, mean: number, extra: Partial<PriceCheck>): 
   return {
     area: 'München',
     year: extra.year ?? munichPriceRef.source.dataYear,
-    mean,
     low: mean,
     high: mean,
     n: 0,
