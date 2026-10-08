@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { parseListing } from '../lib/listing-parser.ts';
 import {
+  RED_FLAG_IDS,
   buyerCommissionPercent,
   commissionAboveUsualBuyerShare,
   detectRedFlags,
@@ -74,7 +75,7 @@ const rules = [
     id: 'leasehold',
     positive: [
       'Das Grundstück steht im Erbbaurecht. Der Erbbauzins beträgt 1.200 € im Jahr.',
-      'Es handelt sich um ein Pachtgrundstück mit einer jährlichen Belastung von 997 €.',
+      'Es handelt sich um Erbpacht mit jährlichem Erbbauzins.',
       'This flat is sold on a ground lease.',
       'The building is leasehold and ground rent is payable.',
     ],
@@ -82,7 +83,23 @@ const rules = [
       'Es besteht kein Erbbaurecht.',
       'Die Wohnung ist frei von Erbpacht.',
       'Verkauf ohne Erbbaurecht und ohne Erbbauzins.',
+      'Es handelt sich um ein Pachtgrundstück mit einer jährlichen Belastung von 997 €.',
       'Ruhige Lage, Balkon und Einbauküche.',
+    ],
+  },
+  {
+    id: 'pacht',
+    positive: [
+      'Es handelt sich um ein Pachtgrundstück mit einer jährlichen Belastung von 997 €.',
+      'Das Grundstück ist Pachtland, die jährliche Pacht beträgt 1.200 €.',
+      'The land is leased and is not sold with the flat.',
+      'This plot is a land lease.',
+    ],
+    negative: [
+      'Es besteht kein Pachtgrundstück.',
+      'Verkauf ohne Pacht und ohne Pachtvertrag.',
+      'Das Grundstück steht im Erbbaurecht. Der Erbbauzins beträgt 1.200 € im Jahr.',
+      'Es handelt sich um Erbpacht, nicht um ein Pachtgrundstück.',
     ],
   },
   {
@@ -202,6 +219,8 @@ test('ground rent on a following line is still recorded', () => {
   ]);
   assert.equal(found.year, 710);
   assert.equal(found.month, undefined);
+  assert.equal(found.kind, 'leasehold');
+  assert.equal(found.pacht, undefined);
   assert.match(found.evidence, /Erbbaurecht/);
 });
 
@@ -213,6 +232,39 @@ test('rented listings are flagged and vacant listings are not', () => {
   assert.equal(has('Die Wohnung ist vermietet.', 'rentedOccupied', { tenancy: 'Rented' }), true);
   assert.equal(has('Die Wohnung ist nicht vermietet.', 'rentedOccupied', { tenancy: 'Not rented' }), false);
   assert.equal(has(quiet, 'rentedOccupied'), false);
+});
+
+test('tenant notice names the Berlin 10-year lock only when the city is Berlin', () => {
+  const line = 'Die Wohnung ist vermietet.';
+  const flag = detectRedFlags([line], report({ tenancy: 'Rented', city: 'Osnabrück' })).find(item => item.id === 'rentedOccupied');
+  const osnabrueck = report({ tenancy: 'Rented', city: 'Osnabrück' }, { address: 'Molenseten 60, 49086 Osnabrück', location: 'Voxtrup' });
+  const berlin = report({ tenancy: 'Rented', city: 'Berlin' }, { address: '10115 Berlin', location: 'Mitte' });
+  const unnamed = report({ tenancy: 'Rented', city: undefined }, { address: 'Address not stated', location: '' });
+  const enOther = redFlagSentence(osnabrueck, flag, 'en');
+  const deOther = redFlagSentence(osnabrueck, flag, 'de');
+  assert.equal(enOther, 'Sold with a tenant: you cannot simply move in. Owner-occupier notice is restricted, and after a conversion to condominiums it can be blocked for 3 to 10 years depending on the area.');
+  assert.equal(deOther, 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Eigenbedarf ist eingeschränkt; nach Umwandlung in Eigentum kann er je nach Ort 3 bis 10 Jahre gesperrt sein.');
+  assert.equal(redFlagSentence(unnamed, flag, 'en'), enOther);
+  assert.equal(redFlagSentence(unnamed, flag, 'de'), deOther);
+  const enBerlin = redFlagSentence(berlin, flag, 'en');
+  const deBerlin = redFlagSentence(berlin, flag, 'de');
+  assert.match(enBerlin, /Kündigungssperrfrist/);
+  assert.match(enBerlin, /up to 10 years/);
+  assert.match(enBerlin, /Berlin/);
+  assert.match(deBerlin, /Kündigungssperrfrist/);
+  assert.match(deBerlin, /bis zu 10 Jahre/);
+  assert.match(deBerlin, /Berlin/);
+  assert.doesNotMatch(enBerlin, /3 to 10 years depending on the area/);
+  const berlinHouse = report({ tenancy: 'Rented', city: 'Berlin' }, { propertyType: 'house', address: '10115 Berlin' });
+  assert.match(redFlagSentence(berlinHouse, flag, 'en'), /house can be handed over vacant/);
+  assert.doesNotMatch(redFlagSentence(berlinHouse, flag, 'en'), /Berlin|10 years/);
+  assert.doesNotMatch(redFlagSentence(berlinHouse, flag, 'de'), /Berlin|10 Jahre/);
+  for (const id of RED_FLAG_IDS) {
+    if (id === 'rentedOccupied') continue;
+    const sample = { id, severity: 'high' };
+    const text = `${redFlagSentence(osnabrueck, sample, 'en')} ${redFlagSentence(osnabrueck, sample, 'de')}`;
+    assert.doesNotMatch(text, /Berlin/, id);
+  }
 });
 
 test('buyer commission above 3.57 percent is flagged, the usual half share is not', () => {
@@ -307,7 +359,7 @@ test('a large adversarial listing still parses within the time budget', () => {
 test('archived fixtures do not invent leasehold, residence rights, levies or Teileigentum', () => {
   const files = readdirSync(new URL('./fixtures/listings/', import.meta.url))
     .filter(name => name.endsWith('.html') && !/502050|502729|502750/.test(name));
-  const banned = ['leasehold', 'lifeInterest', 'specialLevy', 'teileigentum'];
+  const banned = ['leasehold', 'pacht', 'lifeInterest', 'specialLevy', 'teileigentum'];
   for (const file of files) {
     const html = readFileSync(new URL(`./fixtures/listings/${file}`, import.meta.url), 'utf8');
     const parsed = parseListing(html, `https://example.test/${file}`);

@@ -8,7 +8,7 @@ import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable }
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
-import { extractListingPhotoUrls, isRemoteListingSource } from './listing-photos.ts';
+import { extractListingPhotoUrls, isRemoteListingSource, listingPhotosExpireAt } from './listing-photos.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -909,6 +909,7 @@ export function parseListing(raw: string, source: string): Report {
 
   const totalCost = explicitTotal || (price && buyerCosts ? price + buyerCosts : 0);
   const photoUrls = isRemoteListingSource(source) ? extractListingPhotoUrls(raw) : [];
+  const photosExpireAt = listingPhotosExpireAt(photoUrls);
   const facts = {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
@@ -918,6 +919,7 @@ export function parseListing(raw: string, source: string): Report {
     soldAsIs: findSoldAsIs(lines) ? true : undefined,
     construction: findTimberFrame(title, lines) ? 'Timber frame' : undefined,
     groundLease: lease ? true : undefined,
+    groundLeaseKind: lease?.kind,
     groundRentYear: lease?.year,
     groundRentMonth: lease?.month,
     groundRentInServiceCharge: lease?.inCharges || undefined,
@@ -934,7 +936,7 @@ export function parseListing(raw: string, source: string): Report {
       parkMentioned: park.mentioned,
       dailyNeedsMentioned: dailyNeeds.mentioned,
     },
-    ...(photoUrls.length ? { photoUrls } : {}),
+    ...(photoUrls.length ? { photoUrls, ...(photosExpireAt ? { photosExpireAt } : {}) } : {}),
   };
 
   const qualityWarnings = [
