@@ -6,6 +6,7 @@ import { formatScore, grossYieldLine, priceNotCheckedLine, priceUnscoredLabel, s
 import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
+import { buyerCostView } from '@/lib/buyer-costs';
 import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
@@ -28,8 +29,15 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
   const questions = questionsAreConcise(storedQuestions) ? storedQuestions : offerQuestionsFor(report, locale);
   const location = resolveLocation(report);
   const subtitle = reportSubtitle(report);
-  const costs = acquisitionCosts(report.facts);
+  const costs = acquisitionCosts(report);
+  const costView = buyerCostView(report, locale);
   const scenario = financingScenario({ total: costs.total, ...finance, housegeld: report.facts.housegeld });
+  const highScenario = financingScenario({ total: costs.totalHigh ?? costs.total, ...finance, housegeld: report.facts.housegeld });
+  const ranged = (low: number, high: number) => {
+    const start = money(low, locale);
+    const end = money(high, locale);
+    return start === end ? start : `${start}–${end}`;
+  };
   const known = (value?: string) => Boolean(value && !/not stated|unknown|not disclosed|could(?:n't| not) find/i.test(value));
   const localized = (value?: string) => localizedValue(value, locale);
   const facts: Array<[string, string]> = [
@@ -90,13 +98,22 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
       </section>
 
       <section className="print-finance print-section">
-        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{money(scenario.knownOutlay, locale)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{money(scenario.loanPayment, locale)} {de ? 'Kredit' : 'loan'} + {money(report.facts.housegeld, locale)} Hausgeld</small> : null}</div>
+        <div className="print-finance-total"><span>{labels.monthly}</span><strong>{ranged(scenario.knownOutlay, highScenario.knownOutlay)}</strong>{report.facts.housegeld && finance.includeHousegeld ? <small>{ranged(scenario.loanPayment, highScenario.loanPayment)} {de ? 'Kredit' : 'loan'} + {money(report.facts.housegeld, locale)} Hausgeld</small> : null}</div>
         <div className="print-finance-grid">
-          <div><small>{labels.loanPayment}</small><strong>{money(scenario.loanPayment, locale)}</strong></div>
+          <div><small>{labels.loanPayment}</small><strong>{ranged(scenario.loanPayment, highScenario.loanPayment)}</strong></div>
           <div><small>{labels.equity}</small><strong>{money(finance.equity, locale)}</strong></div>
           <div><small>{labels.terms}</small><strong>{percent(finance.interest, locale)} + {percent(finance.repayment, locale, 1)}</strong></div>
-          <div><small>{labels.total}</small><strong>{money(costs.total, locale)}</strong></div>
+          <div><small>{labels.total}</small><strong>{costView.totalAmount}</strong></div>
         </div>
+        <table className="print-buyer-costs">
+          <caption>{costView.title}{costView.estimated ? ` ${costView.estimatedMark}` : ''}</caption>
+          <tbody>
+            {costView.rows.map(row => <tr key={row.key}><th scope="row">{row.label}</th><td>{row.amount || '—'}</td><td>{[row.share, row.basis].filter(Boolean).join(' · ')}</td></tr>)}
+          </tbody>
+        </table>
+        {costView.statedNote ? <p>{costView.statedNote}</p> : null}
+        {costView.divergence ? <p>{costView.divergence}</p> : null}
+        <p>{costView.footnote}</p>
         <p>{financeFootnote(report.propertyType, locale)}</p>
       </section>
 

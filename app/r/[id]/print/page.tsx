@@ -24,6 +24,7 @@ export default async function PrintableReport({ params, searchParams }: {
   if (item.country === 'AM') redirect(`/r/${item.id}`);
   const query = await searchParams;
   const benchmark = await currentMortgageRate();
-  const finance = printFinanceSettings(query, acquisitionCosts(item.facts).total, benchmark?.rate);
+  const costs = acquisitionCosts(item);
+  const finance = printFinanceSettings(query, costs.totalHigh ?? costs.total, benchmark?.rate);
   return <PrintReport report={item} locale="en" finance={finance} autoPrint={query.print === '1'} />;
 }
