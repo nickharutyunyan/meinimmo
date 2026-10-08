@@ -2,6 +2,7 @@ import nextWorker, { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from 
 import { REPORT_CACHE_BUILD_ID } from './build-id.mjs';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
+import { backfillRejection } from './backfill-gate.mjs';
 import { assetPathForPathname, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
@@ -105,6 +106,8 @@ async function fetchNext(request, env, ctx) {
 
 export default {
   async fetch(request, env, ctx) {
+    const rejected = backfillRejection(request, env.BACKFILL_TOKEN);
+    if (rejected) return rejected;
     const url = new URL(request.url);
     if (isCacheableDocument(request.method, url.pathname, request.headers, url.searchParams)) {
       if (request.method === 'GET' && reportDocumentId(url.pathname)) return serveReport(request, env, ctx);
