@@ -8,6 +8,7 @@ import { reserveReportAllowance, rememberUserReport } from '@/lib/access';
 import { cleanPdfDisplayName, hasPdfSignature, MAX_PDF_BYTES } from '@/lib/pdf-source';
 import { saveSourcePdf } from '@/lib/source-storage';
 import { fetchEnglishListAm, ListAmImportError } from '@/lib/list-am';
+import { attachReportGeocode } from '@/lib/geocode-runtime';
 
 export async function POST(request: NextRequest) {
   const anonymous = anonymousToken(request);
@@ -63,10 +64,11 @@ export async function POST(request: NextRequest) {
       // The Source section explicitly explains when no download was retained.
       if (saved) item.sourceFile = { displayName, size: pdf.size };
     }
-    await saveReport(item);
+    const geocoded = await attachReportGeocode(item);
+    await saveReport(geocoded);
     const userId = allowance.userId;
     if (userId) after(() => rememberUserReport(userId, item.id));
-    return respond(item, 201);
+    return respond(geocoded, 201);
   } catch (error) {
     await allowance?.release?.();
     if (error instanceof ListAmImportError) return respond({ error: error.message, code: error.code }, error.status);
