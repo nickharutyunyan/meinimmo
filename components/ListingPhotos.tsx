@@ -2,29 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { copy, type Locale } from '../lib/i18n.ts';
-import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, isRemoteListingSource, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
 
-export function ListingPhotos({ urls, listingUrl, locale }: { urls?: string[]; listingUrl: string; locale: Locale }) {
+export function ListingPhotos({ urls, listingUrl, locale, renderedAt }: { urls?: string[]; listingUrl: string; locale: Locale; renderedAt?: number }) {
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
-  // The cached document is rendered once. Expiry is applied after mount so a
-  // stored page does not keep an image whose `exp` has since passed.
-  const [now, setNow] = useState<number | null>(null);
+  // Expiry is decided on the server. A cached document still drops a link
+  // whose `exp` passes after that render, once the browser has mounted.
+  const [now, setNow] = useState(() => renderedAt ?? Date.now());
   useEffect(() => {
     setNow(Date.now());
   }, []);
-  const photos = now === null
-    ? displayableListingPhotos(urls).filter((url) => !failed.has(url))
-    : listingPhotosToShow(urls, failed, now);
+  const photos = listingPhotosToShow(urls, failed, now);
   if (!isRemoteListingSource(listingUrl) || photos.length === 0) return null;
   const caption = copy[locale].report.photosCaption;
   const total = photos.length;
+  const order = displayableListingPhotos(urls);
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
     <p id="listing-photos-caption" className="listing-photos-caption">{caption}</p>
     <div className="listing-photos-strip">
       {photos.map((url, index) => <a key={url} href={listingUrl} target="_blank" rel="noreferrer" aria-label={copy[locale].report.photoLink.replaceAll('{n}', String(index + 1)).replaceAll('{total}', String(total))}>
         <img
-          src={url}
+          src={listingThumbnailUrl(url, listingUrl, Math.max(0, order.indexOf(url)))}
           alt=""
           width={160}
           height={120}

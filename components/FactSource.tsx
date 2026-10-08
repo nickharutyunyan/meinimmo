@@ -83,6 +83,11 @@ export function FactSource({ reportId, locale, label, provenance }: {
       aria-expanded={open}
       aria-controls={panelId}
       onClick={() => setOpen(current => !current)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        setOpen(current => !current);
+      }}
     >ⓘ</button>
     {open ? <div ref={panelRef} id={panelId} className="fact-popover" role="dialog" aria-label={text.sourceFor(label)}>
       {provenance.kind === 'stated' && provenance.quotes.length

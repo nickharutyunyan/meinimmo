@@ -1200,6 +1200,14 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   line-height: 1.45;
 }
 
+.score-note {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .score-popover {
   position: absolute;
   z-index: 20;

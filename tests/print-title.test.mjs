@@ -10,7 +10,7 @@ const report = {
 };
 
 test('print document titles include the clean property street or best location', () => {
-  assert.equal(printDocumentTitle(report, 'de'), 'Immobilien-Bericht · Möckernstraße · ReviewAHouse');
-  assert.equal(printDocumentTitle(report, 'en'), 'Property report · Möckernstraße · ReviewAHouse');
-  assert.equal(printDocumentTitle({ ...report, address: 'Address not stated', facts: { ...report.facts, street: undefined, district: 'Kreuzberg', locationPrecision: 'neighborhood' } }, 'de'), 'Immobilien-Bericht · Kreuzberg · ReviewAHouse');
+  assert.equal(printDocumentTitle(report, 'de'), 'Immobilien-Bericht · Möckernstraße · Review a House');
+  assert.equal(printDocumentTitle(report, 'en'), 'Property report · Möckernstraße · Review a House');
+  assert.equal(printDocumentTitle({ ...report, address: 'Address not stated', facts: { ...report.facts, street: undefined, district: 'Kreuzberg', locationPrecision: 'neighborhood' } }, 'de'), 'Immobilien-Bericht · Kreuzberg · Review a House');
 });
