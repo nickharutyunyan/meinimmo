@@ -8,7 +8,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const place = await geocodeGermanLocation(query);
+    const country = new URL(request.url).searchParams.get('country') === 'AM' ? 'am' : 'de';
+    const place = await geocodeGermanLocation(query, '', country);
     if (!place) return NextResponse.json({ error: 'Location not found.' }, { status: 404 });
     return NextResponse.json(place);
   } catch {

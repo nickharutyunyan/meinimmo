@@ -1,3 +1,4 @@
+import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './location-validation.ts';
 import type { Locale } from './i18n';
 import type { Report } from './types';
 
@@ -20,7 +21,7 @@ function safePlace(value?: string) {
 }
 
 export function displayAddress(address: string) {
-  return address
+  return cleanAddressPlaceholders(address)
     .replace(/\b(?:provisionsfrei|courtagefrei|von\s+privat|privatverkauf)\b/gi, ' ')
     .replace(/^0(?=\s*(?:,|\b\d{5}\b|$))/g, '')
     .replace(/\s+0(?=\s*(?:,|\b\d{5}\b|$))/g, '')
@@ -85,9 +86,10 @@ export function resolveLocation(report: Pick<Report, 'address' | 'location' | 's
   const cleanAddress = displayAddress(report.address || '');
   const addressKnown = known(cleanAddress) && cleanAddress !== '0';
   const addressStreet = addressKnown ? streetOnly(cleanAddress, city) : '';
-  const statedStreet = safePlace(report.facts.street);
-  const street = safePlace(addressStreet || statedStreet);
-  const exact = Boolean(street && (report.facts.locationPrecision === 'address' || /\b\d{1,4}[a-z]?\s*$/iu.test(street)));
+  const statedStreet = safePlace(cleanAddressPlaceholders(report.facts.street || ''));
+  const candidateStreet = safePlace(addressStreet || statedStreet);
+  const street = validStreet(candidateStreet) ? candidateStreet : '';
+  const exact = Boolean(street && hasHouseNumber(street));
   const district = reportNeighborhood(report);
   const stop = safePlace(known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '');
   const postal = report.facts.postalCode?.match(/\b\d{5}\b/)?.[0] || cleanAddress.match(/\b\d{5}\b/)?.[0] || '';
@@ -114,6 +116,7 @@ export function factualLocation(report: Pick<Report, 'address' | 'location' | 's
 }
 
 function descriptor(report: Pick<Report, 'propertyType' | 'facts'>, locale: Locale) {
+  if (report.propertyType === 'land') return `${report.facts.area ? `${report.facts.area} m² ` : ''}${locale === 'de' ? 'Grundstück' : 'land plot'}`;
   const rooms = report.facts.rooms;
   const type = locale === 'de' ? (report.propertyType === 'flat' ? 'Wohnung' : 'Haus') : report.propertyType;
   if (known(rooms)) return locale === 'de' ? `${rooms.replace('.', ',')}-Zimmer-${type}` : `${rooms.replace(',', '.')}-room ${type}`;
@@ -124,7 +127,8 @@ function descriptor(report: Pick<Report, 'propertyType' | 'facts'>, locale: Loca
   return locale === 'de' ? type : type[0].toUpperCase() + type.slice(1);
 }
 
-export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location' | 'source' | 'propertyType' | 'facts'>, locale: Locale = 'en') {
+export function reportTitle(report: Pick<Report, 'title' | 'address' | 'location' | 'source' | 'propertyType' | 'facts' | 'country'>, locale: Locale = 'en') {
+  if (report.country === 'AM') return report.title;
   const base = descriptor(report, locale);
   const location = reportTitleLocation(report, locale);
   return location ? `${base} · ${location}` : base;
@@ -134,7 +138,7 @@ export function reportTitleLocation(report: Pick<Report, 'address' | 'location' 
   const resolved = resolveLocation(report);
   const cleanAddress = displayAddress(report.address || '');
   const street = resolved.basis === 'address' || resolved.basis === 'street'
-    ? safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || report.facts.street)
+    ? safePlace((known(cleanAddress) ? streetOnly(cleanAddress, resolved.city) : '') || cleanAddressPlaceholders(report.facts.street || ''))
     : '';
   const district = reportNeighborhood(report);
   const stop = known(report.facts.transitStop) ? report.facts.transitStop!.trim() : '';

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ReviewAHouse — Listing Helper",
+  "version": "0.1.0",
+  "description": "Import a public List.am sale listing into ReviewAHouse when you click Create report.",
+  "minimum_chrome_version": "110",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://www.list.am/*", "https://list.am/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{
+    "matches": ["https://reviewahouse.com/*", "https://www.reviewahouse.com/*"],
+    "js": ["bridge.js"],
+    "run_at": "document_start",
+    "all_frames": false
+  }]
+}

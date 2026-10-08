@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "helper:package": "node scripts/package-helper.mjs",
     "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run helper:package && next build",
     "start": "next start",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
@@ -22,6 +23,7 @@
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.2",
     "next": "16.3.2",
+    "parse5": "^7.3.0",
     "pdfjs-dist": "5.4.394",
     "react": "19.2.1",
     "react-dom": "19.2.1",

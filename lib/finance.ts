@@ -7,9 +7,14 @@ export function acquisitionCosts(facts: Pick<Facts, 'price' | 'buyerCosts' | 'to
   const statedBuyerCosts = finiteNonNegative(facts.buyerCosts);
   const statedTotal = finiteNonNegative(facts.totalCost);
   const plausibleTotal = statedTotal >= price ? statedTotal : 0;
-  const buyerCostsAreEstimated = !statedBuyerCosts && !plausibleTotal;
-  const buyerCosts = statedBuyerCosts
-    || (plausibleTotal ? Math.max(0, plausibleTotal - price) : Math.round(price * 0.08));
+  const costsProvided = typeof facts.buyerCosts === 'number' && Number.isFinite(facts.buyerCosts) && facts.buyerCosts >= 0;
+  const consistent = !plausibleTotal || !costsProvided || Math.abs(price + statedBuyerCosts - plausibleTotal) <= 2;
+  const buyerCostsAreEstimated = !costsProvided && !plausibleTotal;
+  // When independently extracted figures disagree, use the stated total's
+  // difference, and surface the conflict in report integrity notes.
+  const buyerCosts = plausibleTotal && !consistent ? plausibleTotal - price
+    : costsProvided ? statedBuyerCosts
+    : plausibleTotal ? plausibleTotal - price : Math.round(price * 0.08);
   const total = plausibleTotal || price + buyerCosts;
 
   return { price, buyerCosts, total, buyerCostsAreEstimated };

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-09-22",
+  "reviewer": "Independent Astra source review",
+  "method": "Reviewed complete extracted text of each original PDF and rendered factual tables, property-address blocks, and Maisonette descriptive pages. Ground truth was established before candidate result comparison. No external geographic lookup or listing refresh was used.",
+  "conventions": {
+    "known": "Explicit source statement; normalized values retain the statement's precision.",
+    "unknown": "Source does not establish the requested real-world fact. Not equivalent to false, zero, vacant, or unavailable.",
+    "absent_in_source": "No explicit field value was found in the supplied PDF; the underlying fact remains unknown.",
+    "ambiguous": "Related source language exists but does not uniquely establish the requested meaning.",
+    "visual_only": "Visible on rendered PDF but absent from extracted PDF text; a text-only verifier should abstain unless supplied separate visual evidence.",
+    "evidence": "Short exact excerpts from the PDF; line wrapping is normalized. For visual-only values, quotes transcribe the rendered label and badge.",
+    "occupancy": "Current occupancy/tenancy, distinct from a future availability date and a first-occupancy condition.",
+    "district": "Source's named locality; administrative borough versus smaller locality is recorded when ambiguous.",
+    "currency": "EUR",
+    "areaUnit": "m2"
+  },
+  "documents": [
+    {
+      "id": "paare",
+      "sourceFilename": "Perfekt für Paare – mit Platz fürs Homeoffice.pdf",
+      "pageCount": 6,
+      "facts": {
+        "propertyType": { "status": "known", "value": "flat", "subtype": "Etagenwohnung", "evidence": [{ "page": 1, "quote": "Typ: Etagenwohnung" }] },
+        "price": { "status": "known", "value": 494000, "evidence": [{ "page": 2, "quote": "Kaufpreis: 494.000 €" }] },
+        "rooms": { "status": "known", "value": 2.5, "evidence": [{ "page": 1, "quote": "Zimmer: 2,5" }] },
+        "area": { "status": "known", "value": 67.23, "approximate": true, "evidence": [{ "page": 1, "quote": "Wohnfläche ca.: 67,23 m²" }] },
+        "housegeld": { "status": "unknown", "sourcePresence": "absent_in_source", "value": null, "evidence": [], "note": "No Hausgeld value appears; financing payment and purchase ancillary costs are not Hausgeld." },
+        "occupancy": { "status": "ambiguous", "value": null, "evidence": [{ "page": 1, "quote": "Bezugsfrei ab: ca. 4. Quartal 2028" }, { "page": 3, "quote": "Objektzustand: Erstbezug" }], "note": "Future new-build availability is explicit. Current occupancy/tenancy is not stated; do not label immediately vacant or currently rented." },
+        "availabilityDate": { "status": "known", "value": "ca. 4. Quartal 2028", "evidence": [{ "page": 1, "quote": "Bezugsfrei ab: ca. 4. Quartal 2028" }], "note": "Approximate quarter, not an exact date and not available now." },
+        "condition": { "status": "known", "value": "Erstbezug", "evidence": [{ "page": 3, "quote": "Objektzustand: Erstbezug" }] },
+        "year": { "status": "known", "value": 2027, "evidence": [{ "page": 3, "quote": "Baujahr: 2027" }, { "page": 3, "quote": "Baujahr laut Energieausweis: 2027" }], "note": "Advertised construction year, not availability year 2028." },
+        "floor": { "status": "known", "value": "4", "evidence": [{ "page": 1, "quote": "Etage: 4" }] },
+        "energy": { "status": "known", "value": "A+", "evidenceMode": "visual_only", "evidence": [{ "page": 3, "quote": "Energieeffizienzklasse: A+" }], "note": "A+ is in a green graphical badge. PDF text exposes the label without its value." },
+        "heating": { "status": "known", "value": "Wärmepumpe", "evidence": [{ "page": 3, "quote": "Heizungsart: Wärmepumpe" }] },
+        "energySource": { "status": "known", "value": "Umweltwärme", "evidence": [{ "page": 3, "quote": "Wesentliche Energieträger: Umweltwärme" }] },
+        "city": { "status": "known", "value": "Berlin", "evidence": [{ "page": 1, "quote": "Ella-Kay-Straße 24, Prenzlauer Berg, 10405 Berlin" }] },
+        "district": { "status": "known", "value": "Prenzlauer Berg", "evidence": [{ "page": 1, "quote": "Ella-Kay-Straße 24, Prenzlauer Berg, 10405 Berlin" }] },
+        "street": { "status": "known", "value": "Ella-Kay-Straße 24", "evidence": [{ "page": 1, "quote": "Ella-Kay-Straße 24, Prenzlauer Berg, 10405 Berlin" }] },
+        "postalCode": { "status": "known", "value": "10405", "evidence": [{ "page": 1, "quote": "Ella-Kay-Straße 24, Prenzlauer Berg, 10405 Berlin" }] }
+      },
+      "distractors": [
+        { "page": 5, "quote": "Kronprinzendamm 15, 10711 Berlin", "meaning": "Seller's office, not property address." },
+        { "page": 4, "quote": "499.000 € 67,23 m² | 2.5 Zi.", "meaning": "Another offered unit, not this listing's price." },
+        { "page": 2, "quote": "533.520 € Gesamtkosten", "meaning": "Illustrative purchase total including ancillary costs, not purchase price." }
+      ]
+    },
+    {
+      "id": "bezugsfrei",
+      "sourceFilename": "Eigentumswohnung, bezugsfrei.pdf",
+      "pageCount": 4,
+      "facts": {
+        "propertyType": { "status": "known", "value": "flat", "subtype": "Etagenwohnung", "evidence": [{ "page": 1, "quote": "Typ: Etagenwohnung" }] },
+        "price": { "status": "known", "value": 480000, "evidence": [{ "page": 2, "quote": "Kaufpreis: 480.000 €" }] },
+        "rooms": { "status": "known", "value": 3, "evidence": [{ "page": 1, "quote": "Zimmer: 3" }] },
+        "area": { "status": "known", "value": 86, "approximate": true, "evidence": [{ "page": 1, "quote": "Wohnfläche ca.: 86 m²" }] },
+        "housegeld": { "status": "known", "value": 145, "evidence": [{ "page": 2, "quote": "Hausgeld: 145 €" }], "note": "Label is explicit; payment interval and cost coverage are not specified separately." },
+        "occupancy": { "status": "known", "value": "bezugsfrei", "evidence": [{ "page": 1, "quote": "Eigentumswohnung, bezugsfrei" }, { "page": 1, "quote": "Bezugsfrei ab: sofort" }], "note": "Advertised as available for immediate occupancy; acceptable product normalization is vacant/available. No independent verification of actual physical vacancy." },
+        "availabilityDate": { "status": "known", "value": "sofort", "evidence": [{ "page": 1, "quote": "Bezugsfrei ab: sofort" }], "note": "Relative to the listing, not the evaluation date; do not fabricate a calendar day." },
+        "condition": { "status": "known", "value": "Gepflegt", "evidence": [{ "page": 2, "quote": "Objektzustand: Gepflegt" }] },
+        "year": { "status": "known", "value": 1885, "evidence": [{ "page": 2, "quote": "Baujahr: 1885" }] },
+        "floor": { "status": "known", "value": "3 von 5", "evidence": [{ "page": 1, "quote": "Etage: 3 von 5" }] },
+        "energy": { "status": "known", "value": "E", "evidenceMode": "visual_only", "evidence": [{ "page": 2, "quote": "Energieeffizienzklasse: E" }], "note": "E is in a yellow graphical badge. PDF text exposes the label without its value. A separate text figure is Endenergieverbrauch 154,1 kWh/(m²*a)." },
+        "heating": { "status": "known", "value": "Etagenheizung", "evidence": [{ "page": 2, "quote": "Heizungsart: Etagenheizung" }], "note": "Individual apartment heating, not Zentralheizung." },
+        "energySource": { "status": "known", "value": "Gas", "evidence": [{ "page": 2, "quote": "Wesentliche Energieträger: Gas" }] },
+        "city": { "status": "known", "value": "Berlin", "evidence": [{ "page": 1, "quote": "Möckernstraße -, Kreuzberg, 10963 Berlin" }] },
+        "district": { "status": "known", "value": "Kreuzberg", "evidence": [{ "page": 1, "quote": "Möckernstraße -, Kreuzberg, 10963 Berlin" }] },
+        "street": { "status": "known", "value": "Möckernstraße", "evidence": [{ "page": 1, "quote": "Möckernstraße -, Kreuzberg, 10963 Berlin" }], "note": "The dash is an undisclosed house number, not part of a street or a number. Street-level precision only." },
+        "postalCode": { "status": "known", "value": "10963", "evidence": [{ "page": 1, "quote": "Möckernstraße -, Kreuzberg, 10963 Berlin" }] }
+      },
+      "distractors": [
+        { "page": 1, "quote": "Nutzfläche ca.: 90 m²", "meaning": "Usable area, not 86 m² living area." },
+        { "page": 2, "quote": "518.400 € Gesamtkosten", "meaning": "Illustrative purchase total, not purchase price." },
+        { "page": 3, "quote": "None", "meaning": "Empty-description artifact, not evidence of absent neighborhood amenities." }
+      ]
+    },
+    {
+      "id": "maisonette",
+      "sourceFilename": "Expose_Maisonette_Berlin (1).pdf",
+      "pageCount": 5,
+      "facts": {
+        "propertyType": { "status": "known", "value": "flat", "subtype": "Duplex apartment", "evidence": [{ "page": 2, "quote": "Type of property Apartment" }, { "page": 2, "quote": "Kind of property Duplex apartment" }], "note": "The home-within-a-home marketing language does not make this a house." },
+        "price": { "status": "known", "value": 499000, "evidence": [{ "page": 2, "quote": "Purchase price 499.000,00 €" }], "note": "Currency glyph appears as e in extracted text; rendered original confirms €." },
+        "rooms": { "status": "known", "value": 2, "evidence": [{ "page": 2, "quote": "Room 2" }] },
+        "area": { "status": "known", "value": 73, "approximate": true, "evidence": [{ "page": 2, "quote": "Living area approx. 73 sqm" }] },
+        "housegeld": { "status": "known", "value": 333, "evidence": [{ "page": 2, "quote": "Community fees 333,00 €" }], "note": "Currency confirmed visually. Community fees maps to Hausgeld; interval and coverage are not separately stated." },
+        "occupancy": { "status": "ambiguous", "value": null, "evidence": [{ "page": 2, "quote": "Condition First occupancy" }, { "page": 4, "quote": "First occupancy after new construction of the house and apartment" }], "note": "First occupancy describes condition. Source does not establish current tenancy, immediate availability, or completion date." },
+        "availabilityDate": { "status": "unknown", "sourcePresence": "absent_in_source", "value": null, "evidence": [], "note": "No availability date. Construction year 2025 and certificate expiry 15.07.2032 are not availability dates." },
+        "condition": { "status": "known", "value": "First occupancy", "evidence": [{ "page": 2, "quote": "Condition First occupancy" }], "note": "Other text describes a newly renovated section and a building extension/new construction on an existing house. Preserve this nuance rather than asserting the entire building was newly constructed in 2025." },
+        "year": { "status": "known", "value": 2025, "evidence": [{ "page": 2, "quote": "Year of construction 2025" }], "conflictingRelatedFact": { "value": 2021, "quote": "Year of construction according to energy certificate 2021", "page": 2 }, "note": "The listing's construction-year field is 2025; disclose the different certificate year instead of silently substituting 2021." },
+        "floor": { "status": "ambiguous", "value": null, "evidence": [{ "page": 3, "quote": "The lower level features the entryway" }, { "page": 3, "quote": "The upper level features a sleeping area" }], "note": "Two levels and terrace/private garden are explicit, but no numbered floor is given. Ground and first floors are a plausible inference, not an explicit fact." },
+        "energy": { "status": "known", "value": "A+", "evidence": [{ "page": 2, "quote": "Energy efficiency class A+" }] },
+        "heating": { "status": "known", "value": "Central heating system, Underfloor heating", "evidence": [{ "page": 2, "quote": "Heating type Central heating system, Underfloor heating" }], "note": "Both central heating and underfloor distribution are stated; gas is the fuel, not the complete heating-system description." },
+        "energySource": { "status": "known", "value": "Gas", "evidence": [{ "page": 2, "quote": "Main energy source Gas" }, { "page": 2, "quote": "Combustion Gas" }] },
+        "city": { "status": "known", "value": "Berlin", "evidence": [{ "page": 1, "quote": "Graunstr. 6 13355 Berlin" }] },
+        "district": { "status": "known", "value": "Mitte", "evidence": [{ "page": 5, "quote": "The property is located in the northern part of Berlin-Mitte" }], "note": "Source names Berlin-Mitte, potentially at borough granularity. It does not textually establish Wedding or Gesundbrunnen as the property locality. Nearby Prenzlauer Berg is not the subject district." },
+        "street": { "status": "known", "value": "Graunstraße 6", "sourceValue": "Graunstr. 6", "evidence": [{ "page": 1, "quote": "Graunstr. 6" }] },
+        "postalCode": { "status": "known", "value": "13355", "evidence": [{ "page": 1, "quote": "13355 Berlin" }] }
+      },
+      "distractors": [
+        { "page": 1, "quote": "Uthmannstr. 13, 12043 Berlin", "meaning": "Agency office, not property address." },
+        { "page": 5, "quote": "Eberswalder Straße and Bernauer Straße subway stations", "meaning": "Nearby transport stops, not property street." },
+        { "page": 2, "quote": "Energy certificate valid until 15.07.2032", "meaning": "Certificate validity date, not availability date." },
+        { "page": 2, "quote": "Bedroom 1", "meaning": "Bedroom count, not total room count 2." }
+      ]
+    }
+  ],
+  "releaseCriteria": [
+    "Zero fabricated critical facts across these cases: price, living area, room count, property identity/address, Hausgeld, current tenancy, and availability. An explicit unknown is safer than an unsupported value.",
+    "Every accepted correction must resolve to evidence in the supplied text or separately identified visual/OCR evidence and must belong to the subject listing, not office details, nearby transport, related listings, or financing widgets.",
+    "Measure precision of accepted claims separately from extraction coverage. Abstaining on graphical energy badges is evidence-safe for a text-only verifier but remains a coverage limitation and cannot be reported as complete PDF verification.",
+    "Preserve date granularity, approximation, year-label distinctions, ambiguous floor information, and first-occupancy versus available-now semantics. Do not turn missing values into zero/false/vacant.",
+    "Verification failure, timeout, unsupported provider response, or malformed candidate response must fail visibly to unverified state, preserve trustworthy source facts, and must not set aiFactChecked=true.",
+    "Exercise adversarial candidate values, contradictory candidate evidence, office-address distractors, multi-listing price distractors, missing-field cases, and unrelated/unsupported evidence; successful honest examples alone are insufficient.",
+    "Repeated runs of this small three-PDF suite must not introduce critical regressions. Treat the suite as a smoke/regression gate, not a statistical guarantee of production accuracy. No deployment claim follows solely from this review."
+  ]
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { localePath, type Locale } from '@/lib/i18n';
+import { requestJson } from '@/lib/client-request';
 import { MAX_REPORT_NOTE_LENGTH } from '@/lib/report-note-validation';
 
 type NoteResponse = { note?: string; updatedAt?: string | null; error?: string };
@@ -17,12 +18,13 @@ export function ReportNote({ reportId, locale }: { reportId: string; locale: Loc
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState('');
   const editedBeforeLoad = useRef(false);
+  const saving = useRef(false);
 
   useEffect(() => {
     let active = true;
     const draft = localStorage.getItem(draftKey);
-    fetch(`/api/reports/${encodeURIComponent(reportId)}/note`, { cache: 'no-store' })
-      .then(async response => ({ response, result: await response.json() as NoteResponse }))
+    requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, { cache: 'no-store' })
+      .then(({ response, data }) => ({ response, result: data }))
       .then(async ({ response, result }) => {
         if (!active) return;
         if (response.status === 401) {
@@ -34,16 +36,15 @@ export function ReportNote({ reportId, locale }: { reportId: string; locale: Loc
         const serverNote = result.note || '';
         setAuthenticated(true);
         setSavedNote(serverNote);
-        if (!editedBeforeLoad.current) setNote(draft ?? serverNote);
+        if (!editedBeforeLoad.current) setNote(new URLSearchParams(window.location.search).has('saveNote') ? (draft ?? serverNote) : serverNote);
         const params = new URLSearchParams(window.location.search);
         if (!params.has('saveNote') || draft === null) return;
         setSaveState('saving');
-        const saveResponse = await fetch(`/api/reports/${encodeURIComponent(reportId)}/note`, {
+        const { response: saveResponse, data: saved } = await requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ note: draft }),
         });
-        const saved = await saveResponse.json() as NoteResponse;
         if (!saveResponse.ok) throw new Error(saved.error || 'save_failed');
         if (!active) return;
         localStorage.removeItem(draftKey);
@@ -70,33 +71,40 @@ export function ReportNote({ reportId, locale }: { reportId: string; locale: Loc
     setGateOpen(false);
     setSaveState('idle');
     setError('');
-    localStorage.setItem(draftKey, next);
+    if (authenticated === false) localStorage.setItem(draftKey, next);
   }
 
   async function save() {
-    if (authenticated !== true) {
+    if (saving.current) return;
+    if (authenticated === false) {
       localStorage.setItem(draftKey, note);
       setGateOpen(true);
       return;
     }
+    saving.current = true;
     setSaveState('saving');
     setError('');
-    const response = await fetch(`/api/reports/${encodeURIComponent(reportId)}/note`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ note }),
-    });
-    const result = await response.json() as NoteResponse;
-    if (!response.ok) {
-      if (response.status === 401) { setAuthenticated(false); localStorage.setItem(draftKey, note); setGateOpen(true); setSaveState('idle'); return; }
+    try {
+      const { response, data: result } = await requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ note }),
+      });
+      if (!response.ok) {
+        if (response.status === 401) { setAuthenticated(false); localStorage.setItem(draftKey, note); setGateOpen(true); setSaveState('idle'); return; }
+        setSaveState('error');
+        setError(result.error || (de ? 'Speichern hat gerade nicht geklappt.' : 'The note could not be saved right now.'));
+        return;
+      }
+      localStorage.removeItem(draftKey);
+      setAuthenticated(true);
+      setSavedNote(result.note || '');
+      setNote(result.note || '');
+      setSaveState('saved');
+    } catch {
       setSaveState('error');
-      setError(result.error || (de ? 'Speichern hat gerade nicht geklappt.' : 'The note could not be saved right now.'));
-      return;
-    }
-    localStorage.removeItem(draftKey);
-    setSavedNote(result.note || '');
-    setNote(result.note || '');
-    setSaveState('saved');
+      setError(de ? 'Verbindung fehlgeschlagen. Dein Text bleibt hier erhalten. Bitte versuche es erneut.' : 'Connection failed. Your text is still here. Please try again.');
+    } finally { saving.current = false; }
   }
 
   const returnTo = `${localePath(locale, `/r/${reportId}`)}?saveNote=1`;
@@ -113,6 +121,7 @@ export function ReportNote({ reportId, locale }: { reportId: string; locale: Loc
     <textarea
       id={`report-note-${reportId}`}
       value={note}
+      disabled={saveState === 'saving'}
       maxLength={MAX_REPORT_NOTE_LENGTH}
       onChange={event => changeNote(event.target.value)}
       placeholder={de ? 'Zum Beispiel: Fenster prüfen, Rücklage nachfragen …' : 'For example: check the windows, ask about the reserve …'}

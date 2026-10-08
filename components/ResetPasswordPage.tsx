@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { requestJson } from '@/lib/client-request';
 import { localePath, type Locale } from '@/lib/i18n';
 import { SiteFooter } from './SiteFooter';
 import { SiteNav } from './SiteNav';
@@ -10,6 +11,7 @@ export function ResetPasswordPage({ locale }: { locale: Locale }) {
   const capturedToken = useRef('');
   const [token, setToken] = useState('');
   const [ready, setReady] = useState(false);
+  const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,17 +24,22 @@ export function ResetPasswordPage({ locale }: { locale: Locale }) {
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault();
+    if (inFlight.current) return;
+    setBusy(true); setError('');
     const values = new FormData(event.currentTarget);
     const password = String(values.get('password') || '');
     const confirmation = String(values.get('confirmation') || '');
     if (password !== confirmation) { setError(de ? 'Die Passwörter stimmen nicht überein.' : 'The passwords do not match.'); setBusy(false); return; }
-    const response = await fetch('/api/auth/password/reset', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, password, locale }),
-    });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setError(result.error || (de ? 'Das Passwort konnte nicht geändert werden.' : 'The password could not be changed.')); setBusy(false); return; }
-    window.location.href = `${localePath(locale, '/account')}?passwordReset=1`;
+    inFlight.current = true;
+    try {
+      const { response, data: result } = await requestJson<{ error?: string; message?: string }>('/api/auth/password/reset', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, password, locale }),
+      });
+      if (!response.ok) { setError(result.error || (de ? 'Das Passwort konnte nicht geändert werden.' : 'The password could not be changed.')); setBusy(false); return; }
+      window.location.href = `${localePath(locale, '/account')}?passwordReset=1`;
+    } catch { setError(de ? 'Verbindung fehlgeschlagen. Bitte versuche es erneut.' : 'Connection failed. Please try again.'); }
+    finally { inFlight.current = false; setBusy(false); }
   }
 
   const invalid = ready && !token;

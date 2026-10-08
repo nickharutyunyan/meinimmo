@@ -9,6 +9,7 @@ import './editorial.css';
 import './guide.css';
 import './account.css';
 import './print-report.css';
+import './countries.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),
   applicationName: 'ReviewAHouse',

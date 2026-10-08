@@ -12,7 +12,10 @@ function isoDate(year: number, month: number, day: number) {
 export function extractAvailabilityDate(lines: string[]) {
   const candidates = lines.flatMap((line, index) => [line, `${line} ${lines[index + 1] || ''}`]);
   for (const candidate of candidates) {
+    const quarter = candidate.match(/(?:bezugsfrei|beziehbar|verf[uü]gbar|frei)\s+ab\s*:?\s*(ca\.?\s*|voraussichtlich\s*)?(?:([1-4])\.?\s*Quartal|Q([1-4]))\s+(20\d{2})\b/i);
+    if (quarter) return `${quarter[1] ? '~' : ''}${quarter[4]}-Q${quarter[2] || quarter[3]}`;
     const numeric = candidate.match(/(?:bezugsfrei|beziehbar|verf[uü]gbar|frei)\s+ab\s*:?\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\b/i)
+      || candidate.match(/\bab\s+(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\s+(?:unvermietet|bezugsfrei|beziehbar)/i)
       || candidate.match(/(?:available|vacant|move-in)\s+from\s*:?\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\b/i);
     if (numeric) {
       const value = isoDate(Number(numeric[3]), Number(numeric[2]), Number(numeric[1]));
@@ -29,6 +32,8 @@ export function extractAvailabilityDate(lines: string[]) {
 }
 
 export function formatAvailabilityDate(value: string | undefined, locale: 'en' | 'de') {
+  const quarter = value?.match(/^(~?)(20\d{2})-Q([1-4])$/);
+  if (quarter) return `${quarter[1] ? (locale === 'de' ? 'ca. ' : 'approx. ') : ''}${locale === 'de' ? `${quarter[3]}. Quartal` : `Q${quarter[3]}`} ${quarter[2]}`;
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
   const [year, month, day] = value.split('-').map(Number);
   if (isoDate(year, month, day) !== value) return '';

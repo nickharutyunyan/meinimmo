@@ -11,10 +11,10 @@ function bounded(value: string | string[] | undefined, fallback: number, minimum
   return Number.isFinite(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
 }
 
-export function printFinanceSettings(query: Query, total: number) {
+export function printFinanceSettings(query: Query, total: number, defaultInterest = 3.5) {
   return {
     equity: bounded(query.equity, defaultEquity(total), 0, total),
-    interest: bounded(query.interest, 3.5, 2, 7),
+    interest: bounded(query.interest, defaultInterest, 2, 7),
     repayment: bounded(query.repayment, 2, 1, 5),
     includeHousegeld: first(query.hausgeld) !== '0',
   };

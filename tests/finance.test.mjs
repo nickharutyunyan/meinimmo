@@ -34,3 +34,11 @@ test('never allows equity or malformed negative inputs to create a negative loan
   const scenario = financingScenario({ total: 300_000, equity: 500_000, interest: -1, repayment: -2, housegeld: -10 });
   assert.deepEqual(scenario, { loan: 0, loanPayment: 0, knownOutlay: 0 });
 });
+
+test('conflicting costs never produce a contradictory acquisition breakdown', () => {
+  const costs = acquisitionCosts({ price: 192700, buyerCosts: 192700, totalCost: 207242 });
+  assert.equal(costs.buyerCosts, 14542);
+  assert.equal(costs.price + costs.buyerCosts, costs.total);
+  assert.equal(acquisitionCosts({price: 172000, buyerCosts: 13105, totalCost:185104}).buyerCosts, 13105);
+  assert.equal(acquisitionCosts({price: 172000, buyerCosts: 0, totalCost:0}).buyerCostsAreEstimated, false);
+});

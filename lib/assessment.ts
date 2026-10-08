@@ -1,7 +1,9 @@
 import 'server-only';
+import { cleanAddressPlaceholders, hasHouseNumber, validStreet } from './location-validation';
+import { guardEnrichment } from './verification-guard';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { Report } from './types';
-import { htmlToLines, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
+import { htmlToLines, parseListingNumber, looksLikePropertyListing, normalizedCondition, normalizedFloor, normalizedTenancy, parseListing, refreshDerivedReport } from './listing-parser';
 import { displayAddress, resolveLocation } from './display';
 import { isObviousAddressQuestion, offerQuestionsFor } from './report-copy';
 import { listingAiExcerpt, parseAiJson } from './ai-input';
@@ -63,8 +65,10 @@ function propertyStreetSupported(street: string, source: string, report: Report)
     if (/\b(?:Makler|Anbieter|Anbietende|Gewerblich|Impressum|Immobilienb(?:ü|u)ro|Scout-ID|Objekt-ID|Kontakt)\b/i.test(context)) continue;
     const postals = [...context.matchAll(/\b(\d{5})\b/g)].map(match => match[1]);
     if (report.facts.postalCode && postals.length && !postals.includes(report.facts.postalCode)) continue;
-    if (/\b(?:Adresse|Anschrift|Straße|Lage)\s*[:\-]|\b(?:nahe|Nähe|unweit|bei|direkt\s+(?:an|bei)|gelegen\s+(?:an|bei)|in\s+der)\b/iu.test(context)) return true;
-    if (report.facts.postalCode && postals.includes(report.facts.postalCode)) return true;
+    const line = lines[index];
+    if (/\b(?:nahe|Nähe|unweit|Einkaufsmeile|Umgebung)\b/iu.test(line)) continue;
+    if (/^\s*(?:Adresse|Anschrift|Straße|Lage)\s*[:\-]|\b(?:Wohnung|Haus|Immobilie|Objekt)\s+(?:liegt|befindet\s+sich)\s+(?:direkt\s+)?(?:in\s+der|an\s+der)\b/iu.test(line)) return true;
+    if (report.facts.postalCode && line.includes(report.facts.postalCode)) return true;
   }
   return false;
 }
@@ -74,21 +78,22 @@ function mergeLocation(report: Report, value: unknown, searchableSource: string)
   const location = value as AiLocation;
   const city = validPlace(location.city, searchableSource);
   const district = validPlace(location.district, searchableSource);
-  const street = validPlace(location.street, searchableSource, 100).replace(/,?\s*\b\d{5}\b[\s\S]*$/u, '').replace(/\s+0\s*$/u, '').trim();
+  const street = cleanAddressPlaceholders(validPlace(location.street, searchableSource, 100).replace(/,?\s*\b\d{5}\b[\s\S]*$/u, ''));
   const stop = validPlace(location.transitStop, searchableSource);
   const postal = typeof location.postalCode === 'string' && /^\d{5}$/.test(location.postalCode.trim()) && sourceContains(searchableSource, location.postalCode.trim()) ? location.postalCode.trim() : '';
   const evidence = typeof location.evidence === 'string' && sourceContains(searchableSource, location.evidence) ? location.evidence.trim().slice(0, 240) : '';
 
   if (city && !report.facts.city) report.facts.city = city;
   if (postal && !report.facts.postalCode) report.facts.postalCode = postal;
-  const improvesDistrict = district && (!report.facts.district || (/kiez$/i.test(district) && !/kiez$/i.test(report.facts.district)));
+  // A named nearby Kiez must not replace the district in the property address.
+  const improvesDistrict = district && !report.facts.district;
   if (improvesDistrict) {
     report.facts.district = district;
     report.location = district;
   } else if (city && !report.facts.district) report.location = city;
   if (stop) report.facts.transitStop = stop;
-  if (street && propertyStreetSupported(street, searchableSource, report) && /(?:straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)\b/iu.test(street)) {
-    const hasNumber = /\b\d{1,4}[a-z]?\s*$/iu.test(street);
+  if (street && validStreet(street) && propertyStreetSupported(street, searchableSource, report) && /(?:straße|str\.?|allee|weg|platz|gasse|damm|ufer|chaussee|ring|steig)\b/iu.test(street)) {
+    const hasNumber = hasHouseNumber(street);
     report.facts.street = street;
     report.facts.locationPrecision = hasNumber ? 'address' : 'street';
     report.address = hasNumber ? displayAddress(`${street}${postal ? `, ${postal}` : ''}${report.facts.city ? ` ${report.facts.city}` : ''}`) : 'Address not stated';
@@ -106,9 +111,7 @@ function verifiedEvidence(value: unknown, source: string) {
   return clean.length >= 3 && sourceContains(source, clean) ? clean : '';
 }
 
-function decimal(value: string) {
-  return Number(value.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, ''));
-}
+const decimal = parseListingNumber;
 
 function mergeVerifiedFacts(report: Report, value: unknown, source: string) {
   if (!value || typeof value !== 'object') return report;
@@ -173,6 +176,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     ...report,
     offerQuestions: validatedQuestions(report.offerQuestions, report, 'en') || defaultOfferQuestions(report, 'en'),
     offerQuestionsDe: validatedQuestions(report.offerQuestionsDe, report, 'de') || defaultOfferQuestions(report, 'de'),
+    verificationAttempted: verifySourceFacts || report.verificationAttempted,
     aiLocationChecked: verifySourceFacts ? false : report.aiLocationChecked,
     aiFactChecked: verifySourceFacts ? false : report.aiFactChecked,
   };
@@ -209,7 +213,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     response_format: { type: 'json_object' },
     messages: verifySourceFacts ? [
       { role: 'system', content: 'Verify German property-listing facts. Never invent or infer. Every value must be supported by a short verbatim excerpt from this property listing, never publisher, agency, legal, office, footer or nearby-property text. A nearby station is only a transitStop.' },
-      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"price":string|null,"rooms":string|null,"area":string|null,"housegeld":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Price evidence must include the explicit Kaufpreis label and amount, never price per m², financing, total costs or monthly payments. Occupancy must distinguish rented from explicitly not rented; do not infer it when unstated. Street is only the property's stated or explicitly nearby street, never an agency or contact address. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
+      { role: 'user', content: `Return JSON only: {"location":{"city":string|null,"postalCode":string|null,"district":string|null,"street":string|null,"transitStop":string|null,"evidence":string|null},"factEvidence":{"propertyType":string|null,"price":string|null,"rooms":string|null,"area":string|null,"housegeld":string|null,"occupancy":string|null,"condition":string|null,"year":string|null,"floor":string|null,"energy":string|null}}. Evidence values must be short verbatim excerpts; use null if absent or ambiguous. Price evidence must include the explicit Kaufpreis label and amount, never price per m², financing, total costs or monthly payments. Occupancy must distinguish rented from explicitly not rented; do not infer it when unstated. Street is only the property's explicitly stated address, never a nearby street, never an agency or contact address. Parsed facts to verify: ${JSON.stringify(parsedForCheck)}\nLISTING:\n${excerpt}` },
     ] : [
       { role: 'system', content: 'Write concise due-diligence questions for German home buyers. Ask only about material unresolved risks in the supplied property report. Keep each question plain, specific, under 20 words and limited to one request. Never ask for the exact address or street address; that is an obvious viewing detail, not useful due diligence.' },
       { role: 'user', content: `Return JSON only: {"offerQuestionsEn":["exactly four English questions"],"offerQuestionsDe":["exactly four German questions"]}. Do not repeat known facts as questions and do not ask for the exact address. PROPERTY REPORT:\n${JSON.stringify(questionContext)}` },
@@ -226,7 +230,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     const data = await response.json() as { model?: string; choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content || '';
     const parsed = parseAiJson(content) as { location?: unknown; factEvidence?: unknown; offerQuestionsEn?: unknown; offerQuestionsDe?: unknown };
-    const enriched = verifySourceFacts
+    let enriched = verifySourceFacts
       ? mergeVerifiedFacts(mergeLocation({ ...fallback, facts: { ...fallback.facts } }, parsed.location, searchableSource), parsed.factEvidence, searchableSource)
       : { ...fallback, facts: { ...fallback.facts } };
     const english = verifySourceFacts ? undefined : validatedQuestions(parsed.offerQuestionsEn, enriched, 'en');
@@ -234,8 +238,7 @@ export async function enrichAssessment(report: Report, sourceText = '', verifySo
     enriched.offerQuestions = english || fallback.offerQuestions;
     enriched.offerQuestionsDe = german || fallback.offerQuestionsDe;
     enriched.aiEnriched = verifySourceFacts ? false : Boolean(english && german);
-    enriched.aiLocationChecked = verifySourceFacts;
-    enriched.aiFactChecked = verifySourceFacts;
+    if (verifySourceFacts) enriched = guardEnrichment(report, enriched);
     console.info('OpenRouter enrichment complete', { purpose: verifySourceFacts ? 'facts' : 'questions', model: data.model || 'unknown' });
     return refreshDerivedReport(enriched);
   } catch (error) {

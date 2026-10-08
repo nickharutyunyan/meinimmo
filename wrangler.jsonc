@@ -49,6 +49,8 @@
     "PAYMENTS_ENABLED": "true",
     "REPORT_LIMITS_ENABLED": "false",
     "OPENROUTER_MODEL": "google/gemma-4-26b-a4b-it:free",
+    "JEV_MODEL": "jev-latest",
+    "FACT_CHECK_PROVIDER": "openrouter",
     "STRIPE_PRICE_DAY_PASS": "price_1U8ii4RQaSxEwZxWRf4Aczff",
     "STRIPE_PRICE_PRO": "price_1U8iiHRQaSxEwZxWKW86QZfe",
     "STRIPE_PRICE_ULTRA": "price_1U8iiLRQaSxEwZxWGtZM8zax",
