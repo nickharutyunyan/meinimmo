@@ -1266,9 +1266,32 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
   font-size: 12.5px;
 }
 
+.score-method > span.is-unscored {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+.score-method > span.is-unscored em {
+  flex: 1 0 100%;
+  color: #66736c;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 450;
+}
+
 .score-method b {
   color: var(--ink);
   font-weight: 650;
+}
+
+.score-method-link {
+  display: inline-block;
+  margin-top: 14px;
+  border-bottom: 1px solid #9da8a2;
+  color: #405d54;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
 }
 
 .report-grid {

@@ -752,14 +752,13 @@ function formatStreetAddress(street: string, postalCode: string, city: string) {
 
 function publishScore(report: Report) {
   const calculation = calculatePropertyScore(report);
+  delete report.scoreTitle;
   if (!scoreAvailable(report)) {
     report.score = null;
-    report.scoreTitle = undefined;
     report.scoreBreakdown = undefined;
     return report;
   }
   report.score = calculation.total;
-  report.scoreTitle = calculation.title;
   report.scoreBreakdown = calculation.breakdown;
   return report;
 }

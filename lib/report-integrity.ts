@@ -1,6 +1,7 @@
 import type { Report } from './types';
+import { copy, type Locale } from './i18n.ts';
 import { validStreet } from './location-validation.ts';
-import { defaultScoreComponents } from './property-score.ts';
+import { defaultScoreComponents, scoreConfidence } from './property-score.ts';
 
 export const EXTRACTION_VERSION = 2026100802;
 
@@ -22,7 +23,15 @@ export function scoreAvailable(report: Report) {
   if (!report.facts.city) return false;
   if (report.typeSource === 'fallback') return false;
   if (defaultScoreComponents(report).length >= 2) return false;
-  return reportConflicts(report).length === 0;
+  if (reportConflicts(report).length > 0) return false;
+  return scoreConfidence(report).level !== 'low';
+}
+
+export function scoreExplanation(report: Report, locale: Locale) {
+  if (scoreAvailable(report)) return copy[locale].report.scoreExplainer;
+  const confidence = scoreConfidence(report);
+  if (confidence.level === 'low') return copy[locale].report.lowConfidence.replaceAll('{present}', String(confidence.present));
+  return copy[locale].report.scoreWithheld;
 }
 
 export function reportVerdict(report: Report, locale: 'en' | 'de') {

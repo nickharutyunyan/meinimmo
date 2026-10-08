@@ -1,5 +1,6 @@
 import type { Report, ScoreBreakdown } from './types';
-import type { Locale } from './i18n';
+import { copy, type Locale } from './i18n.ts';
+import { berlinPriceCheck } from './price-check.ts';
 
 const UNKNOWN = /not stated|unknown/i;
 const clamp = (value: number, minimum = 0, maximum = 10) => Math.min(maximum, Math.max(minimum, value));
@@ -11,19 +12,26 @@ function band(value: number, points: Array<[number, number]>, fallback: number) 
   return fallback;
 }
 
-function priceScore(report: Report) {
-  const { price, area, totalCost, advertisedYield } = report.facts;
-  if (!price || !area) return 4;
-  const perSquareMetre = price / area;
-  let score = band(perSquareMetre, [
-    [3_000, 9.4],
-    [4_500, 8.1],
-    [6_000, 6.7],
-    [7_500, 5.3],
-    [9_000, 4],
-    [12_000, 2.7],
-  ], 1.8);
-  if (totalCost && totalCost / price > 1.13) score -= 0.4;
+/**
+ * Official local delta, before yield and buyer-cost adjustments.
+ * ≤ −15 → 8.5; −15 < d ≤ −5 → 7.5; −5 < d < 5 → 6; 5 ≤ d < 15 → 4.5; ≥ 15 → 3.
+ * A thin sales sample is pulled halfway toward 6.
+ */
+export function scorePriceFromDelta(deltaPct: number, confidence: 'normal' | 'low' = 'normal') {
+  const bandScore = deltaPct <= -15 ? 8.5
+    : deltaPct <= -5 ? 7.5
+      : deltaPct < 5 ? 6
+        : deltaPct < 15 ? 4.5
+          : 3;
+  return confidence === 'low' ? (bandScore + 6) / 2 : bandScore;
+}
+
+function priceScore(report: Report): number | null {
+  const check = berlinPriceCheck(report);
+  if (!check) return null;
+  let score = scorePriceFromDelta(check.deltaPct, check.confidence);
+  const { price, totalCost, advertisedYield } = report.facts;
+  if (price && totalCost && totalCost / price > 1.13) score -= 0.4;
   if (advertisedYield && advertisedYield >= 5) score += 0.4;
   return clamp(score);
 }
@@ -156,24 +164,89 @@ function sourceScore(report: Report) {
   return clamp(checks.reduce((sum, [present, weight]) => sum + (present ? weight : 0), 0));
 }
 
-export function propertyScoreTitle(total: number, locale: Locale = 'en') {
-  if (locale === 'de') {
-    if (total >= 8.5) return 'Außergewöhnlich starke Grundlagen';
-    if (total >= 7.5) return 'Insgesamt ein starkes Angebot';
-    if (total >= 6.5) return 'Solide, mit wichtigen Abwägungen';
-    if (total >= 5.5) return 'Gemischtes Bild – genauer hinschauen';
-    if (total >= 4.5) return 'Mehrere Punkte brauchen Vorsicht';
-    return 'Die genannten Grundlagen sind schwach';
-  }
-  if (total >= 8.5) return 'Exceptional on the stated fundamentals';
-  if (total >= 7.5) return 'A strong overall proposition';
-  if (total >= 6.5) return 'Solid, with meaningful trade-offs';
-  if (total >= 5.5) return 'A mixed proposition worth examining';
-  if (total >= 4.5) return 'Several fundamentals need caution';
-  return 'The stated fundamentals are weak';
+const unknown = (value?: string) => !value || UNKNOWN.test(value);
+
+export const SCORE_WEIGHTS: Record<keyof ScoreBreakdown, number> = {
+  price: 0.25,
+  neighborhood: 0.2,
+  space: 0.15,
+  building: 0.12,
+  energy: 0.1,
+  light: 0.08,
+  costs: 0.05,
+  source: 0.05,
+};
+
+/** Drop a null price part and scale the rest so the weights still sum to 1. */
+export function activeScoreWeights(breakdown: ScoreBreakdown) {
+  const entries = (Object.keys(SCORE_WEIGHTS) as Array<keyof ScoreBreakdown>)
+    .filter((key) => breakdown[key] !== null)
+    .map((key) => [key, SCORE_WEIGHTS[key]] as const);
+  const sum = entries.reduce((total, [, weight]) => total + weight, 0);
+  return Object.fromEntries(entries.map(([key, weight]) => [key, weight / sum])) as Partial<Record<keyof ScoreBreakdown, number>>;
 }
 
-const unknown = (value?: string) => !value || UNKNOWN.test(value);
+const KEY_FACTS = ['price', 'area', 'rooms', 'year', 'floor', 'energy', 'hausgeld', 'location'] as const;
+type KeyFact = typeof KEY_FACTS[number];
+
+/** F02 caution flags that make a key fact unusable for confidence. */
+const CAUTION_ON_FIELD: Record<KeyFact, readonly string[]> = {
+  price: [],
+  area: [],
+  rooms: [],
+  year: [],
+  floor: ['basement'],
+  energy: ['noEnergyData'],
+  hausgeld: ['noHausgeld'],
+  location: [],
+};
+
+export type ScoreConfidence = {
+  present: number;
+  total: 8;
+  level: 'high' | 'medium' | 'low';
+};
+
+function keyFactStated(report: Report, fact: KeyFact) {
+  const facts = report.facts;
+  const house = report.propertyType === 'house';
+  switch (fact) {
+    case 'price': return facts.price > 0;
+    case 'area': return facts.area > 0;
+    case 'rooms': return known(facts.rooms);
+    case 'year': return known(facts.year);
+    case 'floor': return house || known(facts.floor);
+    case 'energy': return known(facts.energy) || Boolean(facts.energyDemand);
+    case 'hausgeld': return house || Boolean(facts.housegeld);
+    case 'location': return facts.locationPrecision === 'address' || facts.locationPrecision === 'street';
+    default: return false;
+  }
+}
+
+function keyFactBlocked(report: Report, fact: KeyFact) {
+  const ids = CAUTION_ON_FIELD[fact];
+  if (!ids.length) return false;
+  return (report.redFlags || []).some((flag) => flag.severity === 'caution' && ids.includes(flag.id));
+}
+
+/** Eight key facts. Houses count floor and Hausgeld as present. A caution on a field keeps it out. */
+export function scoreConfidence(report: Report): ScoreConfidence {
+  const present = KEY_FACTS.filter((fact) => keyFactStated(report, fact) && !keyFactBlocked(report, fact)).length;
+  const level = present >= 7 ? 'high' : present >= 5 ? 'medium' : 'low';
+  return { present, total: 8, level };
+}
+
+export function formatScore(value: number, locale: Locale) {
+  return value.toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+export function scoreConfidenceLabel(confidence: ScoreConfidence, locale: Locale) {
+  const name = copy[locale].report.confidenceLevel[confidence.level];
+  return copy[locale].report.confidenceLine
+    .replace('{level}', name)
+    .replace('{present}', String(confidence.present))
+    .replace('{total}', String(confidence.total));
+}
 
 /** Sub-scores produced with no measured evidence. Two or more withhold the published score. */
 export function defaultScoreComponents(report: Report): Array<keyof ScoreBreakdown> {
@@ -187,9 +260,11 @@ export function defaultScoreComponents(report: Report): Array<keyof ScoreBreakdo
   return defaults;
 }
 
+/** Read-time rubric. Score changes must not bump EXTRACTION_VERSION or re-parse archived HTML. */
 export function calculatePropertyScore(report: Report) {
+  const price = priceScore(report);
   const breakdown: ScoreBreakdown = {
-    price: round(priceScore(report), 1),
+    price: price === null ? null : round(price, 1),
     neighborhood: round(neighborhoodScore(report), 1),
     space: round(spaceScore(report), 1),
     building: round(buildingScore(report), 1),
@@ -198,15 +273,10 @@ export function calculatePropertyScore(report: Report) {
     costs: round(costsScore(report), 1),
     source: round(sourceScore(report), 1),
   };
-  const total = round(
-    breakdown.price * 0.25 +
-    breakdown.neighborhood * 0.2 +
-    breakdown.space * 0.15 +
-    breakdown.building * 0.12 +
-    breakdown.energy * 0.1 +
-    breakdown.light * 0.08 +
-    breakdown.costs * 0.05 +
-    breakdown.source * 0.05,
-  );
-  return { total, title: propertyScoreTitle(total), breakdown };
+  const weights = activeScoreWeights(breakdown);
+  const total = round((Object.keys(weights) as Array<keyof ScoreBreakdown>).reduce((sum, key) => {
+    const value = breakdown[key];
+    return sum + (value ?? 0) * (weights[key] ?? 0);
+  }, 0));
+  return { total, breakdown };
 }

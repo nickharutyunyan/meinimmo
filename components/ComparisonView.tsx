@@ -1,10 +1,11 @@
 import { localizedWarnings } from '@/lib/report-copy';
 import { scoreAvailable } from '@/lib/report-integrity';
 import { Fragment } from 'react';
+import Link from 'next/link';
 import type { Report } from '@/lib/types';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { neighborhoodForReport } from '@/lib/geocode';
-import { calculatePropertyScore } from '@/lib/property-score';
+import { calculatePropertyScore, formatScore, scoreConfidence } from '@/lib/property-score';
 import { copy, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
@@ -16,6 +17,11 @@ import { localizedTaxonomyValue } from '@/lib/property-taxonomy';
 import { priceCheckCompare } from '@/lib/price-check-copy';
 
 const money = (number: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(number);
+
+function scoreCell(item: Report, total: number, locale: Locale) {
+  if (!scoreAvailable(item)) return '—';
+  return `${formatScore(total, locale)} / 10`;
+}
 
 export async function ComparisonView({ first, second, locale }: { first: Report; second: Report; locale: Locale }) {
   const text = copy[locale].compare;
@@ -72,8 +78,21 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
     [text.return, first.facts.advertisedYield ? `${first.facts.advertisedYield}%` : '—', second.facts.advertisedYield ? `${second.facts.advertisedYield}%` : '—'],
     [text.energy, energy(first), energy(second)],
     [copy[locale].report.notes, localizedWarnings(first, locale).join(' ') || '—', localizedWarnings(second, locale).join(' ') || '—'],
-    [text.score, scoreAvailable(first) ? `${firstScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first'), scoreAvailable(second) ? `${secondScore.total.toFixed(1)} / 10` : (locale === 'de' ? 'Zuerst Angaben klären' : 'Resolve facts first')],
+    [text.score, scoreCell(first, firstScore.total, locale), scoreCell(second, secondScore.total, locale)],
   ] as const);
+
+  const priceNotes = [first, second].flatMap((item, index) => {
+    const score = index === 0 ? firstScore : secondScore;
+    if (score.breakdown.price !== null) return [];
+    const option = index === 0 ? 'A' : 'B';
+    return [`${text.option} ${option}: ${copy[locale].report.components.price} — ${copy[locale].report.priceNotScored}`];
+  });
+  const lowNotes = [first, second].flatMap((item, index) => {
+    const confidence = scoreConfidence(item);
+    if (scoreAvailable(item) || confidence.level !== 'low') return [];
+    const option = index === 0 ? 'A' : 'B';
+    return [`${text.option} ${option}: ${copy[locale].report.lowConfidence.replaceAll('{present}', String(confidence.present))}`];
+  });
 
   return <main className="comparison-page" lang={locale}>
     <SiteNav locale={locale} />
@@ -89,7 +108,9 @@ export async function ComparisonView({ first, second, locale }: { first: Report;
       const property = item as Report;
       return <article key={String(option)}><small>{text.option} {String(option)}</small><h2><a href={localePath(locale, `/r/${property.id}`)}>{reportTitle(property, locale)}</a></h2><dl>{rows.map(([label, a, b]) => <div key={label}><dt><GlossaryText locale={locale}>{label}</GlossaryText></dt><dd>{comparisonValue(label, valueIndex === 1 ? a : b, valueIndex as 1 | 2)}</dd></div>)}</dl></article>;
     })}</section>
-    <p className="finance-note">{copy[locale].report.scoreExplainer}</p>
+    <p className="finance-note">{copy[locale].report.scoreExplainer} <Link href={localePath(locale, '/method')}>{copy[locale].report.howWeReview}</Link></p>
+    {priceNotes.length ? <p className="finance-note">{priceNotes.join(' · ')}</p> : null}
+    {lowNotes.length ? <p className="finance-note">{lowNotes.join(' · ')}</p> : null}
     <SiteFooter locale={locale} />
   </main>;
 }
