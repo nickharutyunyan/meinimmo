@@ -2356,7 +2356,7 @@ span.glossary-term[role='button']:focus-visible > span.glossary-tooltip {
 .listing-photos { margin: 4px 0 28px; }
 .listing-photos-caption { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .listing-photos-strip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; }
-.listing-photos-strip a { flex: 0 0 auto; width: 160px; height: 120px; overflow: hidden; border-radius: 8px; scroll-snap-align: start; }
+.listing-photos-strip a, .listing-photos-strip span { flex: 0 0 auto; width: 160px; height: 120px; overflow: hidden; border-radius: 8px; scroll-snap-align: start; }
 .listing-photos-strip img { display: block; width: 160px; height: 120px; object-fit: cover; background: #eceae4; }
 @media print {
   .listing-photos { display: none; }

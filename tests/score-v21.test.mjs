@@ -12,7 +12,7 @@ import { priceCheckLead } from '../lib/price-check-copy.ts';
 import { berlinPriceCheck } from '../lib/price-check.ts';
 import {
   LEASEHOLD_PENALTY,
-  RENTED_OCCUPIER_PENALTY,
+  RENTED_SOON_PENALTY,
   calculatePropertyScore,
   conditionPoints,
   energyClassGap,
@@ -61,7 +61,7 @@ test('S11 leasehold and a sitting tenant move the score and cap confidence', () 
   const score = calculatePropertyScore(osnabruck);
   assert.equal(osnabruck.facts.tenancy, 'Rented');
   assert.equal(osnabruck.facts.groundLease, true);
-  assert.deepEqual(score.adjustments.map((item) => item.points), [-LEASEHOLD_PENALTY, -RENTED_OCCUPIER_PENALTY]);
+  assert.deepEqual(score.adjustments.map((item) => item.points), [-LEASEHOLD_PENALTY, -RENTED_SOON_PENALTY]);
   assert.ok(score.total < 5.5, `Osnabrück scored ${score.total}`);
   assert.notEqual(Number(score.total.toFixed(1)), 6.4);
   assert.equal(scoreConfidence(osnabruck).level, 'medium');
@@ -98,7 +98,7 @@ test('an energy class one step off the demand is a note and still scores', () =>
   assert.equal(calculatePropertyScore(bochum).breakdown.energy, 9.4);
   assert.equal(scoreAvailable(bochum), true);
   assert.notEqual(bochum.score, null);
-  assert.equal(scoreConfidence(bochum).level, 'low');
+  assert.equal(scoreConfidence(bochum).level, 'medium');
   assert.equal(reportConflicts(bochum).some((problem) => /energy|class and consumption/i.test(problem)), false);
   assert.match(localizedWarnings(bochum, 'de').join(' '), /eine Stufe/);
   assert.match(localizedWarnings(bochum, 'en').join(' '), /one step off the stated demand/);

@@ -296,10 +296,11 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
     shown(facts.energy) ? known(facts.energy) : '',
     demand ? `${demand} ${locale === 'de' ? 'kWh/(m²·a)' : 'kWh/(m²·year)'}` : '',
   ].filter(Boolean).join(' · ');
-  const heating = [
+  const heatingParts = [
     shown(facts.heating) ? known(facts.heating) : '',
     facts.energySource && shown(facts.energySource) ? known(facts.energySource) : '',
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean);
+  const heating = [...new Set(heatingParts)].join(' · ');
   const rows: Array<[string, string, FeedbackField]> = [];
   if (facts.price) rows.push([text.asking, money(facts.price, locale), 'price']);
   if (facts.price && facts.area) rows.push([text.perSqm, moneyPerSqm(facts.price / facts.area, locale), 'perSqm']);
@@ -314,6 +315,7 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
   if (facts.buyerCommission) rows.push([text.commission, known(facts.buyerCommission), 'buyerCommission']);
   if (facts.housegeld) rows.push(['Hausgeld', `${money(facts.housegeld, locale)} ${text.monthly}${facts.housegeldYear ? ` (${facts.housegeldYear})` : ''}`, 'housegeld']);
   if (facts.advertisedYield) rows.push([text.return, percent(facts.advertisedYield, locale), 'advertisedYield']);
+  else if (facts.grossYield && (facts.tenancy === 'Rented' || facts.investmentUse)) rows.push([locale === 'de' ? 'Bruttorendite' : 'Gross yield', percent(facts.grossYield, locale), 'grossYield']);
   if (shown(report.sunOrientation)) rows.push([text.sun, known(report.sunOrientation), 'sunOrientation']);
   if (report.daylight) rows.push([text.daylight, known(report.daylight), 'daylight']);
   if (energy) rows.push([text.energy, energy, 'energy']);

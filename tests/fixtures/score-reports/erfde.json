@@ -1,0 +1,62 @@
+{
+  "id": "a03cb4571cd91409",
+  "title": "4-room house · Bargen",
+  "address": "Erfde",
+  "location": "Bargen",
+  "propertyType": "house",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/502750/",
+  "createdAt": "2026-10-08T12:48:12.036Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 319000,
+    "area": 100,
+    "rooms": "4",
+    "year": "2024",
+    "floor": "not stated",
+    "energy": "A+",
+    "heating": "Fußbodenheizung",
+    "energySource": "Luft-/Wasserwärme",
+    "energyDemand": 27.6,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 344126,
+    "buyerCosts": 25126,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "tenancy": "Not rented",
+    "condition": "Like new",
+    "features": [
+      "Terrasse",
+      "Einbauküche",
+      "Fußbodenheizung",
+      "Garten"
+    ],
+    "plotArea": 500,
+    "construction": "Timber frame",
+    "city": "Erfde",
+    "district": "Bargen",
+    "locationPrecision": "neighborhood",
+    "neighborhood": {
+      "transitMentioned": false,
+      "parkMentioned": false,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The listing prints \"2803\" as the postcode, which is not a valid 5-digit code. The town is still used.",
+    "Exact street address is not disclosed in the listing."
+  ],
+  "redFlags": [],
+  "score": 7.66,
+  "scoreBreakdown": {
+    "price": null,
+    "neighborhood": 5.5,
+    "space": 8.4,
+    "building": 9.2,
+    "energy": 10,
+    "light": 5.8,
+    "costs": 6.4,
+    "source": 10
+  }
+}

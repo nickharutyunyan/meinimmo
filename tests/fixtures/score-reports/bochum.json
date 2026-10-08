@@ -1,0 +1,72 @@
+{
+  "id": "b7c9512d8475e887",
+  "title": "17-room house · Linden",
+  "address": "44879 Bochum",
+  "location": "Linden",
+  "propertyType": "house",
+  "typeSource": "structured",
+  "source": "https://www.ohne-makler.net/immobilie/502735/",
+  "createdAt": "2026-10-08T13:43:17.151Z",
+  "extractionVersion": 2026100804,
+  "facts": {
+    "price": 1180000,
+    "area": 439.12,
+    "usableArea": 20,
+    "rooms": "17",
+    "year": "2022",
+    "floor": "not stated",
+    "energy": "A",
+    "heating": "Zentralheizung",
+    "energySource": "Luft-/Wasserwärme",
+    "energyDemand": 24,
+    "energyCertificate": "Bedarfsausweis",
+    "totalCost": 1270743,
+    "buyerCosts": 90743,
+    "brokerFee": 0,
+    "buyerCommission": "Commission-free",
+    "tenancy": "Rented",
+    "condition": "Like new",
+    "features": [
+      "Balkon",
+      "Terrasse",
+      "Keller",
+      "Aufzug"
+    ],
+    "plotArea": 762,
+    "postalCode": "44879",
+    "city": "Bochum",
+    "district": "Linden",
+    "locationPrecision": "neighborhood",
+    "transitStop": "Dahlhausen",
+    "neighborhood": {
+      "transitMinutes": 15,
+      "transitMentioned": true,
+      "parkMentioned": true,
+      "dailyNeedsMentioned": true
+    }
+  },
+  "sunOrientation": "not stated",
+  "qualityWarnings": [
+    "The stated energy class is one step off the stated demand. The score uses the lower class.",
+    "Exact street address is not disclosed in the listing.",
+    "The house is rented but no verified yield was extracted."
+  ],
+  "redFlags": [
+    {
+      "id": "rentedOccupied",
+      "severity": "caution",
+      "evidence": "Vollständig vermietet – sofortige Einnahmen"
+    }
+  ],
+  "score": 7.1,
+  "scoreBreakdown": {
+    "price": null,
+    "neighborhood": 6.4,
+    "space": 9,
+    "building": 9.2,
+    "energy": 9.4,
+    "light": 5.8,
+    "costs": 5.7,
+    "source": 10
+  }
+}

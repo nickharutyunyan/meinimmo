@@ -37,6 +37,7 @@ export const FEEDBACK_FIELDS = [
   'totalCost',
   'transferTax',
   'notary',
+  'grossYield',
 ] as const;
 
 export type FeedbackField = (typeof FEEDBACK_FIELDS)[number];
@@ -142,6 +143,9 @@ function fromRegisteredCosts(report: Report, field: FeedbackField, reportedValue
 export function provenanceForField(report: Report, field: FeedbackField, reportedValue: string, locale: Locale): FactProvenance {
   if (field === 'perSqm') {
     return { field, kind: 'calculated', quotes: [], formula: perSqmFormula(report, locale), reportedValue };
+  }
+  if (field === 'grossYield') {
+    return { field, kind: 'calculated', quotes: [], formula: factSourceCopy[locale].grossYieldFormula, reportedValue };
   }
   if (field === 'priceCheck') {
     return { field, kind: 'official', quotes: [], source: factSourceCopy[locale].priceCheckSource, reportedValue };
