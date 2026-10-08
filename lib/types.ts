@@ -30,7 +30,7 @@ export type Facts = {
   tenancySinceYear?: number;
   /** The listing states an active Sperrfrist or eviction ban. */
   evictionBan?: boolean;
-  /** Whole building, or marketed as a Kapitalanlage. No move-in deduction. */
+  /** Whole building sold as an investment. A single flat or house is not one. */
   investmentUse?: boolean;
   /** Gross yield from the stated net cold rent, in percent. */
   grossYield?: number;
@@ -66,6 +66,8 @@ export type Facts = {
   };
   /** Absolute https image URLs from the listing page, including any signed query. Bytes are never stored. */
   photoUrls?: string[];
+  /** Caption or listing-text marks for AI staging. Indexes point into the displayable photo list. Not a pixel check. */
+  photoStaging?: { indexes: number[]; listingWide: boolean };
   /** Earliest `exp` unix time among stored `photoUrls`, as an ISO timestamp. Display does not use this as a strip-wide cutoff. */
   photosExpireAt?: string;
 };

@@ -526,7 +526,7 @@ test('compound balcony directions are extracted in a bounded way', () => {
   const html = `<title>Wohnung</title><main><p>Kaufpreis 400.000 €</p><p>Wohnfläche 70 m²</p><p>10439 Berlin</p><p>zwei Süd-/Südwestbalkone</p></main>`;
   const parsed = parseListing(html, 'https://example.test/orientation');
   assert.equal(parsed.sunOrientation, 'Süd-/Südwest');
-  assert.equal(localizedValue(parsed.sunOrientation, 'en'), 'Süd-/Südwest');
+  assert.equal(localizedValue(parsed.sunOrientation, 'en'), 'South / south-west');
   assert.equal(localizedValue(parsed.sunOrientation, 'de'), 'Süd-/Südwest');
 });
 
@@ -560,7 +560,7 @@ test('terrace and garden advice follows what the listing actually states', () =>
 });
 
 test('keeps a multi-unit house room total and a stated energy class that disagrees with demand', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100805);
+  assert.equal(EXTRACTION_VERSION, 2026100807);
   const html = `<html><head><title>NEUWERTIGES MEHRFAMILIENHAUS IN BOCHUM-LINDEN – ATTRAKTIVE KAPITALANLAGE MIT 6 WOHNEINHEITEN</title></head><body><main>
     <div>44879 Bochum (Linden) – Nordrhein-Westfalen</div>
     <div>Kaufpreis: 1.180.000 €</div>
@@ -580,7 +580,7 @@ test('keeps a multi-unit house room total and a stated energy class that disagre
     <div>Endenergiebedarf</div><div>24,00 kWh/(m²a)</div>
   </main></body></html>`;
   const report = parseListing(html, 'https://example.test/bochum-linden');
-  assert.equal(report.extractionVersion, 2026100805);
+  assert.equal(report.extractionVersion, 2026100807);
   assert.equal(report.propertyType, 'house');
   assert.equal(report.facts.rooms, '17');
   assert.equal(report.facts.area, 439.12);

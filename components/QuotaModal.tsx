@@ -21,13 +21,16 @@ export function QuotaModal({ open, locale, onClose }: { open: boolean; locale: L
       return;
     }
     setEligible(false);
-    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { user?: User | null; googleAvailable?: boolean; access?: DayPassAccess; dayPassBillingAvailable?: boolean }).then((data) => {
+    Promise.all([
+      fetch('/api/session', { cache: 'no-store' }).then(async (response) => await response.json() as { user?: { email: string | null } | null }),
+      fetch('/api/access', { cache: 'no-store' }).then(async (response) => await response.json() as { googleAvailable?: boolean; access?: DayPassAccess; dayPassBillingAvailable?: boolean }),
+    ]).then(([session, data]) => {
       if (!data.dayPassBillingAvailable || !canOfferDayPass(data.access)) {
         onClose();
         return;
       }
       setEligible(true);
-      setUser(data.user || null);
+      setUser(session.user ? { username: null, email: session.user.email, name: null } : null);
       setGoogle(Boolean(data.googleAvailable));
     }).catch(onClose);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps

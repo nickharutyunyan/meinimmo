@@ -11,7 +11,7 @@ import { EXTRACTION_VERSION, attachCalculatedScore, evidenceForFacts, reportConf
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
-import { extractListingPhotoUrls, isRemoteListingSource, listingPhotosExpireAt } from './listing-photos.ts';
+import { extractListingPhotoUrls, isRemoteListingSource, listingPhotosExpireAt, stagedPhotoMarks } from './listing-photos.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -612,20 +612,53 @@ export function normalizedTenancy(value: string, text = '') {
 
 const LABELLED_CONDITIONS = new Set(['Needs renovation', 'Needs modernization', 'Under construction', 'Renovated', 'Like new', 'New build', 'Well maintained']);
 
+/** Adjective endings such as renovierte / gepflegten. The stem stays a whole word. */
+const CONDITION_PATTERNS: Array<[string, RegExp]> = [
+  ['Needs renovation', /\b(?:renovierungsbed[uü]rftig(?:e[nrms]?)?|sanierungsbed[uü]rftig(?:e[nrms]?)?|renovation\s+required|needs\s+renovation)\b/i],
+  ['Needs modernization', /\b(?:modernisierungsbed[uü]rftig(?:e[nrms]?)?|verbesserungsbed[uü]rftig(?:e[nrms]?)?|needs\s+moderni[sz]ation)\b/i],
+  ['Under construction', /\b(?:im\s+bau|bauprojekt|projektiert|fertigstellung\s+(?:voraussichtlich|geplant)|under\s+construction)\b/i],
+  ['Renovated', /\b(?:erstbezug\s+nach\s+(?:komplett)?sanierung|kernsaniert(?:e[nrms]?)?|vollst[aä]ndig\s+saniert(?:e[nrms]?)?|saniert(?:e[nrms]?)?|renoviert(?:e[nrms]?)?|fully\s+renovated)\b/i],
+  ['Like new', /\b(?:neuwertig(?:e[nrms]?)?|like\s+new|as-new\s+condition)\b/i],
+  ['New build', /\b(?:neubau(?:wohnung|haus)?|new\s+(?:build|construction)|first\s+occupancy\s+after\s+new\s+construction)\b/i],
+  ['Well maintained', /\b(?:gepflegt(?:e[nrms]?)?|well\s+maintained)\b/i],
+];
+
+function conditionLabel(text: string) {
+  for (const [label, pattern] of CONDITION_PATTERNS) {
+    if (pattern.test(text)) return label;
+  }
+  return '';
+}
+
+function conditionSentences(context: string) {
+  return context
+    .split(/\n+|(?<=[.!?])\s+(?!(?:Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b)/)
+    .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+    .filter((sentence) => sentence.length > 0);
+}
+
+/** Stairs, the shared estate, or the building, when the sentence is not about the unit. */
+function commonPropertySentence(sentence: string) {
+  if (/\b(?:Gemeinschaftseigentum|Treppenhaus)\b/i.test(sentence)) return true;
+  return /\bHaus\b/i.test(sentence) && !/\b(?:Wohnung|Eigentumswohnung|Einheit|Apartment|Appartement)\b/i.test(sentence);
+}
+
+function unitConditionSentence(sentence: string) {
+  return /\b(?:Wohnung|Eigentumswohnung|Einheit|Apartment|Appartement)\b/i.test(sentence) && Boolean(conditionLabel(sentence));
+}
+
 export function normalizedCondition(value: string, context = '') {
   const explicit = tidy(value);
   if (/^(?:Erstbezug|First occupancy)$/i.test(explicit)) return explicit;
   const labelled = canonicalCondition(explicit);
   if (labelled && LABELLED_CONDITIONS.has(labelled)) return labelled;
-  const evidence = context.slice(0, 12_000);
-  if (/\b(?:renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|renovation\s+required|needs\s+renovation)\b/i.test(evidence)) return 'Needs renovation';
-  if (/\b(?:modernisierungsbed[uü]rftig|verbesserungsbed[uü]rftig(?:e[snrm]?)?|needs\s+moderni[sz]ation)\b/i.test(evidence)) return 'Needs modernization';
-  if (/\b(?:im\s+bau|bauprojekt|projektiert|fertigstellung\s+(?:voraussichtlich|geplant)|under\s+construction)\b/i.test(evidence)) return 'Under construction';
-  if (/\b(?:erstbezug\s+nach\s+(?:komplett)?sanierung|kernsaniert|vollst[aä]ndig\s+saniert|saniert|renoviert|fully\s+renovated)\b/i.test(evidence)) return 'Renovated';
-  if (/\b(?:neuwertig|like\s+new|as-new\s+condition)\b/i.test(evidence)) return 'Like new';
-  if (/\b(?:neubau(?:wohnung|haus)?|new\s+(?:build|construction)|first\s+occupancy\s+after\s+new\s+construction)\b/i.test(evidence)) return 'New build';
-  if (/\b(?:gepflegt(?:e[snrm]?)?|well\s+maintained)\b/i.test(evidence)) return 'Well maintained';
-  return explicit && explicit.length <= 60 && !/^(?:-|0|n\/a|keine\s+angabe)$/i.test(explicit) ? explicit : undefined;
+  const sentences = conditionSentences(context.slice(0, 12_000));
+  const unitHits = sentences.filter(unitConditionSentence);
+  // A line about the stairs or the shared estate must not outrank the flat itself.
+  const usable = unitHits.length ? sentences.filter((sentence) => !commonPropertySentence(sentence)) : sentences;
+  const fromProse = conditionLabel(usable.join(' '));
+  if (fromProse) return fromProse;
+  return explicit && explicit.length <= 60 && !/^(?:-|0|n\/a|keine\s+angaben?)$/i.test(explicit) ? explicit : undefined;
 }
 
 export function normalizedFloor(value: string) {
@@ -714,7 +747,27 @@ function distanceMinutes(fragment: string) {
   return values;
 }
 
+const BARE_DISTANCE = /^\d+(?:[.,]\d+)?\s?k?m$/i;
+
+/** Label/value rows under the Lage-Check heading. The chart axis after them is bare numbers, not distances. */
+function lageCheckBounds(lines: string[]) {
+  const start = lines.findIndex((line) => /^Lage-Check$/i.test(line));
+  if (start < 0) return undefined;
+  let end = start + 1;
+  for (let index = start + 1; index < lines.length && index < start + 48; index += 1) {
+    const line = lines[index].trim();
+    const label = /^(?:ÖPNV|Einkaufen|Gastronomie|Kultur|Sport|Nachtleben|Gesundheit|Kinderfreundlich|Natur|Energie|Nahversorgung)$/i.test(line);
+    if (BARE_DISTANCE.test(line) || label || line === '≥450' || /^\d{1,4}$/.test(line)) {
+      end = index + 1;
+      continue;
+    }
+    break;
+  }
+  return { start, end };
+}
+
 function proximityEvidence(lines: string[], subject: RegExp) {
+  const bounds = lageCheckBounds(lines);
   const windows: string[] = [];
   for (let index = 0; index < lines.length && windows.length < 20; index += 1) {
     const parts = walkingFragments(lines[index]);
@@ -722,6 +775,12 @@ function proximityEvidence(lines: string[], subject: RegExp) {
       if (!subject.test(parts[part])) continue;
       if (walkingMinutesIn(parts[part]).length) {
         windows.push(parts[part]);
+        continue;
+      }
+      // The Lage-Check puts the category on one line and a bare distance on the next.
+      const following = (lines[index + 1] || '').trim();
+      if (bounds && index > bounds.start && index < bounds.end && parts.length === 1 && BARE_DISTANCE.test(following)) {
+        windows.push(`${parts[part]} ${following}`);
         continue;
       }
       // A line break in the middle of a sentence can separate the stop from its
@@ -932,35 +991,115 @@ function annualColdRent(lines: string[]) {
   return monthly > 0 ? Math.round(monthly * 12 * 100) / 100 : 0;
 }
 
-function findTenancySinceYear(lines: string[], asOfYear: number) {
-  const blob = lines.slice(0, 250).join('\n');
-  const since = blob.match(/\bseit\s+(?:dem\s+Jahr\s+|dem\s+)?(19\d{2}|20\d{2})\b/i);
-  if (since) {
-    const year = Number(since[1]);
-    if (year >= 1950 && year <= asOfYear) return year;
+const TENANCY_CONTEXT = /\b(?:Mieter\w*|vermietet\w*|Mietverhältnis|Mietverhaeltnis)\b/i;
+const BAN_MONTHS: Record<string, number> = {
+  januar: 1, februar: 2, märz: 3, maerz: 3, april: 4, mai: 5, juni: 6,
+  juli: 7, august: 8, september: 9, oktober: 10, november: 11, dezember: 12,
+};
+
+function utcDay(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
+  return date;
+}
+
+function monthIndex(name: string) {
+  return BAN_MONTHS[name.toLocaleLowerCase('de-DE').replace('ä', 'ae')];
+}
+
+/** A Sperrfrist end written as a date, a month, or a year. Year-only means 31 December. */
+function banEndDates(sentence: string) {
+  const dates: Date[] = [];
+  for (const match of sentence.matchAll(/\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/g)) {
+    const date = utcDay(Number(match[3]), Number(match[2]), Number(match[1]));
+    if (date) dates.push(date);
   }
-  const duration = blob.match(/\b(?:seit|vor)\s+(\d{1,2})\s+Jahren\b/i);
-  if (duration) {
-    const years = Number(duration[1]);
-    if (years >= 1 && years <= 80) return asOfYear - years;
+  for (const match of sentence.matchAll(/\b(\d{1,2})\.?\s+(Januar|Februar|M[aä]rz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s+(\d{4})\b/gi)) {
+    const month = monthIndex(match[2]);
+    const date = month ? utcDay(Number(match[3]), month, Number(match[1])) : undefined;
+    if (date) dates.push(date);
+  }
+  for (const match of sentence.matchAll(/\b(Januar|Februar|M[aä]rz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s+(\d{4})\b/gi)) {
+    const month = monthIndex(match[1]);
+    if (!month) continue;
+    const year = Number(match[2]);
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const date = utcDay(year, month, last);
+    if (date) dates.push(date);
+  }
+  for (const match of sentence.matchAll(/\b(?:bis|endet|läuft|laeuft|Ablauf)\s+(?:Ende\s+|zum\s+(?:Jahr\s+)?)?(20\d{2})\b/gi)) {
+    const date = utcDay(Number(match[1]), 12, 31);
+    if (date) dates.push(date);
+  }
+  return dates;
+}
+
+function banStillAhead(sentence: string, asOf: Date) {
+  const today = Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate());
+  return banEndDates(sentence).some((date) => date.getTime() >= today);
+}
+
+/**
+ * Tenure counts only when the same sentence is about the tenancy.
+ * "seit 2019 saniert" and "Familienbesitz seit 1985" are not a sitting tenant.
+ */
+export function findTenancySinceYear(lines: string[], asOfYear: number) {
+  for (const line of lines.slice(0, 250)) {
+    for (const sentence of splitSentences(line)) {
+      if (!TENANCY_CONTEXT.test(sentence)) continue;
+      const since = sentence.match(/\bseit\s+(?:dem\s+Jahr\s+|dem\s+)?(19\d{2}|20\d{2})\b/i);
+      if (since) {
+        const year = Number(since[1]);
+        if (year >= 1950 && year <= asOfYear) return year;
+      }
+      const duration = sentence.match(/\b(?:seit|vor)\s+(\d{1,2})\s+Jahren\b/i);
+      if (duration) {
+        const years = Number(duration[1]);
+        if (years >= 1 && years <= 80) return asOfYear - years;
+      }
+    }
   }
   return undefined;
 }
 
-function findEvictionBan(lines: string[]) {
-  const blob = lines.slice(0, 300).join('\n');
-  if (/\b(?:Kündigungsverbot|Räumungsverbot)\b/i.test(blob)) return true;
-  if (!/Sperrfrist|§\s*577a/i.test(blob)) return false;
-  if (/Sperrfrist[^\n]{0,140}(?:nicht mehr|abgelaufen|entf[aä]llt|entfallen)|(?:nicht mehr|abgelaufen|entfallen|entf[aä]llt)[^\n]{0,80}Sperrfrist|keine[^\n]{0,40}Sperrfrist/i.test(blob)) return false;
-  return true;
+/**
+ * A Sperrfrist counts only with an end date that is still ahead.
+ * A bare mention, or one that has already ended, is not an active ban.
+ */
+export function findEvictionBan(lines: string[], asOf = new Date()) {
+  for (const line of lines.slice(0, 300)) {
+    for (const sentence of splitSentences(line)) {
+      const sperrfrist = /Sperrfrist|§\s*577a/i.test(sentence);
+      const explicitBan = /\b(?:Kündigungsverbot|Räumungsverbot)\b/i.test(sentence);
+      if (!sperrfrist && !explicitBan) continue;
+      if (/nicht mehr|abgelaufen|entf[aä]llt|entfallen/i.test(sentence) || /keine[^\n]{0,40}Sperrfrist/i.test(sentence)) continue;
+      if (sperrfrist) {
+        if (banStillAhead(sentence, asOf)) return true;
+        continue;
+      }
+      if (TENANCY_CONTEXT.test(sentence)) return true;
+    }
+  }
+  return false;
 }
 
-function findInvestmentUse(title: string, lines: string[]) {
-  const head = `${title}\n${lines.slice(0, 40).join('\n')}`;
-  if (/\bKapitalanlage\b/i.test(head)) return true;
-  if (/\b(?:Wohnung|Apartment|Eigentumswohnung)\b/i.test(title) && /\bMehrfamilienhaus\b/i.test(title)) return false;
-  if (/\bMehrfamilienhaus\b/i.test(title)) return true;
-  return lines.slice(0, 30).some((line) => /^(?:Objektart|Objekttyp)\b/i.test(line) && /\bMehrfamilienhaus\b/i.test(line));
+const WHOLE_BUILDING = /\b(?:Mehrfamilienh(?:aus|äuser)|Zinsh(?:aus|äuser)|Wohn-?\s*und\s*Gesch[aä]ftshaus)\b/i;
+
+/**
+ * A whole building sold as an investment. A flat or a single house marketed
+ * as a Kapitalanlage is still a home someone might move into.
+ */
+export function findInvestmentUse(title: string, lines: string[]) {
+  if (/\bapartment\b/i.test(title) || /\b\p{L}*wohnung\b/iu.test(title)) return false;
+  if (WHOLE_BUILDING.test(title)) return true;
+  const head = lines.slice(0, 40);
+  for (let index = 0; index < head.length; index += 1) {
+    if (!/^(?:Objektart|Objekttyp)\b/i.test(head[index])) continue;
+    const same = head[index].replace(/^(?:Objektart|Objekttyp)\s*[:\-]?\s*/i, '');
+    if (WHOLE_BUILDING.test(same) || WHOLE_BUILDING.test(head[index + 1] || '')) return true;
+  }
+  const several = /\b(?:[2-9]|[1-9]\d|zwei|drei|vier|fünf|fuenf|sechs|sieben|acht|neun|zehn|elf|zwölf|zwoelf)\s+Wohn(?:einheiten|ungen)\b/i;
+  return several.test(`${title}\n${head.join('\n')}`);
 }
 
 export function parseListing(raw: string, source: string): Report {
@@ -1012,7 +1151,7 @@ export function parseListing(raw: string, source: string): Report {
     || aroundLabel(lines, /^(?:Objektzustand|Bauzustand|Zustand|Condition)$/i, /^(.{3,60})$/, 0, 2), 'condition');
   const locationStart = lines.findIndex(line => /^(?:Lage|Lagebeschreibung|Location)$/i.test(line));
   const propertyLines = lines.slice(0, locationStart < 0 ? 120 : locationStart);
-  const condition = normalizedCondition(conditionRaw, `${title} ${propertyLines.join(' ').slice(0, 12_000)}`);
+  const condition = normalizedCondition(conditionRaw, `${title}\n${propertyLines.join('\n')}`.slice(0, 12_000));
   const tenancyRaw = checkedCharacteristic(firstMatch(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)\s*[:\-]?\s+(.{3,45})$/i) || aroundLabel(lines, /^(?:Aktuelle Nutzung|Nutzung|Verf[uü]gbarkeit)$/i, /^(.{3,45})$/, 0, 2), 'tenancy');
   const availabilityPhrase = firstMatch(lines, /((?:bezugsfrei(?:e[snrm]?)?|sofort\s+beziehbar|sofort\s+verf[uü]gbar|unvermietet|nicht\s+vermietet|leerstehend|eigengenutzt|selbst\s+genutzt)[^.]{0,45})/i);
   const tenancyEvidence = lines
@@ -1117,6 +1256,8 @@ export function parseListing(raw: string, source: string): Report {
   const totalCost = explicitTotal || (price && buyerCosts ? price + buyerCosts : 0);
   const photoUrls = isRemoteListingSource(source) ? extractListingPhotoUrls(raw) : [];
   const photosExpireAt = listingPhotosExpireAt(photoUrls);
+  const photoStaging = isRemoteListingSource(source) ? stagedPhotoMarks(raw, photoUrls) : undefined;
+  const stagedPhotos = photoStaging && (photoStaging.indexes.length > 0 || photoStaging.listingWide) ? photoStaging : undefined;
   const facts = {
     price, area, usableArea: usableArea || livingPreference?.usable || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
@@ -1146,6 +1287,7 @@ export function parseListing(raw: string, source: string): Report {
       dailyNeedsMentioned: dailyNeeds.mentioned,
     },
     ...(photoUrls.length ? { photoUrls, ...(photosExpireAt ? { photosExpireAt } : {}) } : {}),
+    ...(stagedPhotos ? { photoStaging: stagedPhotos } : {}),
   };
 
   const qualityWarnings = [

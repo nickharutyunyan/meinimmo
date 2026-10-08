@@ -18,6 +18,7 @@ export const RED_FLAG_IDS = [
   'basement',
   'socialHousing',
   'listedBuilding',
+  'aiStaging',
 ] as const;
 
 export type RedFlagId = typeof RED_FLAG_IDS[number];
@@ -140,7 +141,7 @@ const LEVY = /Sonderumlage/i;
 const LEVY_QUALIFIER = /beschlossen|geplant|anstehend|fällig|in Höhe von|\d+\s?€/i;
 const BACKLOG = /Instandhaltungsstau|Sanierungsstau|Instandsetzungsstau/i;
 const FORCED_SALE = /Zwangsversteigerung|Versteigerungstermin|Verkehrswertgutachten|Amtsgericht[^\n]{0,40}Versteigerung/i;
-const SOCIAL = /\b(?:WBS|Wohnberechtigungsschein|Belegungsbindung|Mietpreisbindung|öffentlich gefördert)\b/i;
+const SOCIAL = /(?<![\p{L}\p{N}])(?:WBS|Wohnberechtigungsschein|Belegungsbindung|Sozialbindung|Mietpreisbindung|öffentlich(?:es|er|en|em)?\s+gefördert(?:e[nrms]?)?)(?![\p{L}\p{N}])/iu;
 const LISTED = /Denkmalschutz|denkmalgeschützt|Baudenkmal/i;
 const HEATING_YEAR = /(?:Baujahr\s+(?:der\s+)?Heizung|Heizungsbaujahr|Baujahr\s+Anlagentechnik)\s*[:\-]?\s*(18\d{2}|19\d{2}|20\d{2})/i;
 const OIL_GAS = /\b(?:erdgas|gasheizung|gas(?:zentral)?heizung|gas|heizöl|öl|oel|oil)\b/i;
@@ -468,12 +469,16 @@ const COPY: Record<RedFlagId, { en: string; de: string }> = {
     de: 'Souterrainwohnung: Prüfe Tageslicht, Feuchtigkeit und die Genehmigung als Wohnraum.',
   },
   socialHousing: {
-    en: 'The listing mentions a WBS or rent or occupancy restrictions. Letting and rent can be restricted. Ask for the funding terms and their end date.',
-    de: 'Das Angebot nennt WBS, Miet- oder Belegungsbindung. Vermietung und Miethöhe können eingeschränkt sein. Frag nach Förderbedingungen und deren Ende.',
+    en: 'Publicly funded or rent-restricted: the listing mentions social housing, a WBS, a Sozialbindung or a rent cap (Mietpreisbindung). Who can live there, and what rent can be charged, may be limited. Ask for the funding terms and when they end.',
+    de: 'Öffentlich gefördert oder mietpreisgebunden: Das Angebot nennt eine Sozialbindung, einen Wohnberechtigungsschein oder eine Mietpreisbindung. Wer einziehen darf und wie hoch die Miete sein darf, kann begrenzt sein. Frag nach den Förderbedingungen und wann sie enden.',
   },
   listedBuilding: {
     en: 'Listed building: changes such as windows, insulation or the roof need approval. Special tax depreciation may apply. Ask for the conservation conditions.',
     de: 'Denkmalschutz: Änderungen an Fenstern, Dämmung oder Dach brauchen eine Genehmigung. Steuerliche Sonderabschreibungen sind möglich. Frag nach den Denkmalauflagen.',
+  },
+  aiStaging: {
+    en: 'The listing mentions AI visualisations or virtual staging, without saying which photo. That comes from the listing text, not from the pictures themselves.',
+    de: 'Das Angebot erwähnt eine KI-Visualisierung oder virtuelles Staging, ohne ein bestimmtes Foto zu nennen. Das steht im Text des Angebots, nicht in den Bildern selbst.',
   },
 };
 
@@ -493,6 +498,7 @@ const SHORT: Record<RedFlagId, { en: string; de: string }> = {
   basement: { en: 'Basement flat', de: 'Souterrain' },
   socialHousing: { en: 'Occupancy restriction', de: 'Belegungsbindung' },
   listedBuilding: { en: 'Listed building', de: 'Denkmalschutz' },
+  aiStaging: { en: 'AI visualisation', de: 'KI-Visualisierung' },
 };
 
 const QUESTIONS: Record<string, { en: string; de: string }> = {
@@ -531,6 +537,15 @@ function cityIsBerlin(report: Pick<Report, 'address' | 'facts'> & { location?: s
 }
 
 export function redFlagSentence(report: Report, flag: RedFlag, locale: 'en' | 'de') {
+  if (flag.id === 'aiStaging') {
+    const marks = report.facts.photoStaging;
+    const count = report.facts.photoUrls?.length || 0;
+    if (marks && count > 0 && marks.indexes.length * 2 > count) {
+      return locale === 'de'
+        ? 'Die meisten Fotos sind im Angebot als KI-Visualisierung oder virtuelles Staging gekennzeichnet. Das steht im Angebot, nicht in den Bildern selbst.'
+        : 'Most of the photos are labelled in the listing as AI visualisations or virtual staging. The label comes from the listing, not from the pictures themselves.';
+    }
+  }
   if (flag.id === 'rentedOccupied' && conversionLockHasEnded(flag.evidence)) {
     return locale === 'de'
       ? 'Vermietet verkauft: Selbst einziehen geht nicht ohne Weiteres. Das Angebot sagt, die umwandlungsbedingte Sperrfrist nach § 577a BGB besteht nicht mehr.'
@@ -640,6 +655,9 @@ export function detectRedFlags(lines: string[], report: Pick<Report, 'propertyTy
     const listed = clearMatch(line, LISTED);
     if (listed) { push(flags, 'listedBuilding', evidenceQuote(line, listed.index)); break; }
   }
+  const marks = report.facts.photoStaging;
+  const photoCount = report.facts.photoUrls?.length || 0;
+  if (marks && (marks.listingWide || (photoCount > 0 && marks.indexes.length * 2 > photoCount))) push(flags, 'aiStaging');
   const rank = (id: RedFlagId) => (HIGH.has(id) ? 0 : 1) * 100 + RED_FLAG_IDS.indexOf(id);
   return flags.sort((a, b) => rank(a.id) - rank(b.id));
 }

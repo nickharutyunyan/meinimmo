@@ -390,15 +390,17 @@ function isTenanted(report: Pick<Report, 'facts' | 'propertyType'>) {
   return report.facts.tenancy === 'Rented' && report.propertyType !== 'land';
 }
 
-/** A whole building bought for the rent, or a listing marketed as a Kapitalanlage. A flat inside a Mehrfamilienhaus is not one. */
+/**
+ * A whole building sold as an investment: Mehrfamilienhaus, Zinshaus, or the
+ * parser flag for that sale. A rented flat or single house keeps the tenancy
+ * deduction even when the listing calls it a Kapitalanlage.
+ */
 export function isInvestmentProperty(report: Pick<Report, 'facts' | 'propertyType' | 'title' | 'summary'>) {
-  if (report.facts.investmentUse) return true;
+  if (report.propertyType === 'flat') return false;
   const text = `${report.title || ''}\n${report.summary || ''}`;
-  if (/\bKapitalanlage\b/i.test(text)) return true;
-  const title = report.title || '';
-  if (/\bMehrfamilienhaus\b/i.test(title) && !/\b(?:Wohnung|Apartment|Eigentumswohnung)\b/i.test(title)) return true;
-  const rooms = roomCount(report.facts.rooms);
-  return report.propertyType === 'house' && rooms >= 10 && report.facts.area >= 200;
+  if (/\b(?:Wohnung|Apartment|Eigentumswohnung|Einfamilienhaus|Reihen(?:end|mittel)?haus|Doppelhaush[aä]lfte|Stadthaus)\b/i.test(text)) return false;
+  if (report.facts.investmentUse) return true;
+  return /\b(?:Mehrfamilienhaus|Zinshaus)\b/i.test(text);
 }
 
 /** The heating line the page shows. A heat-pump energy source fills a blank heating field. */
@@ -513,6 +515,8 @@ function capConfidence(level: ScoreConfidence['level'], cap: ScoreConfidence['le
 }
 
 function tenancyCapsConfidence(report: Report) {
+  // Skipping the tenancy rule for a whole-building investment still caps at Medium.
+  if (isTenanted(report) && isInvestmentProperty(report)) return true;
   const rented = rentedAdjustment(report);
   return Boolean(rented && rented.tenancy?.kind !== 'soon');
 }

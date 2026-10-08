@@ -72,7 +72,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
 
   useEffect(() => {
     const requestedDayPass = new URLSearchParams(window.location.search).get('daypass') === '1';
-    fetch('/api/auth/me', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess; paidPlansEnabled?: boolean; dayPassBillingAvailable?: boolean }).then((data) => {
+    fetch('/api/access', { cache: 'no-store' }).then(async (response) => await response.json() as { access?: DayPassAccess; paidPlansEnabled?: boolean; dayPassBillingAvailable?: boolean }).then((data) => {
       const purchasesOpen = Boolean(data.dayPassBillingAvailable);
       setPaidPlansOffered(Boolean(data.paidPlansEnabled));
       setDayPassBillingAvailable(purchasesOpen);

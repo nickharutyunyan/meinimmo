@@ -76,6 +76,7 @@ export const copy = {
       photoNext: 'Next photo',
       photoClose: 'Close',
       photoCredit: 'Photo from the listing',
+      photoStaged: 'AI visualisation (per listing)',
       photoOriginal: 'Open original listing',
       photoAlt: 'Photo {n} of {total}',
       photoCount: '{n} / {total}',
@@ -154,6 +155,7 @@ export const copy = {
       photoNext: 'Nächstes Foto',
       photoClose: 'Schließen',
       photoCredit: 'Foto aus dem Angebot',
+      photoStaged: 'KI-Visualisierung (laut Angebot)',
       photoOriginal: 'Originalangebot öffnen',
       photoAlt: 'Foto {n} von {total}',
       photoCount: '{n} / {total}',
@@ -222,6 +224,54 @@ const EXACT_ENERGY: Record<string, string> = {
   öl: 'Oil', oel: 'Oil', gas: 'Gas', strom: 'Electricity', holz: 'Wood', kohle: 'Coal', pellets: 'Pellets', solar: 'Solar',
 };
 
+const COMPASS_EN: Array<[RegExp, string]> = [
+  [/^(?:nordosten|nordost)$/i, 'North-east'],
+  [/^(?:südosten|suedosten|südost|suedost)$/i, 'South-east'],
+  [/^(?:südwesten|suedwesten|südwest|suedwest)$/i, 'South-west'],
+  [/^(?:nordwesten|nordwest)$/i, 'North-west'],
+  [/^(?:norden|nord)$/i, 'North'],
+  [/^(?:süden|sueden|süd|sued)$/i, 'South'],
+  [/^(?:osten|ost)$/i, 'East'],
+  [/^(?:westen|west)$/i, 'West'],
+];
+
+function compassEnglish(token: string) {
+  const clean = token.replace(/\s+/g, '').replace(/-/g, '');
+  return COMPASS_EN.find(([pattern]) => pattern.test(clean))?.[1] || '';
+}
+
+/**
+ * English compass phrase for a German orientation value.
+ * Empty when the text is not an orientation, so other labels stay untouched.
+ */
+export function translateOrientation(value: string) {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  if (!clean || clean.length > 80) return '';
+  const pair = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-\s*und\s+((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-?\s*Ausrichtung$/i);
+  if (pair) {
+    const first = compassEnglish(pair[1]);
+    const second = compassEnglish(pair[2]);
+    if (first && second) return `${first} and ${second.toLocaleLowerCase('en-GB')} facing`;
+  }
+  const slash = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-\s*\/\s*((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)$/i);
+  if (slash) {
+    const first = compassEnglish(slash[1]);
+    const second = compassEnglish(slash[2]);
+    if (first && second) return `${first} / ${second.toLocaleLowerCase('en-GB')}`;
+  }
+  const facing = clean.match(/^nach\s+((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?en)\s+ausgerichtet(?:e[nrms]?)?$/i);
+  if (facing) {
+    const direction = compassEnglish(facing[1]);
+    if (direction) return `${direction} facing`;
+  }
+  const labelled = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-?\s*Ausrichtung$/i);
+  if (labelled) {
+    const direction = compassEnglish(labelled[1]);
+    if (direction) return `${direction} facing`;
+  }
+  return compassEnglish(clean);
+}
+
 /** English gloss for a German heating or energy-carrier label. Empty when nothing matched. */
 export function translateEnergyPhrase(value: string) {
   const exact = EXACT_ENERGY[value.trim().toLocaleLowerCase('de-DE')];
@@ -265,7 +315,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
       'Timber frame': 'Timber frame',
       'Needs modernization': 'Needs modernisation',
     };
-    return englishTranslations[normalized] || translateEnergyPhrase(normalized) || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
+    return englishTranslations[normalized] || translateEnergyPhrase(normalized) || translateOrientation(normalized) || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
   }
   const translations: Record<string, string> = {
     'First occupancy': 'Erstbezug',

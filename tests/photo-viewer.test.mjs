@@ -91,6 +91,8 @@ test('viewer copy is the specified English and German text', async () => {
   assert.equal(copy.de.report.photoClose, 'Schließen');
   assert.equal(copy.en.report.photoCredit, 'Photo from the listing');
   assert.equal(copy.de.report.photoCredit, 'Foto aus dem Angebot');
+  assert.equal(copy.en.report.photoStaged, 'AI visualisation (per listing)');
+  assert.equal(copy.de.report.photoStaged, 'KI-Visualisierung (laut Angebot)');
   assert.equal(copy.en.report.photoOriginal, 'Open original listing');
   assert.equal(copy.de.report.photoOriginal, 'Originalangebot öffnen');
   assert.equal(copy.en.report.photoAlt, 'Photo {n} of {total}');
@@ -107,8 +109,12 @@ test('viewer copy is the specified English and German text', async () => {
   assert.match(viewer, /aria-modal="true"/);
   assert.match(viewer, /aria-label=\{text\.photoViewerLabel\}/);
   assert.match(viewer, /aria-label=\{text\.photoPrevious\}/);
+  assert.match(viewer, /title=\{text\.photoPrevious\}/);
   assert.match(viewer, /aria-label=\{text\.photoNext\}/);
+  assert.match(viewer, /title=\{text\.photoNext\}/);
   assert.match(viewer, /aria-label=\{text\.photoClose\}/);
+  assert.match(viewer, /title=\{text\.photoClose\}/);
+  assert.match(viewer, /staged \? text\.photoStaged : text\.photoCredit/);
   assert.match(viewer, /rel="noopener noreferrer nofollow"/);
   assert.match(viewer, /referrerPolicy="no-referrer"/);
   assert.match(viewer, /target="_blank"/);

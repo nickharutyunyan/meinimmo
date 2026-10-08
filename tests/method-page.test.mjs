@@ -35,7 +35,7 @@ test('method pages sit in the sitemap, explain the rubric, and avoid portal name
 
   for (const locale of ['en', 'de']) {
     const words = methodPlainText(locale).split(/\s+/).filter(Boolean);
-    assert.ok(words.length >= 380 && words.length <= 460, `${locale} is ${words.length} words`);
+    assert.ok(words.length >= 380 && words.length <= 560, `${locale} is ${words.length} words`);
     assert.equal(methodCopy(locale).sections.length, 6);
   }
 

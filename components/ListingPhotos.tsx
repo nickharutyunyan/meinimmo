@@ -7,7 +7,7 @@ import { isRemoteListingSource, listingPhotoSlot, listingPhotosToShow, listingTh
 import { nextActiveUrl } from '../lib/photo-viewer.ts';
 import { PhotoViewer } from './PhotoViewer.tsx';
 
-export function ListingPhotos({ urls, listingUrl, locale, renderedAt, initialFailed }: { urls?: string[]; listingUrl: string; locale: Locale; renderedAt?: number; initialFailed?: readonly string[] }) {
+export function ListingPhotos({ urls, stagedIndexes = [], listingUrl, locale, renderedAt, initialFailed }: { urls?: string[]; stagedIndexes?: readonly number[]; listingUrl: string; locale: Locale; renderedAt?: number; initialFailed?: readonly string[] }) {
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set(initialFailed));
   // Expiry follows the img src. A cached document still drops a signed src
   // whose time passes after that render, once the browser has mounted.
@@ -70,14 +70,19 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt, initialFai
     .replaceAll('{total}', plainNumber(total, locale));
   const activeIndex = activeUrl ? photos.indexOf(activeUrl) : -1;
   const thumbFor = (url: string) => listingThumbnailUrl(url, listingUrl, listingPhotoSlot(urls, url));
+  const stagedSlots = new Set(stagedIndexes);
+  const photoIsStaged = (url: string) => stagedSlots.has(listingPhotoSlot(urls, url));
 
   return <section className="listing-photos" aria-labelledby="listing-photos-caption">
     <p id="listing-photos-caption" className="listing-photos-caption">{text.photosCaption}</p>
     <div className="listing-photos-strip">
-      {photos.map((url, index) => <button
+      {photos.map((url, index) => {
+        const staged = photoIsStaged(url);
+        const name = staged ? `${label(index + 1)}. ${text.photoStaged}` : label(index + 1);
+        return <button
         type="button"
         key={url}
-        aria-label={label(index + 1)}
+        aria-label={name}
         onClick={(event) => {
           const img = event.currentTarget.querySelector('img');
           if (img?.complete && img.naturalWidth === 0) {
@@ -105,7 +110,9 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt, initialFai
             markFailed(url);
           }}
         />
-      </button>)}
+        {staged ? <span className="listing-photo-badge">{text.photoStaged}</span> : null}
+      </button>;
+      })}
     </div>
     {activeIndex >= 0 ? <PhotoViewer
       photos={photos}
@@ -114,6 +121,7 @@ export function ListingPhotos({ urls, listingUrl, locale, renderedAt, initialFai
       now={now}
       listingUrl={listingUrl}
       locale={locale}
+      staged={activeIndex >= 0 ? photoIsStaged(photos[activeIndex]) : false}
       onClose={() => {
         activeRef.current = null;
         setActiveUrl(null);

@@ -232,6 +232,70 @@ export function extractListingPhotoUrls(html: string) {
   return displayableListingPhotos([...openGraph, ...structured, ...gallery]);
 }
 
+const STAGING_PHRASE = String.raw`(?<![\p{L}\p{N}])(?:KI[-\s]+generiert(?:e[nrms]?)?|Visualisierung(?:en)?|virtuell\s+gestaged|virtual\s+staging)(?![\p{L}\p{N}])`;
+
+function stagingMentioned(text: string) {
+  if (!text) return false;
+  const expression = new RegExp(STAGING_PHRASE, 'giu');
+  for (const match of text.matchAll(expression)) {
+    const at = match.index ?? 0;
+    const before = text.slice(Math.max(0, at - 40), at);
+    if (!/(?:kein(?:e(?:m|n|r|s)?)?|nicht|ohne|\bno\b|\bnot\b)/i.test(before)) return true;
+  }
+  return false;
+}
+
+function visibleListingText(source: string) {
+  let out = '';
+  let cursor = 0;
+  while (cursor < source.length) {
+    const open = source.indexOf('<', cursor);
+    if (open < 0) {
+      out += source.slice(cursor);
+      break;
+    }
+    out += `${source.slice(cursor, open)} `;
+    const tag = readTag(source, open);
+    cursor = tag.next > open ? tag.next : open + 1;
+  }
+  return out;
+}
+
+/**
+ * Marks photos whose caption or alt text says they are an AI visualisation.
+ * Listing-wide is set only when that phrase is in the text and no displayed
+ * photo caption can be tied to it. Image pixels are not inspected.
+ */
+export function stagedPhotoMarks(html: string, photoUrls: readonly string[]) {
+  const indexes = new Set<number>();
+  const source = !html || html.length <= MAX_PHOTO_HTML_CHARS ? html || '' : html.slice(0, MAX_PHOTO_HTML_CHARS);
+  if (source.includes('<')) {
+    const slots = new Map<string, number>();
+    photoUrls.forEach((url, index) => {
+      if (!slots.has(url)) slots.set(url, index);
+    });
+    let cursor = 0;
+    while (cursor < source.length) {
+      const open = source.indexOf('<', cursor);
+      if (open < 0) break;
+      const tag = readTag(source, open);
+      cursor = tag.next > open ? tag.next : open + 1;
+      if (!tag.attrs || (tag.name !== 'img' && tag.name !== 'a')) continue;
+      const caption = tag.name === 'img'
+        ? `${tag.attrs.alt || ''} ${tag.attrs.title || ''}`
+        : `${tag.attrs['data-glightbox'] || ''} ${tag.attrs.title || ''}`;
+      const url = (tag.name === 'img'
+        ? preferredImageUrl(tag.attrs.src || '', tag.attrs.srcset || '')
+        : tag.attrs.href || '').trim();
+      const slot = slots.get(url);
+      if (url && slot !== undefined && stagingMentioned(caption)) indexes.add(slot);
+    }
+  }
+  const ordered = [...indexes].sort((left, right) => left - right);
+  if (ordered.length) return { indexes: ordered, listingWide: false };
+  return { indexes: ordered, listingWide: stagingMentioned(visibleListingText(source)) };
+}
+
 function mayContainListingPhotos(source: string) {
   return source.includes('<img') || source.includes('<IMG') || source.includes('<Img')
     || source.includes('og:image') || source.includes('og:Image')
@@ -242,7 +306,7 @@ function mayContainListingPhotos(source: string) {
 
 type StartTag = { name: string; attrs: Record<string, string> | null; next: number };
 
-const KEPT_ATTRS = new Set(['src', 'srcset', 'width', 'height', 'href', 'content', 'property', 'name', 'data-glightbox']);
+const KEPT_ATTRS = new Set(['src', 'srcset', 'width', 'height', 'href', 'content', 'property', 'name', 'data-glightbox', 'alt', 'title']);
 
 function readTag(source: string, open: number): StartTag {
   const marker = source.charCodeAt(open + 1);

@@ -46,7 +46,7 @@ export function Sidebar({ locale, homeHref }: { locale: Locale; homeHref?: strin
       const reportQuery = historyIds.length ? `?ids=${encodeURIComponent(historyIds.slice(-30).join(','))}` : '';
       const [all, account] = await Promise.all([
         fetch(`/api/reports${reportQuery}`).then(response => response.json()) as Promise<Report[]>,
-        fetch('/api/auth/me', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string }; billingAvailable?: boolean; dayPassBillingAvailable?: boolean }>,
+        fetch('/api/access', { cache: 'no-store' }).then(response => response.json()) as Promise<{ access?: { limitsEnabled: boolean; kind: 'free' | 'day_pass' | 'pro' | 'ultra'; limit: number; used: number; remaining: number; resetAt: string }; billingAvailable?: boolean; dayPassBillingAvailable?: boolean }>,
       ]);
       const visible = all.filter(item => historyIds.includes(item.id));
       const unique = new Map<string, Report>();

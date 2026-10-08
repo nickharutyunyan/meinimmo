@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import esbuild from 'esbuild';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
 import { LISTING_IMAGE_HOSTS, LISTING_THUMBNAIL_HOSTS } from '../lib/listing-image-hosts.ts';
-import { displayableListingPhotos, displayedListingPhotoExpired, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotoHref, listingPhotoSlot, listingPhotosExpireAt, listingPhotosToShow, listingThumbnailUrl } from '../lib/listing-photos.ts';
+import { displayableListingPhotos, displayedListingPhotoExpired, extractListingPhotoUrls, listingPhotoExpirySeconds, listingPhotoHref, listingPhotoSlot, listingPhotosExpireAt, listingPhotosToShow, listingThumbnailUrl, stagedPhotoMarks } from '../lib/listing-photos.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { copy } from '../lib/i18n.ts';
 
@@ -66,6 +66,9 @@ test('Berlin 502729 yields a stable set of absolute https gallery URLs', () => {
   const report = parseListing(berlin, source);
   assert.deepEqual(report.facts.photoUrls, first);
   assert.equal(report.facts.photoUrls.length, 8);
+  assert.deepEqual(stagedPhotoMarks(berlin, first), { indexes: [0, 3], listingWide: false });
+  assert.deepEqual(report.facts.photoStaging, { indexes: [0, 3], listingWide: false });
+  assert.equal(report.redFlags.some((flag) => flag.id === 'aiStaging'), false);
   assert.equal(report.facts.photosExpireAt, new Date(1791507718 * 1000).toISOString());
   assert.equal(parseListing(berlin, 'Pasted listing').facts.photoUrls, undefined);
   assert.equal(parseListing(berlin, 'Pasted listing').facts.photosExpireAt, undefined);
@@ -235,8 +238,25 @@ test('report overview renders EN and DE captions and print and compare omit phot
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls, listingUrl: 'Exposé.pdf', locale: 'en' })), '');
   assert.equal(renderToStaticMarkup(createElement(ListingPhotos, { urls: [], listingUrl, locale: 'de' })), '');
 
+  const stagedHtml = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: [`${CDN}/a.jpg`, `${CDN}/b.jpg`],
+    stagedIndexes: [0],
+    listingUrl,
+    locale: 'en',
+  }));
+  assert.match(stagedHtml, /aria-label="Photo 1 of 2\. AI visualisation \(per listing\)"/);
+  assert.match(stagedHtml, /class="listing-photo-badge"/);
+  assert.equal(stagedHtml.includes('Photo 2 of 2. AI'), false);
+  const stagedDe = renderToStaticMarkup(createElement(ListingPhotos, {
+    urls: [`${CDN}/a.jpg`],
+    stagedIndexes: [0],
+    listingUrl,
+    locale: 'de',
+  }));
+  assert.match(stagedDe, /KI-Visualisierung \(laut Angebot\)/);
   const css = await readFile(new URL('../app/editorial.css', import.meta.url), 'utf8');
   assert.match(css, /@media print\s*\{[^}]*\.listing-photos\s*\{[^}]*display:\s*none/);
+  assert.match(css, /\.listing-photos-strip \.listing-photo-badge/);
   const print = await readFile(new URL('../components/PrintReport.tsx', import.meta.url), 'utf8');
   const compare = await readFile(new URL('../components/ComparisonView.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(print, /ListingPhotos|photoUrls|listing-photos|photosCaption/);

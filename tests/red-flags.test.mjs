@@ -173,11 +173,16 @@ const rules = [
     positive: [
       'Vermietung nur mit Wohnberechtigungsschein.',
       'Die Wohnung unterliegt einer Belegungsbindung bis 2034.',
+      'Dann bietet dieses öffentlich geförderte Mehrfamilienhaus eine Gelegenheit.',
+      'Es besteht eine Sozialbindung.',
+      'Die Mietpreisbindung läuft noch.',
     ],
     negative: [
       'Es ist kein WBS erforderlich.',
       'Verkauf ohne Wohnberechtigungsschein.',
       'Frei finanzierte Eigentumswohnung.',
+      'Das Haus ist nicht öffentlich gefördert.',
+      'Keine Mietpreisbindung.',
     ],
   },
   {

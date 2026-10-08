@@ -31,6 +31,7 @@ export function mergedBackfillReport(previous: Report, parsed: Report, attempted
   if (!facts.photoUrls?.length && previous.facts.photoUrls?.length) {
     facts.photoUrls = previous.facts.photoUrls;
     if (previous.facts.photosExpireAt) facts.photosExpireAt = previous.facts.photosExpireAt;
+    if (previous.facts.photoStaging) facts.photoStaging = previous.facts.photoStaging;
   }
   return attachCalculatedScore({
     ...parsed,
