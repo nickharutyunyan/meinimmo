@@ -8,6 +8,7 @@ import { EXTRACTION_VERSION, evidenceForFacts, reportConflicts, scoreAvailable }
 import { listingContent } from './listing-content.ts';
 import { cleanAddressPlaceholders, cleanReportAddress, hasHouseNumber, validStreet } from './location-validation.ts';
 import { extractTaxonomyEvidence } from './property-taxonomy.ts';
+import { extractListingPhotoUrls, isRemoteListingSource } from './listing-photos.ts';
 
 const UNKNOWN = 'not stated';
 
@@ -907,6 +908,7 @@ export function parseListing(raw: string, source: string): Report {
   const dailyNeeds = proximityEvidence(lines, /\b(?:Supermarkt|Einkauf|Nahversorgung|Bäcker|Apotheke|Schule|Grundschule|Kita|Kindertagesstätte|daily needs|grocer)\w*/i);
 
   const totalCost = explicitTotal || (price && buyerCosts ? price + buyerCosts : 0);
+  const photoUrls = isRemoteListingSource(source) ? extractListingPhotoUrls(raw) : [];
   const facts = {
     price, area, usableArea: usableArea || undefined, rooms, year, floor, energy, heating,
     energySource, energyDemand: energyDemand || undefined, energyCertificate, totalCost,
@@ -932,6 +934,7 @@ export function parseListing(raw: string, source: string): Report {
       parkMentioned: park.mentioned,
       dailyNeedsMentioned: dailyNeeds.mentioned,
     },
+    ...(photoUrls.length ? { photoUrls } : {}),
   };
 
   const qualityWarnings = [
