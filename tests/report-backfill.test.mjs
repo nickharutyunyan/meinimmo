@@ -82,6 +82,42 @@ test('a backfill call stays within two reports and does not start work it cannot
   assert.deepEqual(limited.processed.map(item => item.status), ['unavailable']);
 });
 
+test('the batch size is the only backfill guard and the response has no clock', async () => {
+  const candidates = ['a', 'b', 'c'].map(id => ({ id }));
+  assert.equal(BACKFILL_BATCH_SIZE, 1);
+  assert.equal(configuredBackfillBatchSize(undefined), 1);
+  assert.equal(configuredBackfillBatchSize(''), 1);
+  assert.equal(configuredBackfillBatchSize('0'), 1);
+  assert.equal(configuredBackfillBatchSize('2.5'), 1);
+  assert.equal(configuredBackfillBatchSize('6'), 1);
+  assert.equal(configuredBackfillBatchSize('1'), 1);
+  assert.equal(configuredBackfillBatchSize('5'), 5);
+
+  const seen = [];
+  const open = await runBackfillBatch({
+    candidates,
+    refresh: async (item) => {
+      seen.push(item.id);
+      return 'refreshed';
+    },
+  });
+  assert.deepEqual(seen, ['a']);
+  assert.deepEqual(Object.keys(open).sort(), ['processed']);
+
+  const paced = [];
+  const sized = await runBackfillBatch({
+    candidates,
+    batchSize: 2,
+    refresh: async (item, account) => {
+      paced.push(item.id);
+      if (typeof account === 'function') account(10_000);
+      return 'refreshed';
+    },
+  });
+  assert.deepEqual(paced, ['a', 'b']);
+  assert.deepEqual(Object.keys(sized).sort(), ['processed']);
+});
+
 test('a thrown refresh is recorded and does not continue as a queue', async () => {
   const result = await runBackfillBatch({
     candidates: [{ id: 'one' }, { id: 'two' }],
