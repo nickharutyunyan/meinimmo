@@ -58,7 +58,7 @@ export function validateFactFeedback(input: unknown, acceptLanguage = ''): { ok:
   };
 }
 
-export function feedbackErrorMessage(error: FeedbackError | 'notFound' | 'tooMany' | 'origin' | 'sendFailed', locale: Locale) {
+export function feedbackErrorMessage(error: FeedbackError | 'notFound' | 'tooMany' | 'origin' | 'sendFailed' | 'unavailable', locale: Locale) {
   const text = factSourceCopy[locale];
   if (error === 'field') return text.badField;
   if (error === 'suggested') return text.suggestedTooLong;
@@ -68,7 +68,19 @@ export function feedbackErrorMessage(error: FeedbackError | 'notFound' | 'tooMan
   if (error === 'tooMany') return text.tooMany;
   if (error === 'origin') return text.origin;
   if (error === 'sendFailed') return text.sendFailed;
+  if (error === 'unavailable') return text.unavailable;
   return text.invalid;
+}
+
+/** The wrong-value form needs this table. Quotes do not. */
+export function factFeedbackTablesReady(names: readonly string[]) {
+  return names.includes('fact_feedback');
+}
+
+/** D1 says the feedback migration has not been applied. */
+export function isMissingFeedbackTable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table:\s*fact_feedback(?:_limits)?\b/i.test(message);
 }
 
 export function feedbackWindowStart(now: Date) {

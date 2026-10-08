@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSameOrigin } from '@/lib/auth';
-import { feedbackErrorMessage, feedbackIsLimited, feedbackLocale, feedbackSubjectKey, validateFactFeedback } from '@/lib/fact-feedback';
-import { insertFactFeedback, recordFactFeedbackAttempt, reportExtractionVersion } from '@/lib/fact-feedback-store';
+import { feedbackErrorMessage, feedbackIsLimited, feedbackLocale, feedbackSubjectKey, isMissingFeedbackTable, validateFactFeedback } from '@/lib/fact-feedback';
+import { factFeedbackReady, insertFactFeedback, recordFactFeedbackAttempt, reportExtractionVersion } from '@/lib/fact-feedback-store';
 import { validReportId } from '@/lib/report-note-validation';
 
 function json(body: unknown, status: number) {
@@ -29,19 +29,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const saved = await reportExtractionVersion(id);
   if (!saved) return json({ error: feedbackErrorMessage('notFound', parsed.value.locale) }, 404);
 
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  const attempts = await recordFactFeedbackAttempt(await feedbackSubjectKey(ip, id));
-  if (feedbackIsLimited(attempts)) return json({ error: feedbackErrorMessage('tooMany', parsed.value.locale) }, 429);
+  try {
+    if (!await factFeedbackReady()) return json({ error: feedbackErrorMessage('unavailable', parsed.value.locale) }, 503);
+    const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+    const attempts = await recordFactFeedbackAttempt(await feedbackSubjectKey(ip, id));
+    if (feedbackIsLimited(attempts)) return json({ error: feedbackErrorMessage('tooMany', parsed.value.locale) }, 429);
 
-  await insertFactFeedback({
-    id: crypto.randomUUID(),
-    reportId: id,
-    field: parsed.value.field,
-    reportedValue: parsed.value.reportedValue,
-    suggestedValue: parsed.value.suggestedValue,
-    comment: parsed.value.comment,
-    extractionVersion: saved.extractionVersion,
-    createdAt: new Date().toISOString(),
-  });
+    await insertFactFeedback({
+      id: crypto.randomUUID(),
+      reportId: id,
+      field: parsed.value.field,
+      reportedValue: parsed.value.reportedValue,
+      suggestedValue: parsed.value.suggestedValue,
+      comment: parsed.value.comment,
+      extractionVersion: saved.extractionVersion,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (isMissingFeedbackTable(error)) return json({ error: feedbackErrorMessage('unavailable', parsed.value.locale) }, 503);
+    throw error;
+  }
   return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }

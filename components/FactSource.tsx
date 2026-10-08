@@ -6,11 +6,13 @@ import { feedbackErrorMessage } from '@/lib/fact-feedback';
 import { provenanceSentence, type FactProvenance } from '@/lib/fact-provenance';
 import { factSourceCopy } from '@/lib/fact-source-copy';
 
-export function FactSource({ reportId, locale, label, provenance }: {
+export function FactSource({ reportId, locale, label, provenance, reportingEnabled = false }: {
   reportId: string;
   locale: Locale;
   label: string;
   provenance: FactProvenance;
+  /** False until the feedback table exists. The source quote still shows. */
+  reportingEnabled?: boolean;
 }) {
   const text = factSourceCopy[locale];
   const panelId = useId();
@@ -93,12 +95,12 @@ export function FactSource({ reportId, locale, label, provenance }: {
       {provenance.kind === 'stated' && provenance.quotes.length
         ? provenance.quotes.map(quote => <p key={quote}><span className="fact-popover-kicker">{text.fromListing}</span> {quote}</p>)
         : <p>{sentence}</p>}
-      {thanks ? <p className="fact-thanks" role="status">{text.thanks}</p> : formOpen ? <form className="fact-feedback" onSubmit={onSubmit}>
+      {reportingEnabled ? thanks ? <p className="fact-thanks" role="status">{text.thanks}</p> : formOpen ? <form className="fact-feedback" onSubmit={onSubmit}>
         <label>{text.correctValue} <span>{text.optional}</span><input name="suggested" maxLength={80} autoComplete="off" /></label>
         <label>{text.comment} <span>{text.optional}</span><textarea name="comment" maxLength={300} rows={3} /></label>
         {error ? <p className="fact-feedback-error" role="alert">{error}</p> : null}
         <button type="submit" disabled={pending}>{pending ? text.sending : text.send}</button>
-      </form> : <button type="button" className="fact-wrong" onClick={() => setFormOpen(true)}>{text.wrong}</button>}
+      </form> : <button type="button" className="fact-wrong" onClick={() => setFormOpen(true)}>{text.wrong}</button> : null}
     </div> : null}
   </span>;
 }

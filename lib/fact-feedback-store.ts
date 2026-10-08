@@ -1,12 +1,21 @@
 import 'server-only';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { feedbackWindowStart } from './fact-feedback.ts';
+import { factFeedbackTablesReady, feedbackWindowStart } from './fact-feedback.ts';
 import { withTimeout } from './io-timeout.ts';
 
 async function database() {
   const { env } = await withTimeout(getCloudflareContext({ async: true }));
   if (!env.DB) throw new Error('The Cloudflare D1 binding "DB" is not configured.');
   return env.DB;
+}
+
+/** True when sqlite_master lists fact_feedback. Callers hide the form when this is false. */
+export async function factFeedbackReady() {
+  const db = await database();
+  const result = await withTimeout(db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'fact_feedback'
+  `).all<{ name: string }>());
+  return factFeedbackTablesReady((result.results || []).map(row => row.name));
 }
 
 /** Existence plus the stored extraction version. Does not parse the report JSON. */
