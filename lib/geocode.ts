@@ -288,11 +288,30 @@ export async function lookupCachedGeocode(options: {
 export type GeocodeAllowance = { ok: true; query: string; country: 'de' | 'am'; reportId?: string };
 export type GeocodeRejection = { ok: false; status: 400 | 403; error: string };
 
+/**
+ * Browsers omit Origin on a same-origin GET. Sec-Fetch-Site is set by the
+ * browser, so a page cannot forge it. Older browsers that send neither
+ * header are accepted only when Referer is this request's own origin.
+ */
+function geocodeCallerAllowed(requestUrl: URL, headers: { get(name: string): string | null }) {
+  const origin = headers.get('origin')?.trim() || '';
+  if (origin) return origin === requestUrl.origin;
+  const site = headers.get('sec-fetch-site')?.trim().toLowerCase() || '';
+  if (site) return site === 'same-origin';
+  const referer = headers.get('referer')?.trim() || '';
+  if (!referer) return false;
+  try {
+    return new URL(referer).origin === requestUrl.origin;
+  } catch {
+    return false;
+  }
+}
+
 /** Same-origin only, with a hard query length, so this route cannot proxy arbitrary Nominatim searches. */
-export function rejectGeocodeRequest(url: string, origin: string | null): GeocodeAllowance | GeocodeRejection {
+export function rejectGeocodeRequest(url: string, headers: { get(name: string): string | null }): GeocodeAllowance | GeocodeRejection {
   let requestUrl: URL;
   try { requestUrl = new URL(url); } catch { return { ok: false, status: 400, error: 'No usable location supplied.' }; }
-  if (!origin || origin !== requestUrl.origin) return { ok: false, status: 403, error: 'Invalid request origin.' };
+  if (!geocodeCallerAllowed(requestUrl, headers)) return { ok: false, status: 403, error: 'Invalid request origin.' };
   const query = requestUrl.searchParams.get('q')?.trim() || '';
   if (!query || query.length > GEOCODE_QUERY_LIMIT || /not stated/i.test(query)) {
     return { ok: false, status: 400, error: 'No usable location supplied.' };

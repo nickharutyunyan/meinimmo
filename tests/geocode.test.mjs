@@ -440,7 +440,10 @@ test('views use a stored pin, comparisons do not call Nominatim, and every map s
   const migration = await read('migrations/0004_geocode_cache.sql');
 
   assert.match(location, /if \(hasStoredGeocode\(geocode\)\)/);
-  assert.ok(location.indexOf('hasStoredGeocode(geocode)') < location.indexOf('fetch(`/api/geocode'));
+  assert.ok(location.indexOf('hasStoredGeocode(geocode)') < location.indexOf('/api/geocode?'));
+  assert.match(location, /requestJson<Place>\([\s\S]*5_000\)/);
+  assert.match(location, /placeFromGeocodeResponse/);
+  assert.match(location, /osmExploreHref\(place,/);
   assert.match(location, /© OpenStreetMap contributors|text\.credit/);
   assert.equal(copy.en.map.credit, OSM_ATTRIBUTION);
   assert.equal(copy.de.map.credit, OSM_ATTRIBUTION);
