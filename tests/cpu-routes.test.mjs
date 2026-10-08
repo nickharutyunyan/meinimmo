@@ -6,7 +6,7 @@ import test from 'node:test';
 import { applyDocumentLanguage, assetPathForPathname, cacheFileToAssetPath, documentLanguage, isCacheableDocument, isRouterDataRequest, pathnameForPublishedAsset, reportDocumentId, reportHtmlIsShared } from '../cloudflare/routes.mjs';
 import { withTimeout } from '../lib/io-timeout.ts';
 import { reportCacheRequest } from '../lib/report-cache-key.ts';
-import { invalidateReportHtml, reportHtmlUrls } from '../lib/report-html-cache.ts';
+import { invalidateReportHtml, REPORT_HTML_CACHE_TTL_SECONDS, reportHtmlUrls } from '../lib/report-html-cache.ts';
 import { publishedBody, publishStaticPages, writeReportCacheBuildId } from '../scripts/publish-static-pages.mjs';
 
 const headers = (pairs) => new Headers(pairs);
@@ -155,6 +155,19 @@ test('cached report HTML is the anonymous document', () => {
   assert.equal(reportHtmlIsShared('<html>rah_session=abc</html>'), false);
   assert.equal(reportHtmlIsShared('<input name="csrf" value="t">'), false);
   assert.equal(reportHtmlIsShared(''), false);
+});
+
+test('the report-page cache TTL is short enough for other colos to refresh', async () => {
+  assert.ok(REPORT_HTML_CACHE_TTL_SECONDS > 0);
+  assert.ok(REPORT_HTML_CACHE_TTL_SECONDS <= 5 * 60);
+  const worker = await readFile(new URL('../cloudflare/worker.mjs', import.meta.url), 'utf8');
+  const serve = worker.slice(worker.indexOf('async function serveReport'), worker.indexOf('async function fetchNext'));
+  assert.match(serve, /REPORT_HTML_CACHE_TTL_SECONDS/);
+  assert.match(serve, /max-age=\$\{REPORT_HTML_CACHE_TTL_SECONDS\}/);
+  assert.doesNotMatch(serve, /max-age=86400/);
+  assert.match(serve, /x-report-cache', 'hit'/);
+  assert.doesNotMatch(serve, /env\.DB|storedMortgageRate|prepare\(/);
+  assert.match(await readFile(new URL('../lib/store.ts', import.meta.url), 'utf8'), /invalidateReportHtml\(item\.id\)/);
 });
 
 test('the worker serves prerendered documents before the Next handler', async () => {

@@ -24,8 +24,8 @@ export function termsSections(locale: Locale, paidPlansOffered: boolean): Array<
       ? 'Halte deine Zugangsdaten sicher und nutze den Dienst nicht automatisiert, missbräuchlich oder rechtswidrig. Die kostenlosen und bezahlten Limits gelten pro Person und Konto. Wir dürfen missbräuchliche Zugriffe begrenzen, wenn das für Sicherheit und Verfügbarkeit nötig ist.'
       : 'Halte deine Zugangsdaten sicher und nutze den Dienst nicht automatisiert, missbräuchlich oder rechtswidrig. Wir dürfen missbräuchliche Zugriffe begrenzen, wenn das für Sicherheit und Verfügbarkeit nötig ist.']
     : ['4. Accounts and fair use', paidPlansOffered
-      ? 'Keep your account credentials secure and do not use the service unlawfully, abusively or through unauthorized automation. Free and paid limits apply per person and account. We may limit abusive access where necessary for security and availability.'
-      : 'Keep your account credentials secure and do not use the service unlawfully, abusively or through unauthorized automation. We may limit abusive access where necessary for security and availability.'];
+      ? 'Keep your account credentials secure and do not use the service unlawfully, abusively or through unauthorised automation. Free and paid limits apply per person and account. We may limit abusive access where necessary for security and availability.'
+      : 'Keep your account credentials secure and do not use the service unlawfully, abusively or through unauthorised automation. We may limit abusive access where necessary for security and availability.'];
   const payments: [string, string] = de
     ? ['5. Zahlungen', paidPlansOffered
       ? 'Der Tagespass kostet einmalig 5 € und endet nach 24 Stunden automatisch. Pro kostet 10 € pro Monat, Ultra 20 € pro Monat. Abos verlängern sich monatlich, bis du sie im Stripe-Kundenportal kündigst; bei einer Kündigung bleibt der Zugang normalerweise bis zum Ende des bezahlten Zeitraums bestehen. Gesetzliche Rechte bleiben unberührt.'

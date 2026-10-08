@@ -19,10 +19,10 @@ export const categoryChoices = {
   },
   locationStyle: {
     central_urban: 'A dense, central city location with strong access to urban amenities and public transport.',
-    urban_neighborhood: 'A city neighborhood or Kiez with local amenities, but not clearly the central business core.',
+    urban_neighborhood: 'A city neighbourhood or Kiez with local amenities, but not clearly the central business core.',
     suburban: 'A lower-density outer-city or suburban residential setting.',
     commuter_location: 'A location whose main advantage is practical access to a larger employment centre.',
-    small_city_or_rural: 'A small-city, town or rural setting rather than a major urban neighborhood.',
+    small_city_or_rural: 'A small-city, town or rural setting rather than a major urban neighbourhood.',
     uncertain: 'The reviewed location facts are insufficient to classify the setting.',
   },
   purchaseSituation: {
@@ -95,7 +95,7 @@ export function propertyCategoryRequest(report: Report, model = 'jev-latest') {
       },
       locationStyle: {
         type: 'choice',
-        instructions: 'Classify the broad location style using only the supplied city, district, precision and neighborhood signals. Choose uncertain rather than guessing.',
+        instructions: 'Classify the broad location style using only the supplied city, district, precision and neighbourhood signals. Choose uncertain rather than guessing.',
         criteria: categoryChoices.locationStyle,
       },
       purchaseSituation: {
@@ -131,7 +131,7 @@ const labels = {
   en: {
     new_build: 'New build', renovated: 'Renovated', move_in_ready_resale: 'Move-in-ready resale', renovation_project: 'Renovation project', standard_resale: 'Resale home',
     single_or_couple: 'Best suited to one or two', family: 'Family-oriented', investor: 'Investment property', downsizer: 'Downsizer-friendly', broad_appeal: 'Broad buyer appeal',
-    central_urban: 'Central urban', urban_neighborhood: 'Urban neighborhood', suburban: 'Suburban', commuter_location: 'Commuter location', small_city_or_rural: 'Small-city or rural',
+    central_urban: 'Central urban', urban_neighborhood: 'Urban neighbourhood', suburban: 'Suburban', commuter_location: 'Commuter location', small_city_or_rural: 'Small-city or rural',
     vacant_now: 'Not rented', available_later: 'Available later', rented_investment: 'Sold rented', under_construction: 'Under construction', renovation_required: 'Renovation required',
   },
   de: {

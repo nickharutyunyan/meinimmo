@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { scoreAvailable, reportVerdict, scoreBasisLine, scoreExplanation } from '@/lib/report-integrity';
 import type { Report } from '@/lib/types';
+import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { calculatePropertyScore, formatScore } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
@@ -29,7 +30,7 @@ import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
 
-export function ReportView({ report: initialReport, locale }: { report: Report; locale: Locale }) {
+export function ReportView({ report: initialReport, locale, mortgageRate }: { report: Report; locale: Locale; mortgageRate?: MortgageRateSnapshot }) {
   const [report, setReport] = useState(initialReport);
   const [copied, setCopied] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
@@ -152,7 +153,7 @@ export function ReportView({ report: initialReport, locale }: { report: Report; 
           {location.mapQuery ? <LocationCard location={location} locale={locale} /> : null}
         </div>
         <aside>
-          <FinanceCalculator report={report} locale={locale} />
+          <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} />
           <ReportNote reportId={report.id} locale={locale} />
           <OfferQuestions report={report} locale={locale} />
           <AdSlot locale={locale} kind="finance" compact />

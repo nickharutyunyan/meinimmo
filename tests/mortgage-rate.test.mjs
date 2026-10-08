@@ -24,13 +24,23 @@ test('assigns a late-December observation to the previous year when run in Janua
 });
 
 test('a missing mortgage rate is described without a provider name', () => {
+  assert.equal(copy.en.finance.rateLoading, "Loading today's mortgage rate…");
+  assert.equal(copy.de.finance.rateLoading, 'Aktueller Bauzins wird geladen…');
   assert.equal(copy.en.finance.rateUnavailable, 'Current mortgage rates are unavailable right now');
   assert.equal(copy.de.finance.rateUnavailable, 'Aktuelle Bauzinsen sind gerade nicht verfügbar');
-  assert.doesNotMatch(`${copy.en.finance.rateUnavailable} ${copy.de.finance.rateUnavailable}`, /FMH/);
+  assert.doesNotMatch(`${copy.en.finance.rateLoading} ${copy.de.finance.rateLoading} ${copy.en.finance.rateUnavailable} ${copy.de.finance.rateUnavailable}`, /FMH/);
   const component = readFileSync(new URL('../components/FinanceCalculator.tsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../app/r/[id]/page.tsx', import.meta.url), 'utf8');
+  const german = readFileSync(new URL('../app/de/r/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.match(component, /text\.rateLoading/);
   assert.match(component, /text\.rateUnavailable/);
+  assert.match(component, /rateState === 'unavailable' \? text\.rateUnavailable : text\.rateLoading/);
+  assert.match(component, /initialRate\?\.rate \?\? 3\.5/);
+  assert.match(component, /initialRate \? 'ready' : 'loading'/);
   assert.doesNotMatch(component, /FMH unavailable|FMH nicht verfügbar/);
-  assert.match(component, /useState\(3\.5\)/);
+  assert.match(page, /cachedMortgageRate\(\)/);
+  assert.match(german, /cachedMortgageRate\(\)/);
+  assert.doesNotMatch(`${page}\n${german}`, /currentMortgageRate\(/);
 });
 
 test('rejects malformed or implausible rate data', () => {
