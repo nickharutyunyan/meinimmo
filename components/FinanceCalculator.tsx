@@ -5,38 +5,13 @@ import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { copy, financeFootnote, type Locale } from '@/lib/i18n';
 import { acquisitionCosts, defaultEquity, financingScenario } from '@/lib/finance';
-import { buyerCostView, type BuyerCostRowView } from '@/lib/buyer-costs';
+import { buyerCostView } from '@/lib/buyer-costs';
 import { money, percent } from '@/lib/format';
-import { provenanceForField, type FactProvenance, type FeedbackField } from '@/lib/fact-provenance';
-import { factSourceCopy } from '@/lib/fact-source-copy';
 import { GlossaryText } from './GlossaryText';
-import { FactSource } from './FactSource';
 
 const RATE_FETCH_TIMEOUT_MS = 12_000;
 
-function lineField(key: string): FeedbackField {
-  if (key === 'tax') return 'transferTax';
-  if (key === 'notary') return 'notary';
-  return 'buyerCommission';
-}
-
-/** The line already explains itself. The popover repeats that basis and can report it. */
-function lineProvenance(report: Report, row: BuyerCostRowView, locale: Locale): FactProvenance {
-  const field = lineField(row.key);
-  const reportedValue = row.amount || row.label;
-  if (field === 'buyerCommission') {
-    const excerpt = report.factEvidence?.buyerCommission?.excerpt;
-    if (excerpt) return { field, kind: 'stated', quotes: [excerpt], reportedValue };
-    if (/not stated|nicht angegeben/i.test(row.basis)) return { field, kind: 'estimated', quotes: [], basis: row.basis, reportedValue };
-    return { field, kind: 'calculated', quotes: [], formula: row.basis, reportedValue };
-  }
-  if (field === 'notary' || /state not identified|Bundesland unklar|kein Bundesland/i.test(row.basis)) {
-    return { field, kind: 'estimated', quotes: [], basis: row.basis, reportedValue };
-  }
-  return { field, kind: 'calculated', quotes: [], formula: row.basis, reportedValue };
-}
-
-export function FinanceCalculator({ report, locale, initialRate, reportingEnabled = false }: { report: Report; locale: Locale; initialRate?: MortgageRateSnapshot; reportingEnabled?: boolean }) {
+export function FinanceCalculator({ report, locale, initialRate }: { report: Report; locale: Locale; initialRate?: MortgageRateSnapshot }) {
   const costs = acquisitionCosts(report);
   const costView = buyerCostView(report, locale);
   const sliderMax = costs.totalHigh ?? costs.total;
@@ -46,26 +21,6 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
     return start === end ? start : `${start}–${end}`;
   };
   const initialEquity = defaultEquity(sliderMax);
-  // The header amount is always our itemised estimate. The listing's own
-  // ancillary figure belongs to the comparison note, never to this number.
-  const statedCostsQuote = report.factEvidence?.buyerCosts?.excerpt;
-  const buyerCostsProvenance: FactProvenance = costView.estimated
-    ? {
-      field: 'buyerCosts',
-      kind: 'estimated',
-      quotes: [],
-      basis: statedCostsQuote || costView.statedNote ? factSourceCopy[locale].buyerCostsItemised : factSourceCopy[locale].buyerCostsUnstated,
-      reportedValue: costView.summaryAmount,
-    }
-    : statedCostsQuote
-      ? { field: 'buyerCosts', kind: 'stated', quotes: [statedCostsQuote], reportedValue: costView.summaryAmount }
-      : { field: 'buyerCosts', kind: 'stated', quotes: [], reportedValue: costView.summaryAmount };
-  const statedNoteProvenance: FactProvenance | undefined = costView.estimated && statedCostsQuote && costView.statedNote
-    ? { field: 'buyerCosts', kind: 'stated', quotes: [statedCostsQuote], reportedValue: costView.statedAmount || costView.summaryAmount }
-    : undefined;
-  const totalProvenance: FactProvenance = report.facts.price > 0
-    ? { field: 'totalCost', kind: 'calculated', quotes: [], formula: `${money(report.facts.price, locale)} + ${costView.summaryAmount}`, reportedValue: costView.totalAmount }
-    : provenanceForField(report, 'totalCost', costView.totalAmount, locale);
   const [equity, setEquity] = useState(initialEquity);
   const [interest, setInterest] = useState(initialRate?.rate ?? 3.5);
   const [mortgageRate, setMortgageRate] = useState<MortgageRateSnapshot | undefined>(initialRate);
@@ -152,27 +107,27 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
       <span><GlossaryText locale={locale}>{text.purchase}</GlossaryText> <b>{report.facts.price ? money(report.facts.price, locale) : '—'}</b></span>
       <details className="buyer-costs" open>
         <summary>
-          <span className="buyer-cost-label"><GlossaryText locale={locale}>{costView.title}</GlossaryText><span className="buyer-cost-tail">{costView.estimated ? <small> {costView.estimatedMark}</small> : null}<FactSource reportId={report.id} locale={locale} label={costView.title} provenance={buyerCostsProvenance} reportingEnabled={reportingEnabled} /></span></span>
+          <span className="buyer-cost-label"><GlossaryText locale={locale}>{costView.title}</GlossaryText><span className="buyer-cost-tail">{costView.estimated ? <small> {costView.estimatedMark}</small> : null}</span></span>
           <b>{costView.summaryAmount}</b>
         </summary>
         <div className="buyer-cost-lines">
           {costView.rows.map(row => <div className="buyer-cost-line" key={row.key}>
-            <span className="buyer-cost-name">{row.label}{'\u2060'}<FactSource reportId={report.id} locale={locale} label={row.label} provenance={lineProvenance(report, row, locale)} reportingEnabled={reportingEnabled} /></span>
+            <span className="buyer-cost-name">{row.label}</span>
             <b>{row.amount ? <>{row.amount}{row.share ? <small> · {row.share}</small> : null}</> : null}</b>
             <small>{row.basis}</small>
           </div>)}
         </div>
-        {costView.statedNote ? <p className="buyer-cost-note">{costView.statedNote}{statedNoteProvenance ? <>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={costView.title} provenance={statedNoteProvenance} reportingEnabled={reportingEnabled} /></> : null}</p> : null}
+        {costView.statedNote ? <p className="buyer-cost-note">{costView.statedNote}</p> : null}
         <p className="buyer-cost-note">{costView.footnote}</p>
       </details>
-      <span><span className="finance-inline-label"><GlossaryText locale={locale}>{text.total}</GlossaryText>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={text.total} provenance={totalProvenance} reportingEnabled={reportingEnabled} /></span> <b>{costView.totalAmount}</b></span>
+      <span><span className="finance-inline-label"><GlossaryText locale={locale}>{text.total}</GlossaryText></span> <b>{costView.totalAmount}</b></span>
     </div>
     <label>
       <span><span className="finance-field-label"><GlossaryText locale={locale}>{text.equity}</GlossaryText></span><b>{money(equity, locale) || '—'} · {sliderMax ? percent(Math.round(equity / sliderMax * 100), locale, 0) : '—'}{costs.buyerCostsAreRange ? ` ${text.higherTotal}` : ''}</b></span>
       <input type="range" min="0" max={Math.max(sliderMax, 1)} step="1" aria-label={text.equity} value={equity} onChange={(event) => setEquity(Number(event.target.value))} />
     </label>
     <label>
-      <span><span className="finance-rate-heading"><span className="finance-inline-label"><GlossaryText locale={locale}>{text.rate}</GlossaryText>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={text.rate} provenance={provenanceForField(report, 'mortgageRate', percent(interest, locale), locale)} reportingEnabled={reportingEnabled} /></span><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
+      <span><span className="finance-rate-heading"><span className="finance-inline-label"><GlossaryText locale={locale}>{text.rate}</GlossaryText></span><a className="finance-rate-source" href={mortgageRate?.sourceUrl || 'https://index.fmh.de/fmh/'} target="_blank" rel="noreferrer">{sourceText} ↗</a></span><b>{percent(interest, locale)}</b></span>
       <input type="range" min="2" max="7" step="0.01" aria-label={text.rate} value={interest} onChange={(event) => { interestWasEdited.current = true; setInterest(Number(event.target.value)); }} />
     </label>
     <label>

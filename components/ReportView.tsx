@@ -30,11 +30,10 @@ import { localizedFactualTaxonomy, TAXONOMY_VERSION } from '@/lib/property-taxon
 import { ListingPhotos } from './ListingPhotos';
 import { PriceCheckCard } from './PriceCheckCard';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
-import { labelledFactEvidence, provenanceForField } from '@/lib/fact-provenance';
+import { labelledFactEvidence } from '@/lib/fact-provenance';
 import { factSourceCopy } from '@/lib/fact-source-copy';
-import { FactSource } from './FactSource';
 
-export function ReportView({ report: initialReport, locale, mortgageRate, renderedAt, reportingEnabled = false }: { report: Report; locale: Locale; mortgageRate?: MortgageRateSnapshot; renderedAt?: number; reportingEnabled?: boolean }) {
+export function ReportView({ report: initialReport, locale, mortgageRate, renderedAt }: { report: Report; locale: Locale; mortgageRate?: MortgageRateSnapshot; renderedAt?: number }) {
   const [report, setReport] = useState(initialReport);
   const [copied, setCopied] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
@@ -151,7 +150,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
       {clarify.length ? <section className="card integrity-alert" role="status"><strong>{locale === 'de' ? 'Vor einer Entscheidung klären' : 'Clarify before making a decision'}</strong>{clarify.map(w => <p key={w}>{w}</p>)}</section> : null}
       <div className="report-grid">
         <div>
-          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value, field]) => <div key={`${field}-${key}`}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><div className="fact-value"><b><GlossaryText locale={locale}>{value}</GlossaryText></b><FactSource reportId={report.id} locale={locale} label={key} provenance={provenanceForField(report, field, value, locale)} reportingEnabled={reportingEnabled} /></div></div>)}</div></section>
+          <section className="card"><p className="eyebrow">{text.atGlance}</p><div className="facts">{glance.map(([key, value, field]) => <div key={`${field}-${key}`}><small><GlossaryText locale={locale}>{key}</GlossaryText></small><div className="fact-value"><b><GlossaryText locale={locale}>{value}</GlossaryText></b></div></div>)}</div></section>
           <PriceCheckCard report={report} locale={locale} />
           <section className="card red-flags"><p className="eyebrow">{text.redFlags}</p>{redFlags.length ? redFlags.map(flag => <div className={`red-flag red-flag-${flag.severity}`} key={flag.id}><p><span className="red-flag-dot" aria-hidden="true" /><span className="red-flag-label">{flag.severity === 'high' ? text.redFlagSerious : text.redFlagCheck}</span> <GlossaryText locale={locale}>{redFlagSentence(report, flag, locale)}</GlossaryText></p>{flag.evidence ? <blockquote><small>{text.redFlagFrom}</small> {glossListingQuote(flag.evidence, locale)}</blockquote> : null}</div>) : <p className="red-flags-empty">{text.redFlagsEmpty}</p>}</section>
           {propertyCategories.length ? <section className="card property-profile"><p className="eyebrow">{text.profile}</p><div className="feature-list">{propertyCategories.map(category => <span key={category}>{category}</span>)}</div></section> : null}
@@ -162,7 +161,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
           {location.mapQuery ? <LocationCard location={location} locale={locale} reportId={report.id} geocode={report.geocode} /> : null}
         </div>
         <aside>
-          <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} reportingEnabled={reportingEnabled} />
+          <FinanceCalculator report={report} locale={locale} initialRate={mortgageRate} />
           <ReportNote reportId={report.id} locale={locale} />
           <OfferQuestions report={report} locale={locale} />
           <AdSlot locale={locale} kind="finance" compact />
