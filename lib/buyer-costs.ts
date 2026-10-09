@@ -247,8 +247,8 @@ export type BuyerCostBreakdown = {
   financingIsEstimated: boolean;
   totalLow: number;
   totalHigh: number;
-  usesStated: boolean;
-  divergence: boolean;
+  /** Ancillary figure stated by the listing. It is not part of the total. */
+  statedAncillary?: number;
 };
 
 const rateByState = new Map(GRUNDERWERBSTEUER.map(row => [row.state, row]));
@@ -423,25 +423,32 @@ function commissionOf(price: number, text?: string): Commission {
   return { kind: 'unstated' };
 }
 
-function roundMoney(price: number, rate: number) {
-  return Math.round(price * rate / 100);
+function centsFromPercent(price: number, rate: number) {
+  return Math.round(price * rate);
+}
+
+function euros(cents: number) {
+  return cents / 100;
+}
+
+function sumEuros(values: number[]) {
+  return values.reduce((sum, value) => sum + Math.round(value * 100), 0) / 100;
 }
 
 export function buyerCostBreakdown(input: CostSource): BuyerCostBreakdown {
   const { facts } = sourceParts(input);
   const price = finiteNonNegative(facts.price);
-  const statedBuyerCosts = finiteNonNegative(facts.buyerCosts);
-  const statedTotal = finiteNonNegative(facts.totalCost);
-  const plausibleTotal = statedTotal >= price ? statedTotal : 0;
   const costsProvided = typeof facts.buyerCosts === 'number' && Number.isFinite(facts.buyerCosts) && facts.buyerCosts >= 0;
-  const consistent = !plausibleTotal || !costsProvided || Math.abs(price + statedBuyerCosts - plausibleTotal) <= 2;
+  const statedTotal = finiteNonNegative(facts.totalCost);
+  const statedFromTotal = price > 0 && statedTotal >= price ? statedTotal - price : undefined;
+  const statedAncillary = costsProvided ? finiteNonNegative(facts.buyerCosts) : statedFromTotal;
   const resolution = stateForReport(input);
   const commission = commissionOf(price, facts.buyerCommission);
-  const notary = roundMoney(price, NOTARY_RATE);
-  const taxLow = resolution.state ? roundMoney(price, transferTaxRate(resolution.state)) : roundMoney(price, LOWEST_RATE);
-  const taxHigh = resolution.state ? taxLow : roundMoney(price, HIGHEST_RATE);
+  const notary = euros(centsFromPercent(price, NOTARY_RATE));
+  const taxLow = resolution.state ? euros(centsFromPercent(price, transferTaxRate(resolution.state))) : euros(centsFromPercent(price, LOWEST_RATE));
+  const taxHigh = resolution.state ? taxLow : euros(centsFromPercent(price, HIGHEST_RATE));
   const brokerLow = commission.kind === 'free' ? 0
-    : commission.kind === 'percent' ? roundMoney(price, commission.applied)
+    : commission.kind === 'percent' ? euros(centsFromPercent(price, commission.applied))
     : commission.kind === 'euro' ? commission.amount
     : 0;
   const brokerIncluded = commission.kind !== 'unstated';
@@ -450,19 +457,10 @@ export function buyerCostBreakdown(input: CostSource): BuyerCostBreakdown {
     { key: 'notary', included: true, low: notary, high: notary },
     { key: 'broker', included: brokerIncluded, low: brokerLow, high: brokerLow },
   ];
-  const estimateLow = lines.filter(line => line.included).reduce((sum, line) => sum + line.low, 0);
-  const estimateHigh = lines.filter(line => line.included).reduce((sum, line) => sum + line.high, 0);
+  const included = lines.filter(line => line.included);
+  const estimateLow = sumEuros(included.map(line => line.low));
+  const estimateHigh = sumEuros(included.map(line => line.high));
   const estimateIsRange = estimateLow !== estimateHigh;
-  const financingIsEstimated = !costsProvided && !plausibleTotal;
-  const statedFinancing = plausibleTotal && !consistent ? plausibleTotal - price
-    : costsProvided ? statedBuyerCosts
-    : plausibleTotal ? plausibleTotal - price
-    : estimateLow;
-  const financingLow = financingIsEstimated ? estimateLow : statedFinancing;
-  const financingHigh = financingIsEstimated ? estimateHigh : statedFinancing;
-  const threshold = Math.max(1000, price * 0.01);
-  const outside = statedFinancing < estimateLow ? estimateLow - statedFinancing : statedFinancing > estimateHigh ? statedFinancing - estimateHigh : 0;
-  const divergence = !financingIsEstimated && price > 0 && outside > threshold;
   return {
     price,
     state: resolution.state,
@@ -471,15 +469,18 @@ export function buyerCostBreakdown(input: CostSource): BuyerCostBreakdown {
     estimateLow,
     estimateHigh,
     estimateIsRange,
-    financingLow,
-    financingHigh,
-    financingIsRange: financingLow !== financingHigh,
-    financingIsEstimated,
-    totalLow: plausibleTotal || price + financingLow,
-    totalHigh: plausibleTotal || price + financingHigh,
-    usesStated: !financingIsEstimated,
-    divergence,
+    financingLow: estimateLow,
+    financingHigh: estimateHigh,
+    financingIsRange: estimateIsRange,
+    financingIsEstimated: true,
+    totalLow: sumEuros([price, estimateLow]),
+    totalHigh: sumEuros([price, estimateHigh]),
+    ...(statedAncillary !== undefined ? { statedAncillary } : {}),
   };
+}
+
+function moneyLine(amount: number, locale: Locale) {
+  return Math.round(amount * 100) % 100 === 0 ? moneyEuros(amount, locale) : money(amount, locale);
 }
 
 function moneySpan(low: number, high: number, locale: Locale) {
@@ -536,7 +537,8 @@ export type BuyerCostView = {
   rows: BuyerCostRowView[];
   footnote: string;
   statedNote?: string;
-  divergence?: string;
+  /** The listing's own ancillary figure, formatted, when it states one. */
+  statedAmount?: string;
   totalAmount: string;
 };
 
@@ -561,20 +563,13 @@ export function buyerCostView(input: CostSource, locale: Locale): BuyerCostView 
     footnote: FOOTNOTE[locale],
     totalAmount: moneySpan(breakdown.totalLow, breakdown.totalHigh, locale),
   };
-  if (breakdown.usesStated) {
-    view.statedNote = locale === 'de'
-      ? `Laut Angebot. Die Finanzierung nutzt ${money(breakdown.financingLow, locale)}. Die Zeilen sind unsere Schätzung.`
-      : `Stated in the listing. Financing uses ${money(breakdown.financingLow, locale)}. The lines are our estimate.`;
-  }
-  if (breakdown.divergence) {
-    const stated = money(breakdown.financingLow, locale);
+  if (breakdown.statedAncillary !== undefined) {
+    const stated = money(breakdown.statedAncillary, locale);
+    view.statedAmount = stated;
     const estimate = moneySpan(breakdown.estimateLow, breakdown.estimateHigh, locale);
-    const stateLabel = breakdown.state
-      ? stateName(breakdown.state, locale)
-      : (locale === 'de' ? 'ein nicht erkanntes Bundesland' : 'an unidentified state');
-    view.divergence = locale === 'de'
-      ? `Die Kaufnebenkosten im Angebot (${stated}) weichen von unserer Schätzung (${estimate}) für ${stateLabel} ab. Frag nach, was enthalten ist.`
-      : `The listing's buyer costs (${stated}) differ from our estimate (${estimate}) for ${stateLabel}. Ask what is included.`;
+    view.statedNote = locale === 'de'
+      ? `Das Angebot nennt ${stated} Kaufnebenkosten; unsere Schätzung liegt bei ${estimate}.`
+      : `The listing states ${stated} in ancillary costs; our estimate is ${estimate}.`;
   }
   return view;
 }
@@ -628,8 +623,8 @@ function notaryCopy(line: BuyerCostLine, price: number, locale: Locale): BuyerCo
     amount: money(line.low, locale),
     share: shareText(line.low, line.high, price, locale),
     basis: locale === 'de'
-      ? `Schätzung: üblicherweise ${band} des Kaufpreises, angesetzt mit ${shown}.`
-      : `Estimate: typically ${band} of the price, shown at ${shown}.`,
+      ? `üblicherweise ${band} des Kaufpreises, angesetzt mit ${shown}.`
+      : `typically ${band} of the price, shown at ${shown}.`,
   };
 }
 
@@ -660,9 +655,9 @@ function brokerCopy(line: BuyerCostLine, price: number, commission: Commission, 
     return {
       key: 'broker',
       label,
-      amount: moneyEuros(line.low, locale),
-      share: shareText(line.low, line.high, price, locale),
-      basis: locale === 'de' ? 'Laut Angebot.' : 'Stated in the listing.',
+    amount: moneyLine(line.low, locale),
+    share: shareText(line.low, line.high, price, locale),
+    basis: locale === 'de' ? 'Laut Angebot.' : 'Stated in the listing.',
     };
   }
   const stated = formatRate(commission.stated, locale);
@@ -677,19 +672,15 @@ function brokerCopy(line: BuyerCostLine, price: number, commission: Commission, 
   return {
     key: 'broker',
     label,
-    amount: moneyEuros(line.low, locale),
+    amount: moneyLine(line.low, locale),
     share: shareText(line.low, line.high, price, locale),
     basis,
   };
 }
 
-export function buyerCostDivergenceNote(input: CostSource, locale: Locale) {
-  return buyerCostView(input, locale).divergence;
-}
-
 export function buyerCostComparisonValue(input: CostSource, locale: Locale) {
   const breakdown = buyerCostBreakdown(input);
-  if (!breakdown.price && !breakdown.usesStated) return '—';
+  if (!breakdown.price && breakdown.statedAncillary === undefined) return '—';
   const amount = moneySpan(breakdown.financingLow, breakdown.financingHigh, locale);
-  return breakdown.financingIsEstimated ? `${amount} ${locale === 'de' ? '(geschätzt)' : '(est.)'}` : amount;
+  return `${amount} ${locale === 'de' ? '(geschätzt)' : '(est.)'}`;
 }

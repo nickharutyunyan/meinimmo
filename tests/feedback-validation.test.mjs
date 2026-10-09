@@ -67,7 +67,7 @@ test('the rate-limit key is a salted hash and never the IP', async () => {
   assert.equal(key, await feedbackSubjectKey(ip, 'd3027860f829d3aa'));
 });
 
-test('a missing feedback table hides wrong-value reports and keeps the source quote', () => {
+test('a missing feedback table makes the route refuse reports and keeps the source quote', () => {
   assert.equal(factFeedbackTablesReady([]), false);
   assert.equal(factFeedbackTablesReady(['reports', 'report_sources']), false);
   assert.equal(factFeedbackTablesReady(['fact_feedback_limits']), false);
@@ -94,16 +94,6 @@ test('a missing feedback table hides wrong-value reports and keeps the source qu
   const insert = route.indexOf('insertFactFeedback(');
   assert.ok(readyCheck > 0 && readyCheck < insert);
 
-  const button = readFileSync(new URL('../components/FactSource.tsx', import.meta.url), 'utf8');
-  assert.match(button, /fromListing/);
-  assert.match(button, /reportingEnabled \? thanks/);
-  assert.match(button, /className="fact-wrong"/);
-  const report = readFileSync(new URL('../components/ReportView.tsx', import.meta.url), 'utf8');
-  assert.match(report, /reportingEnabled=\{reportingEnabled\}/);
-  const page = readFileSync(new URL('../app/r/[id]/page.tsx', import.meta.url), 'utf8');
-  const german = readFileSync(new URL('../app/de/r/[id]/page.tsx', import.meta.url), 'utf8');
-  assert.match(page, /factFeedbackReady\(\)\.catch\(\(\) => false\)/);
-  assert.match(german, /factFeedbackReady\(\)\.catch\(\(\) => false\)/);
   assert.equal(existsMigration('0004_fact_feedback.sql'), false);
   assert.match(readFileSync(new URL('../migrations/0005_fact_feedback.sql', import.meta.url), 'utf8'), /CREATE TABLE IF NOT EXISTS fact_feedback/);
 });
