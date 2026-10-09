@@ -1331,9 +1331,25 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   border-left: 1px solid var(--line);
 }
 
-/* A short last row fills the width, so the grid ends on one straight line. */
-.facts > div:last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
-.facts > div:last-child:nth-child(3n + 2) { grid-column: 2 / -1; }
+/* No lone cell in the last row: with one left over, the last four facts sit
+   two by two; with two left over, the last two share the row. */
+@media (min-width: 801px) {
+  .facts { grid-template-columns: repeat(6, 1fr); }
+  .facts > div { grid-column: span 2; }
+
+  .facts:has(> div:last-child:nth-child(3n + 1)) > div:nth-last-child(-n + 4),
+  .facts:has(> div:last-child:nth-child(3n + 2)) > div:nth-last-child(-n + 2) {
+    grid-column: span 3;
+    padding-left: 18px;
+    border-left: 1px solid var(--line);
+  }
+
+  .facts:has(> div:last-child:nth-child(3n + 1)) > div:is(:nth-last-child(4), :nth-last-child(2)),
+  .facts:has(> div:last-child:nth-child(3n + 2)) > div:nth-last-child(2) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
 
 .facts small {
   font-size: 12px;
@@ -1354,9 +1370,6 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 
 .fact-value > b {
   min-width: 0;
-}
-
-@media (hover: none) {
 }
 
 .source-evidence h3 {
@@ -2318,8 +2331,16 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
     border-left: 1px solid var(--line);
   }
 
-  .facts > div:last-child:nth-child(n) { grid-column: auto; }
-  .facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* An odd count gives the asking price the top row, so the rest pair up. */
+  .facts:has(> div:last-child:nth-child(odd)) > div:first-child { grid-column: 1 / -1; }
+  .facts:has(> div:last-child:nth-child(odd)) > div:nth-child(even) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .facts:has(> div:last-child:nth-child(odd)) > div:nth-child(odd):not(:first-child) {
+    padding-left: 16px;
+    border-left: 1px solid var(--line);
+  }
 
   .plans {
     grid-template-columns: 1fr;
