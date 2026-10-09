@@ -2,6 +2,8 @@ import { area, money } from './format.ts';
 import { acquisitionCosts } from './finance.ts';
 import { copy, type Locale } from './i18n.ts';
 import { factSourceCopy } from './fact-source-copy.ts';
+import { glossListingQuote } from './listing-gloss.ts';
+import { priceCheckCitation } from './price-check-copy.ts';
 import { FACT_KEYS } from './fact-evidence.ts';
 import type { FactKey, Report } from './types.ts';
 
@@ -148,7 +150,9 @@ export function provenanceForField(report: Report, field: FeedbackField, reporte
     return { field, kind: 'calculated', quotes: [], formula: factSourceCopy[locale].grossYieldFormula, reportedValue };
   }
   if (field === 'priceCheck') {
-    return { field, kind: 'official', quotes: [], source: factSourceCopy[locale].priceCheckSource, reportedValue };
+    const source = priceCheckCitation(report, locale);
+    if (!source) return { field, kind: 'official', quotes: [], reportedValue };
+    return { field, kind: 'official', quotes: [], source, reportedValue };
   }
   if (field === 'mortgageRate') {
     return { field, kind: 'official', quotes: [], source: factSourceCopy[locale].fmhSource, reportedValue };
@@ -191,8 +195,9 @@ export function provenanceSentence(provenance: FactProvenance, locale: Locale) {
   if (provenance.kind === 'calculated' && provenance.formula) return text.calculated(provenance.formula);
   if (provenance.kind === 'estimated' && provenance.basis) return text.estimate(provenance.basis);
   if (provenance.kind === 'official' && provenance.source) return text.official(provenance.source);
+  if (provenance.kind === 'official' && provenance.field === 'priceCheck') return text.priceCheckUnsourced;
   if (provenance.kind === 'notStated') return text.notStated;
-  if (provenance.quotes.length) return provenance.quotes.map(quote => `${text.fromListing} ${quote}`).join('\n');
+  if (provenance.quotes.length) return provenance.quotes.map(quote => `${text.fromListing} ${glossListingQuote(quote, locale)}`).join('\n');
   return text.noQuote;
 }
 

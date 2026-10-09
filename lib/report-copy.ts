@@ -7,7 +7,6 @@ import { isNewOrFirstOccupancy } from './property-condition.ts';
 import { formatRentedUntil, groundLeaseSentence, highFlagQuestions, tenancyConflictSentence } from './red-flags.ts';
 import { reportConflicts } from './report-integrity.ts';
 import type { FeedbackField } from './fact-provenance.ts';
-import { buyerCostDivergenceNote } from './buyer-costs.ts';
 import { energyClassGap } from './property-score.ts';
 
 const UNKNOWN = /not stated|unknown/i;
@@ -46,13 +45,25 @@ function locationClause(report: Report) {
   return { place, street: Boolean(place && street) };
 }
 
+/**
+ * Usable area only when it adds something. Listings often repeat the living
+ * area as "Nutzfläche" (42,4 vs 42,42 m²); showing both reads as a mistake.
+ */
+export function distinctUsableArea(facts: { area?: number; usableArea?: number }) {
+  const usable = facts.usableArea;
+  if (!usable) return undefined;
+  if (facts.area && Math.abs(usable - facts.area) <= Math.max(0.5, facts.area * 0.01)) return undefined;
+  return usable;
+}
+
 export function localizedSummary(report: Report, locale: Locale) {
   const { facts } = report;
   const house = report.propertyType === 'house';
   const { place, street } = locationClause(report);
   const rooms = roomLabel(facts.rooms, locale);
   const living = facts.area ? area(facts.area, locale) : '';
-  const usable = facts.usableArea ? area(facts.usableArea, locale) : '';
+  const usableArea = distinctUsableArea(facts);
+  const usable = usableArea ? area(usableArea, locale) : '';
   const plot = facts.plotArea && house ? area(facts.plotArea, locale) : '';
   const price = facts.price
     ? (locale === 'de'
@@ -276,8 +287,7 @@ export function localizedWarnings(report: Report, locale: Locale) {
     if (/rented but no verified yield/i.test(warning)) return 'Die Immobilie ist vermietet, aber es wurde keine verlässliche Renditeangabe gefunden.';
     return warning;
   }).filter(warning => Boolean(warning) && !coveredByRedFlag(report, warning));
-  const divergence = buyerCostDivergenceNote(report, locale);
-  return divergence ? [...warnings, divergence] : warnings;
+  return warnings;
 }
 
 /** Conflicts already shown as a red flag or a data note stay out of the clarify box. */
@@ -342,7 +352,8 @@ export function glanceFacts(report: Report, locale: Locale): Array<[string, stri
   if (facts.price && facts.area) rows.push([text.perSqm, moneyPerSqm(facts.price / facts.area, locale), 'perSqm']);
   if (facts.area) rows.push([text.living, area(facts.area, locale), 'area']);
   if (facts.plotArea) rows.push([text.plot, area(facts.plotArea, locale), 'plotArea']);
-  if (facts.usableArea) rows.push([text.usable, area(facts.usableArea, locale), 'usableArea']);
+  const usableArea = distinctUsableArea(facts);
+  if (usableArea) rows.push([text.usable, area(usableArea, locale), 'usableArea']);
   if (shown(facts.rooms)) rows.push([text.rooms, roomLabel(facts.rooms, locale) || known(facts.rooms), 'rooms']);
   if (shown(facts.floor)) rows.push([text.floor, known(facts.floor), 'floor']);
   if (shown(facts.tenancy)) rows.push([text.use, localizedTenancy(facts.tenancy, facts.availabilityDate, locale), 'tenancy']);

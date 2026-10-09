@@ -304,6 +304,13 @@ function unmatchedMessage(report: Report, locale: Locale) {
   };
 }
 
+export function priceCheckCitation(report: Report, locale: Locale) {
+  const availability = localPriceAvailability(report);
+  if (availability.status !== 'matched' || !availability.check.city) return undefined;
+  const source = sourceFor[availability.check.city];
+  return source?.[locale].replace(/^(?:Source|Quelle):\s*/, '');
+}
+
 export function priceCheckPresentation(report: Report, locale: Locale): PriceCheckPresentation {
   const availability = localPriceAvailability(report);
   const eyebrow = locale === 'de' ? 'PREISCHECK' : 'PRICE CHECK';
@@ -313,7 +320,8 @@ export function priceCheckPresentation(report: Report, locale: Locale): PriceChe
     return { kind: 'unmatched', eyebrow, message: unmatched.message, compareLabel: unmatched.compare };
   }
   const check = availability.check;
-  const source = sourceFor[check.city || 'Berlin'];
+  const source = check.city ? sourceFor[check.city] : undefined;
+  if (!source) return { kind: 'hidden' };
   return {
     kind: 'matched',
     eyebrow,
