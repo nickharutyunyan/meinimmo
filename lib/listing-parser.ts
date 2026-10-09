@@ -964,8 +964,8 @@ function findInvestmentUse(title: string, lines: string[]) {
   return lines.slice(0, 30).some((line) => /^(?:Objektart|Objekttyp)\b/i.test(line) && /\bMehrfamilienhaus\b/i.test(line));
 }
 
-export function parseListing(raw: string, source: string): Report {
-  const lines = htmlToLines(raw);
+export function parseListing(raw: string, source: string, preparedLines?: string[]): Report {
+  const lines = preparedLines ?? htmlToLines(raw);
   const text = lines.join(' \n ').slice(0, 30_000);
   const title = pageTitle(raw, lines);
   const currency = /(\d[\d.,]*)\s*(?:€|EUR|e(?=\s|$))/i;
@@ -1208,17 +1208,24 @@ export function refreshDerivedReport(report: Report) {
   return publishScore(report);
 }
 
-export function unsupportedListingReason(raw: string) {
-  const lines = htmlToLines(raw);
+function commercialOrRentalReason(raw: string, lines: string[]) {
   const title = pageTitle(raw, lines);
   if (/\b(?:Autohaus|Gewerbezentrum|Ladenlokal|Bürofläche|Einzelhandel|Gewerbegrundstück)\b/i.test(title) || lines.some(line => /^Objektart\s+(?:Einzelhandel|Büro|Gewerbe|Grundstück)/i.test(line))) return 'Only residential apartments and houses for purchase are supported in Germany.';
   if (!lines.some(line => /Kaufpreis|purchase price|asking price/i.test(line)) && lines.some(line => /Kaltmiete|zur Vermietung|zur Miete|for rent/i.test(line))) return 'This is a rental listing. Use a residential property for purchase.';
   return undefined;
 }
 
-export function looksLikePropertyListing(raw: string) {
-  if (unsupportedListingReason(raw)) return false;
-  const lines = htmlToLines(raw);
+export function unsupportedListingReason(raw: string) {
+  return commercialOrRentalReason(raw, htmlToLines(raw));
+}
+
+/**
+ * True when these already-split lines are a purchase listing we can store.
+ * Pass the lines `htmlToLines` already produced so a backfill does not walk
+ * the archived HTML a second and third time.
+ */
+export function archivedListingAccepted(raw: string, lines: string[]) {
+  if (!raw || commercialOrRentalReason(raw, lines)) return false;
   const text = lines.join(' ').slice(0, 40_000);
   const unavailable = /seite\s+nicht\s+gefunden|page\s+not\s+found|nicht\s+(mehr\s+)?verf[uü]gbar/i.test(text);
   const signals = [
@@ -1232,4 +1239,9 @@ export function looksLikePropertyListing(raw: string) {
     /(?:expos[eé]|eigentumswohnung|wohnung\s+zum\s+kauf|haus\s+zum\s+kauf|provision|property\s+description|duplex\s+apartment|type\s+of\s+property|external\s+commission)/i,
   ];
   return !unavailable && signals.filter(expression => expression.test(text)).length >= 3;
+}
+
+export function looksLikePropertyListing(raw: string) {
+  if (!raw) return false;
+  return archivedListingAccepted(raw, htmlToLines(raw));
 }

@@ -243,7 +243,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
   const condition = canonicalCondition(value);
   const normalized = condition || value;
   if (normalized === 'Commission-free') {
-    return locale === 'de' ? 'Provisionsfrei / keine Käuferprovision' : "Commission-free / no buyer's commission";
+    return locale === 'de' ? 'Keine (provisionsfrei)' : 'None';
   }
   if (locale === 'en') {
     if (legacyNotRented) return 'Not rented';
