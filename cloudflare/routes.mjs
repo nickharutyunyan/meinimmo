@@ -16,6 +16,14 @@ export function isRouterDataRequest(headers, searchParams) {
   return accept.includes('text/x-component');
 }
 
+export function isPersonalDocument(pathname) {
+  const path = normalizePathname(pathname || '/');
+  return path === '/account' || path.startsWith('/account/')
+    || path === '/auth' || path.startsWith('/auth/')
+    || path === '/de/account' || path.startsWith('/de/account/')
+    || path === '/de/auth' || path.startsWith('/de/auth/');
+}
+
 export function isCacheableDocument(method, pathname, headers, searchParams) {
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (isRouterDataRequest(headers, searchParams)) return false;

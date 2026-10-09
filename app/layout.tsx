@@ -10,6 +10,7 @@ import './guide.css';
 import './account.css';
 import './print-report.css';
 import './countries.css';
+import { ANALYTICS_CONFIG_SCRIPT } from '@/lib/identity/analytics';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),
   applicationName: 'Review a House',
@@ -33,11 +34,6 @@ export const metadata: Metadata = {
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en"><body>{children}
     <Script src="https://www.googletagmanager.com/gtag/js?id=G-7NZBW8CKQ3" strategy="afterInteractive" />
-    <Script id="google-analytics" strategy="afterInteractive">{`
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-7NZBW8CKQ3', { page_location: window.location.origin + window.location.pathname + window.location.search });
-    `}</Script>
+    <Script id="google-analytics" strategy="afterInteractive">{ANALYTICS_CONFIG_SCRIPT}</Script>
   </body></html>;
 }

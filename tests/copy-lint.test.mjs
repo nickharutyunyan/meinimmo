@@ -100,6 +100,7 @@ test('user-facing copy names no listing portal and no limited free plan', () => 
     path.join(root, 'lib/method-copy.ts'),
     path.join(root, 'lib/page-meta.ts'),
     path.join(root, 'lib/terms-copy.ts'),
+    path.join(root, 'lib/identity/copy.ts'),
   ];
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
