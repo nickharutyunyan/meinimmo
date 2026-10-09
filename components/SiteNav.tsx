@@ -13,11 +13,11 @@ export function SiteNav({ locale, landing = false, country = 'DE' }: { locale: L
     <Brand locale={locale} href={home} />
     <div className="nav-note country-note"><span className="country-descriptor">{text.note}</span><CountrySwitch country={country} locale={locale}/></div>
     <div className="nav-links">
-      {country === 'DE' && <Link href={localePath(locale, '/buy')}>{locale === 'de' ? 'Kaufen' : 'Buy'}</Link>}
-      {country === 'DE' && <Link href={localePath(locale, '/sell')}>{locale === 'de' ? 'Verkaufen' : 'Sell'}</Link>}
-      <Link href={landing ? '#how' : `${home}#how`}>{text.approach}</Link>
-      {country === 'DE' && <Link href={localePath(locale, '/guide')}>{text.guide}</Link>}
-      <Link href={landing ? '#faq' : `${home}#faq`}>{text.faq}</Link>
+      {country === 'DE' && <Link className="nav-buy" href={localePath(locale, '/buy')}>{locale === 'de' ? 'Kaufen' : 'Buy'}</Link>}
+      {country === 'DE' && <Link className="nav-sell" href={localePath(locale, '/sell')}>{locale === 'de' ? 'Verkaufen' : 'Sell'}</Link>}
+      <Link className="nav-how" href={landing ? '#how' : `${home}#how`}>{text.approach}</Link>
+      {country === 'DE' && <Link className="nav-guide" href={localePath(locale, '/guide')}>{text.guide}</Link>}
+      <Link className="nav-faq" href={landing ? '#faq' : `${home}#faq`}>{text.faq}</Link>
       <AccountNav locale={locale} />
       {country === 'DE' ? <LanguageSwitch locale={locale} /> : <span className="market-language" title="This country preview is currently in English">EN</span>}
     </div>

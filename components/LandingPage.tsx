@@ -7,6 +7,8 @@ import { SiteNav } from './SiteNav';
 import { homePresentation, localePath, type Locale } from '@/lib/i18n';
 import { QuotaModal } from './QuotaModal';
 import { SiteFooter } from './SiteFooter';
+import Link from 'next/link';
+import { StreetScene } from './Illustrations';
 import { GlossaryText } from './GlossaryText';
 import { canOfferDayPass, type DayPassAccess } from '@/lib/day-pass';
 import { MAX_PDF_BYTES } from '@/lib/pdf-source';
@@ -151,7 +153,8 @@ export function LandingPage({ locale }: { locale: Locale }) {
   return <main className="landing" lang={locale}>
     <SiteNav locale={locale} landing />
     <section className="hero">
-      <div className="hero-copy"><p className="eyebrow">{text.audience}</p><h1>{text.headline}<br/><em>{text.emphasis}</em></h1></div>
+      <div className="hero-copy"><p className="eyebrow">{text.audience}</p><h1>{text.headline}<br/><em>{text.emphasis}<svg className="hero-squiggle" viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden="true"><path d="M3 14 C 60 4, 120 18, 180 9 S 270 6, 297 12" /></svg></em></h1><p className="hero-lede">{locale === 'de' ? <>Füge ein deutsches Angebot ein und erhalte eine ruhige, ehrliche Einschätzung: <span className="mark">Preis pro m² gegen amtliche Verkäufe</span>, Energie, laufende Kosten und die Fragen vor einem Angebot.</> : <>Paste any German listing and get a calm, honest read: <span className="mark">price per m² against official sales</span>, energy, running costs and the questions to ask before an offer.</>}</p></div>
+      <StreetScene className="hero-street" />
       <div className="intake-panel" id="start">
         <p className="eyebrow">{text.start}</p>
         <form onSubmit={submit} className="intake"><label><span>↗</span><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder={text.input} aria-label={text.input} type="url" required={!pasteOpen} disabled={busy}/></label><button disabled={busy}>{busy ? text.readingListing : text.assess}</button></form>
@@ -163,6 +166,19 @@ export function LandingPage({ locale }: { locale: Locale }) {
           <div><span>{locale === 'de' ? 'EINMALIG · KEIN ABO' : 'ONE-OFF · NO SUBSCRIPTION'}</span><strong>{locale === 'de' ? 'Heute weitersuchen?' : 'Keep searching today?'}</strong><p>{locale === 'de' ? '50 Berichte für 24 Stunden.' : '50 reports for the next 24 hours.'}</p></div>
           <button type="button" onClick={() => setQuotaOpen(true)}>{locale === 'de' ? 'Tagespass für 5 €' : '€5 day pass'}</button>
         </div> : null}
+      </div>
+    </section>
+    <section className="market-teaser" aria-labelledby="market-teaser-title">
+      <div>
+        <p className="eyebrow">{locale === 'de' ? 'NEU · KAUFEN UND VERKAUFEN' : 'NEW · BUY AND SELL'}</p>
+        <h2 id="market-teaser-title">{locale === 'de' ? 'Angebote mit Prüfung, kostenlos.' : 'Homes for sale, each one reviewed.'}</h2>
+        <p>{locale === 'de' ? 'Aktuelle Privatangebote in Berlin, München und Köln, auf Karte und Liste, jede mit unserer Prüfung. Oder dein eigenes Zuhause in Minuten inserieren.' : 'Recent private listings in Berlin, Munich and Cologne on a map and a list, each with our review. Or list your own home in minutes.'}</p>
+      </div>
+      <div className="market-teaser-links">
+        <Link href={localePath(locale, '/buy/berlin')}>Berlin</Link>
+        <Link href={localePath(locale, '/buy/munich')}>{locale === 'de' ? 'München' : 'Munich'}</Link>
+        <Link href={localePath(locale, '/buy/cologne')}>{locale === 'de' ? 'Köln' : 'Cologne'}</Link>
+        <Link className="is-sell" href={localePath(locale, '/sell')}>{locale === 'de' ? 'Privat verkaufen →' : 'Sell privately →'}</Link>
       </div>
     </section>
     <section id="how" className="how">

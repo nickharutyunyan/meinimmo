@@ -18,6 +18,9 @@ import { SellStart } from './SellStart';
 import { ListingEditor } from './ListingEditor';
 import { RoadmapPage } from './RoadmapPage';
 import { SiteFooter } from '../SiteFooter';
+import Link from 'next/link';
+import { localePath } from '@/lib/i18n';
+import { StreetScene } from '../Illustrations';
 
 const prefix = (locale: Locale) => locale === 'de' ? '/de' : '';
 
@@ -82,7 +85,11 @@ export async function ListingPage({ locale, id }: { locale: Locale; id: string }
   if (!listing) {
     return <div className="market-page">
       <MarketNav locale={locale} />
-      <main className="editor-empty"><p>{text.listing.unavailable}</p></main>
+      <main className="editor-empty is-illustrated">
+        <StreetScene className="empty-street" />
+        <p>{text.listing.unavailable}</p>
+        <Link className="market-button" href={localePath(locale, '/buy')}>{text.hub.eyebrow}</Link>
+      </main>
       <SiteFooter locale={locale} />
     </div>;
   }

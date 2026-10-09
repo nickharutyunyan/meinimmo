@@ -22,6 +22,8 @@ export type GuideArticle = {
   slug: string;
   published: string;
   accent: 'clay' | 'green' | 'blue';
+  /** The drawn cover motif shown in place of a photograph. */
+  cover: 'rail' | 'family' | 'streets' | 'data' | 'energy' | 'hausgeld';
   en: GuideArticleCopy;
   de: GuideArticleCopy;
 };
@@ -90,6 +92,7 @@ const newArticles: GuideArticle[] = [
     slug: 'sixty-listings-three-cities',
     published: '2026-10-09',
     accent: 'green',
+    cover: 'data',
     en: {
       kicker: 'Our data · Berlin, Munich, Cologne',
       title: 'Sixty private listings, three cities, one honest read',
@@ -203,6 +206,7 @@ const newArticles: GuideArticle[] = [
     slug: 'two-energy-certificates',
     published: '2026-10-09',
     accent: 'blue',
+    cover: 'energy',
     en: {
       kicker: 'Before the viewing · Energy',
       title: 'The same building can be class C and class F',
@@ -306,6 +310,7 @@ const newArticles: GuideArticle[] = [
     slug: 'hausgeld-decoded',
     published: '2026-10-09',
     accent: 'clay',
+    cover: 'hausgeld',
     en: {
       kicker: 'Buying a flat · Running costs',
       title: 'Hausgeld, decoded: the number that tells you how a building is run',
@@ -429,6 +434,7 @@ export const guideArticles: GuideArticle[] = [
     slug: 'where-germany-is-getting-interesting',
     published: '2026-08-24',
     accent: 'clay',
+    cover: 'rail',
     en: {
       kicker: 'Market notes · Erfurt and beyond',
       title: 'Property investment opportunities in Germany—beyond Berlin',
@@ -520,6 +526,7 @@ export const guideArticles: GuideArticle[] = [
     slug: 'berlin-with-children',
     published: '2026-08-24',
     accent: 'green',
+    cover: 'family',
     en: {
       kicker: 'Neighbourhood fieldwork · Berlin',
       title: 'Berlin with children: three neighbourhoods that work',
@@ -651,6 +658,7 @@ export const guideArticles: GuideArticle[] = [
     slug: 'five-streets-worth-a-detour',
     published: '2026-08-24',
     accent: 'blue',
+    cover: 'streets',
     en: {
       kicker: 'Street notes · Five cities',
       title: 'Five streets that explain five German cities',

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { AdSlot } from './AdSlot';
 import { SiteNav } from './SiteNav';
 import { guideArticles, guideCopy } from '../lib/guide';
+import { GuideCover } from './Illustrations';
 import { localePath, type Locale } from '../lib/i18n';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
@@ -30,10 +31,10 @@ export default function GuideIndex({ locale }: { locale: Locale }) {
               {de ? 'Artikel lesen' : 'Read the story'} <span>↗</span>
             </Link>
           </div>
-          <div className="guide-card-placeholder" aria-label={de ? 'Platzhalter für ein späteres Foto' : 'Placeholder for a future photograph'}>
-            <span>{de ? 'FOTO FOLGT' : 'PHOTO TO COME'}</span>
+          <Link className={`guide-cover-frame is-teaser guide-accent-${article.accent}`} href={localePath(locale, `/guide/${article.slug}`)} tabIndex={-1} aria-hidden="true">
+            <GuideCover kind={article.cover} />
             <small>{copy.photoLabel}</small>
-          </div>
+          </Link>
         </article>;
       })}
     </section>
