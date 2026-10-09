@@ -10,6 +10,7 @@ import {
   createMemoryGeocodeCache,
   createMemoryRateStore,
   geocodeD1TablesMissing,
+  geocodeCacheKey,
   geocodeForView,
   geocodeGermanLocation,
   lookupCachedGeocode,
@@ -78,4 +79,20 @@ export async function viewGeocode(allowed: GeocodeAllowance) {
     loadReport: findReport,
     saveReport: (item) => replaceReport(item),
   });
+}
+
+/**
+ * The neighbourhood Nominatim gave for a report's address. Reads the cached
+ * response attachReportGeocode just stored, so it costs no second request.
+ */
+export async function cachedNeighborhood(report: Report): Promise<string> {
+  const query = reportGeocodeQuery(report);
+  if (!query || report.country === 'AM') return '';
+  try {
+    const cache = await runtimeGeocodeCache();
+    const cached = await cache.get(geocodeCacheKey(query, 'de'));
+    return cached?.place.neighborhood || '';
+  } catch {
+    return '';
+  }
 }

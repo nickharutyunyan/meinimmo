@@ -10,6 +10,7 @@ import './guide.css';
 import './account.css';
 import './print-report.css';
 import './countries.css';
+import './market.css';
 import { ANALYTICS_CONFIG_SCRIPT } from '@/lib/identity/analytics';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),
