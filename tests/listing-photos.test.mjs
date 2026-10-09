@@ -138,6 +138,8 @@ test('listing photo hosts in CSP img-src are exactly the shared allowlist', asyn
     'https://*.google-analytics.com',
     'https://analytics.google.com',
     'https://*.analytics.google.com',
+    // Map tiles for the market search and listing pages.
+    'https://tile.openstreetmap.org',
   ];
   const img = sources(CONTENT_SECURITY_POLICY, 'img-src');
   assert.deepEqual(img.filter((item) => !baseline.includes(item)), [...LISTING_IMAGE_HOSTS, ...LISTING_THUMBNAIL_HOSTS]);
