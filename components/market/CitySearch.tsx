@@ -9,6 +9,7 @@ import { priceShort } from '@/lib/market/format';
 import { applySearch, DEFAULT_SEARCH, searchFromParams, searchToParams, type SearchState } from '@/lib/market/search';
 import { ListingCard } from './ListingCard';
 import type { MapBounds } from './MarketMap';
+import { useMarketListings } from './useMarketListings';
 
 const MarketMap = dynamic(() => import('./MarketMap').then(module => module.MarketMap), {
   ssr: false,
@@ -19,15 +20,21 @@ const PRICE_STEPS = [250_000, 350_000, 500_000, 750_000, 1_000_000, 1_500_000, 2
 const SIZE_STEPS = [30, 50, 70, 90, 120, 160];
 const ROOM_STEPS = [1, 2, 3, 4, 5];
 
-export function CitySearch({ listings, locale, cityName, center, zoom }: {
-  listings: ListingSummary[];
+export function CitySearch({ city, locale, cityName, center, zoom }: {
+  city: string;
   locale: Locale;
   cityName: string;
   center: [number, number];
   zoom: number;
 }) {
   const text = marketCopy[locale];
-  const [search, setSearch] = useState<SearchState>(DEFAULT_SEARCH);
+  const { listings: loaded, failed } = useMarketListings(locale, city);
+  const loading = loaded === null && !failed;
+  const listings = useMemo(() => loaded || [], [loaded]);
+  const [search, setSearchState] = useState<SearchState>(DEFAULT_SEARCH);
+  // Only a reader's own change rewrites the URL, so a shared link's filters are never overwritten on load.
+  const changed = useRef(false);
+  const setSearch = (next: SearchState | ((previous: SearchState) => SearchState)) => { changed.current = true; setSearchState(next); };
   const [view, setView] = useState<'list' | 'map'>('list');
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -35,15 +42,13 @@ export function CitySearch({ listings, locale, cityName, center, zoom }: {
   const [compare, setCompare] = useState<ListingSummary[]>([]);
   const [compareState, setCompareState] = useState<'idle' | 'working' | 'failed'>('idle');
   const results = useRef<HTMLDivElement>(null);
-  const loaded = useRef(false);
 
   // Filters live in the URL, so a search can be shared or bookmarked as it is.
   useEffect(() => {
-    setSearch(searchFromParams(new URLSearchParams(window.location.search)));
-    loaded.current = true;
+    setSearchState(searchFromParams(new URLSearchParams(window.location.search)));
   }, []);
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!changed.current) return;
     const query = searchToParams(search).toString();
     const url = `${window.location.pathname}${query ? `?${query}` : ''}`;
     if (url !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(null, '', url);
@@ -93,7 +98,7 @@ export function CitySearch({ listings, locale, cityName, center, zoom }: {
     <header className="market-search-head">
       <div className="market-search-titles">
         <h1>{text.search.title(cityName)}</h1>
-        <p aria-live="polite">{text.search.results(shown.length)}{filtered ? <> · <button type="button" className="market-link-button" onClick={() => { setSearch({ ...DEFAULT_SEARCH, sort: search.sort }); setMovedBounds(null); }}>{text.search.reset}</button></> : null}</p>
+        <p aria-live="polite">{loading ? '\u00a0' : text.search.results(shown.length)}{filtered ? <> · <button type="button" className="market-link-button" onClick={() => { setSearch({ ...DEFAULT_SEARCH, sort: search.sort }); setMovedBounds(null); }}>{text.search.reset}</button></> : null}</p>
       </div>
       <div className="market-filters" role="group" aria-label={text.search.sort}>
         <div className="market-segment" role="radiogroup" aria-label={text.listing.price}>
@@ -150,7 +155,9 @@ export function CitySearch({ listings, locale, cityName, center, zoom }: {
     <div className="market-search-body">
       <section className="market-results" ref={results} aria-label={text.search.results(shown.length)}>
         {search.bounds ? <p className="market-area-note">{text.search.areaActive}<button type="button" className="market-chip" onClick={() => { update({ bounds: null }); setMovedBounds(null); }}>{text.search.showAll} ×</button></p> : null}
-        {shown.length ? <div className="market-grid">
+        {loading ? <div className="market-grid" aria-hidden="true">
+          {Array.from({ length: 6 }, (_, index) => <div key={index} className="market-card is-skeleton"><div className="market-card-media" /><div className="market-card-body"><p className="market-card-facts">&nbsp;</p></div></div>)}
+        </div> : shown.length ? <div className="market-grid">
           {shown.map((listing, position) => <ListingCard
             key={listing.id}
             listing={listing}

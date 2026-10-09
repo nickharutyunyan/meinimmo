@@ -1,6 +1,7 @@
-import { CityPage, cityMetadata } from '@/components/market/pages';
+import { CityPage, cityMetadata, cityParams } from '@/components/market/pages';
 
-export const dynamic = 'force-dynamic';
+export const dynamicParams = false;
+export const generateStaticParams = cityParams;
 
 type Props = { params: Promise<{ city: string }> };
 

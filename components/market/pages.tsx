@@ -4,7 +4,10 @@ import type { Locale } from '@/lib/i18n';
 import { socialMetadata } from '@/lib/page-meta';
 import { marketCopy } from '@/lib/market/copy';
 import { MARKET_CITIES, isMarketSlug } from '@/lib/market/cities';
-import { getListing, publishedSummaries } from '@/lib/market/store';
+import { getListing } from '@/lib/market/store';
+import { MARKET_SLUGS } from '@/lib/market/cities';
+
+export const cityParams = () => MARKET_SLUGS.map(city => ({ city }));
 import { displayDescription, displayTitle, publicListing } from '@/lib/market/validate';
 import { priceLabel } from '@/lib/market/format';
 import { BuyHub } from './BuyHub';
@@ -27,8 +30,13 @@ export function buyMetadata(locale: Locale): Metadata {
   return { ...socialMetadata(locale, `${text.hub.eyebrow} | Review a House`, text.hub.lede, `${prefix(locale)}/buy`), alternates: alternates('/buy', locale) };
 }
 
-export async function BuyHubPage({ locale }: { locale: Locale }) {
-  return <BuyHub locale={locale} listings={await publishedSummaries(undefined, locale)} />;
+/** Static: the listings load in the browser, so the page costs no server rendering. */
+export function BuyHubPage({ locale }: { locale: Locale }) {
+  return <div className="market-page">
+    <MarketNav locale={locale} />
+    <BuyHub locale={locale} />
+    <SiteFooter locale={locale} />
+  </div>;
 }
 
 export async function cityMetadata(locale: Locale, slug: string): Promise<Metadata> {
@@ -38,13 +46,12 @@ export async function cityMetadata(locale: Locale, slug: string): Promise<Metada
   return { ...socialMetadata(locale, `${text.search.title(name)} | Review a House`, text.hub.lede, `${prefix(locale)}/buy/${slug}`), alternates: alternates(`/buy/${slug}`, locale) };
 }
 
-export async function CityPage({ locale, slug }: { locale: Locale; slug: string }) {
+export function CityPage({ locale, slug }: { locale: Locale; slug: string }) {
   if (!isMarketSlug(slug)) notFound();
   const city = MARKET_CITIES[slug];
-  const listings = await publishedSummaries(slug, locale);
   return <div className="market-page is-app">
     <MarketNav locale={locale} current={slug} />
-    <CitySearch listings={listings} locale={locale} cityName={city.name[locale]} center={city.center} zoom={city.zoom} />
+    <CitySearch city={slug} locale={locale} cityName={city.name[locale]} center={city.center} zoom={city.zoom} />
   </div>;
 }
 

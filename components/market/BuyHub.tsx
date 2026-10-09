@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { localePath, type Locale } from '@/lib/i18n';
 import type { ListingSummary } from '@/lib/market/types';
@@ -5,11 +7,14 @@ import { marketCopy } from '@/lib/market/copy';
 import { MARKET_CITIES, MARKET_SLUGS } from '@/lib/market/cities';
 import { priceShort } from '@/lib/market/format';
 import { ListingCard } from './ListingCard';
-import { MarketNav } from './MarketNav';
-import { SiteFooter } from '../SiteFooter';
+import { useMarketListings } from './useMarketListings';
 
-export function BuyHub({ locale, listings }: { locale: Locale; listings: ListingSummary[] }) {
+/** The hub body. The page around it is static; listings load from /api/market. */
+export function BuyHub({ locale }: { locale: Locale }) {
   const text = marketCopy[locale];
+  const { listings: loaded } = useMarketListings(locale);
+  const loading = loaded === null;
+  const listings = loaded || [];
   const cities = MARKET_SLUGS.map(slug => {
     const own = listings.filter(listing => listing.market === slug);
     const covers = own.filter(listing => listing.photos.length).slice(0, 3).map(listing => listing.photos[0]);
@@ -24,9 +29,7 @@ export function BuyHub({ locale, listings }: { locale: Locale; listings: Listing
     for (const queue of queues) if (queue[round] && newest.length < 8) newest.push(queue[round]);
   }
 
-  return <div className="market-page">
-    <MarketNav locale={locale} />
-    <main className="market-hub">
+  return <main className="market-hub">
       <header className="market-hero">
         <p className="market-eyebrow">{text.hub.eyebrow}</p>
         <h1>{text.hub.title} <em>{text.hub.emphasis}</em></h1>
@@ -43,7 +46,7 @@ export function BuyHub({ locale, listings }: { locale: Locale; listings: Listing
             </div>
             <div className="market-city-meta">
               <h3>{MARKET_CITIES[city.slug].name[locale]}</h3>
-              <p>{text.hub.homes(city.count)}{city.from ? <> · {text.hub.from} {priceShort(city.from, locale)}</> : null}</p>
+              <p>{loading ? '\u00a0' : <>{text.hub.homes(city.count)}{city.from ? <> · {text.hub.from} {priceShort(city.from, locale)}</> : null}</>}</p>
             </div>
             <span className="market-city-arrow" aria-hidden="true">→</span>
           </Link>)}
@@ -58,6 +61,11 @@ export function BuyHub({ locale, listings }: { locale: Locale; listings: Listing
         <Link className="market-button is-light" href={localePath(locale, '/sell')}>{text.hub.sellCta}</Link>
       </section>
 
+      {loading ? <section aria-hidden="true">
+        <h2 className="market-section-label">{text.hub.newest}</h2>
+        <div className="market-grid is-wide">{Array.from({ length: 4 }, (_, index) => <div key={index} className="market-card is-skeleton"><div className="market-card-media" /><div className="market-card-body"><p className="market-card-facts">&nbsp;</p></div></div>)}</div>
+      </section> : null}
+
       {newest.length ? <section aria-labelledby="market-newest">
         <h2 id="market-newest" className="market-section-label">{text.hub.newest}</h2>
         <div className="market-grid is-wide">
@@ -71,7 +79,5 @@ export function BuyHub({ locale, listings }: { locale: Locale; listings: Listing
           {elsewhere.slice(0, 12).map(listing => <ListingCard key={listing.id} listing={listing} locale={locale} />)}
         </div>
       </section> : null}
-    </main>
-    <SiteFooter locale={locale} />
-  </div>;
+  </main>;
 }

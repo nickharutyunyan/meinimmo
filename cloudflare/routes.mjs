@@ -42,6 +42,18 @@ export function reportDocumentId(pathname) {
   return match[1];
 }
 
+/** Market listing document, `/l/{id}` or `/de/l/{id}`. Empty when the path is not one. */
+export function listingDocumentId(pathname) {
+  const path = normalizePathname(pathname);
+  const match = path.match(/^\/(?:de\/)?l\/([0-9a-f]{12})$/);
+  return match ? match[1] : '';
+}
+
+/** Documents served through the shared HTML cache: reports and market listings. */
+export function cachedDocumentId(pathname) {
+  return reportDocumentId(pathname) || listingDocumentId(pathname);
+}
+
 /** English at `/`, German at `/de`. Other country paths stay English. */
 export function documentLanguage(pathname) {
   const path = normalizePathname(pathname || '/');
