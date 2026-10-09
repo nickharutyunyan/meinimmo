@@ -1,7 +1,8 @@
 import { after, type NextRequest } from 'next/server';
 import { requireSameOrigin } from '@/lib/auth';
 import { applyPatch, missingForPublish, type ListingPatch } from '@/lib/market/validate';
-import { getListing, saveListing } from '@/lib/market/store';
+import { getListing, recentListingsForEmail, saveListing } from '@/lib/market/store';
+import { moderationOnPublish, spamFlags } from '@/lib/market/moderation';
 import { reviewSellerListing } from '@/lib/market/pipeline';
 import { authorizedEditor, json } from '@/lib/market/http';
 import type { Listing } from '@/lib/market/types';
@@ -41,8 +42,18 @@ export async function PATCH(request: NextRequest, { params }: Context) {
   if (!listing || listing.status === 'archived') return json({ error: 'Not found.' }, 404);
   const patch = await request.json().catch(() => null) as ListingPatch | null;
   if (!patch || typeof patch !== 'object') return json({ error: 'Invalid request.' }, 400);
-  const next = applyPatch(listing, patch, new Date().toISOString());
+  let next = applyPatch(listing, patch, new Date().toISOString());
   const missing = missingForPublish(next);
+  const live = listing.status === 'published';
+  // A verified address cannot be swapped on a live listing; the new one would reach buyers unchecked.
+  if (live && next.contact.email.trim().toLowerCase() !== (listing.verifiedEmail || '')) {
+    const message = listing.locale === 'de'
+      ? 'Um die E-Mail eines Online-Inserats zu ändern, nimm es offline, ändere die Adresse und veröffentliche es erneut.'
+      : 'To change the email of a live listing, take it offline, change the address and publish again.';
+    return json({ error: message, code: 'email_locked', listing }, 422);
+  }
+  // Edits to a live listing go through the same checks as publishing.
+  if (live) next = { ...next, moderation: moderationOnPublish(listing, spamFlags(next, { recentListingsForEmail: await recentListingsForEmail(next.contact.email, next.id) })) };
   // A live listing stays complete: an edit that would empty a required field is refused.
   if (listing.status === 'published' && missing.length) return json({ error: 'A published listing needs every required field.', missing, listing }, 422);
   await saveListing(next);

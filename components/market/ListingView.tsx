@@ -16,6 +16,7 @@ import { ShareLinks } from './ShareLinks';
 import { AreaField, NumberField, TextField } from './EditFields';
 import { PhotoManager } from './PhotoManager';
 import { scoreTone } from './ListingCard';
+import { ReportListing } from './ReportListing';
 
 const MarketMap = dynamic(() => import('./MarketMap').then(module => module.MarketMap), {
   ssr: false,
@@ -203,5 +204,6 @@ function ListingSidebar({ listing, locale, title, pageUrl }: { listing: Listing;
     </section>
 
     {city ? <Link className="listing-back" href={localePath(locale, `/buy/${city.slug}`)}>← {text.listing.backToCity(city.name[locale])}</Link> : null}
+    {listing.status === 'published' ? <ReportListing listingId={listing.id} locale={locale} /> : null}
   </div>;
 }

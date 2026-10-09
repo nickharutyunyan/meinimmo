@@ -11,6 +11,18 @@ export type ListingPhoto =
   | { kind: 'stored'; id: string; width: number; height: number }
   | { kind: 'remote'; url: string };
 
+export type ModerationState = 'none' | 'pending' | 'approved' | 'rejected' | 'hidden';
+export type ModerationFlag = 'link' | 'contact_in_text' | 'scam_phrase' | 'rental' | 'price_outlier' | 'shouting' | 'many_listings' | 'reports';
+
+export type ListingModeration = {
+  /** none: live without review. pending: waiting for a person. hidden: taken down after reports. */
+  state: ModerationState;
+  flags: ModerationFlag[];
+  /** A moderator's note to the seller, shown in the editor when a listing is rejected. */
+  note: string;
+  reviewedAt: string | null;
+};
+
 export type ListingContact = {
   name: string;
   email: string;
@@ -73,6 +85,9 @@ export type Listing = {
   score: number | null;
   /** The seller confirmed they may sell the property and own the photos. */
   consent: boolean;
+  /** The contact email the seller proved with a code. Publishing needs it to match `contact.email`. */
+  verifiedEmail?: string | null;
+  moderation?: ListingModeration;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
