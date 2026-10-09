@@ -3,7 +3,7 @@ import type { Report } from '@/lib/types';
 import { copy, financeFootnote, localePath, localizedTenancy, localizedValue, type Locale } from '@/lib/i18n';
 import { reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
 import { formatScore, grossYieldLine, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
-import { localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
+import { distinctUsableArea, localizedConsiderations, localizedSummary, localizedWarnings, offerQuestionsFor, questionsAreConcise } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
 import { glossListingQuote } from '@/lib/listing-gloss';
 import { acquisitionCosts, financingScenario } from '@/lib/finance';
@@ -49,7 +49,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
     ...(report.facts.price && report.facts.area ? [[reportText.perSqm, moneyPerSqm(report.facts.price / report.facts.area, locale), 'perSqm'] as [string, string, FeedbackField]] : []),
     ...(report.facts.area ? [[reportText.living, area(report.facts.area, locale), 'area'] as [string, string, FeedbackField]] : []),
     ...(report.facts.plotArea ? [[reportText.plot, area(report.facts.plotArea, locale), 'plotArea'] as [string, string, FeedbackField]] : []),
-    ...(report.facts.usableArea ? [[reportText.usable, area(report.facts.usableArea, locale), 'usableArea'] as [string, string, FeedbackField]] : []),
+    ...(distinctUsableArea(report.facts) ? [[reportText.usable, area(distinctUsableArea(report.facts), locale), 'usableArea'] as [string, string, FeedbackField]] : []),
     ...(known(report.facts.rooms) ? [[reportText.rooms, localized(report.facts.rooms), 'rooms'] as [string, string, FeedbackField]] : []),
     ...(known(report.facts.floor) ? [[reportText.floor, localized(report.facts.floor), 'floor'] as [string, string, FeedbackField]] : []),
     ...(known(report.facts.tenancy) ? [[reportText.use, localizedTenancy(report.facts.tenancy, report.facts.availabilityDate, locale), 'tenancy'] as [string, string, FeedbackField]] : []),

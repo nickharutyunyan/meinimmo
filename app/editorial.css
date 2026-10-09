@@ -1331,6 +1331,10 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   border-left: 1px solid var(--line);
 }
 
+/* A short last row fills the width, so the grid ends on one straight line. */
+.facts > div:last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
+.facts > div:last-child:nth-child(3n + 2) { grid-column: 2 / -1; }
+
 .facts small {
   font-size: 12px;
   letter-spacing: .04em;
@@ -1355,7 +1359,7 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 .fact-source {
   position: relative;
   flex: 0 0 auto;
-  margin-top: 8px;
+  margin-top: 7px;
 }
 
 .fact-source-button,
@@ -1370,11 +1374,29 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 }
 
 .fact-source-button {
-  width: 22px;
-  height: 22px;
-  border: 1px solid #cfc8bb;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #fffdfa;
+  color: #8b958f;
+  font-size: 14px;
+  opacity: .55;
+  transition: opacity .15s ease, color .15s ease, background-color .15s ease;
+}
+
+/* Quiet until the reader is on that fact; always reachable by keyboard and touch. */
+.facts > div:hover .fact-source-button,
+.fact-source-button:hover,
+.fact-source-button:focus-visible,
+.fact-source-button[aria-expanded="true"] {
+  opacity: 1;
+  color: var(--ink);
+  background: rgb(25 51 45 / 7%);
+}
+
+@media (hover: none) {
+  .fact-source-button { opacity: .8; }
 }
 
 .fact-source-button:focus-visible,
@@ -1646,6 +1668,7 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 
 .finance-calculator .buyer-costs > summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 6px 12px;
@@ -1678,12 +1701,21 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 }
 
 .finance-calculator .buyer-cost-label {
-  flex: 1 1 auto;
+  flex: 1 1 9em;
+  min-width: 0;
   color: #f5f1e5;
 }
 
+/* An atomic box, so "(est.) ⓘ" wraps as one unit instead of running into the amount. */
 .finance-calculator .buyer-cost-tail {
-  display: inline;
+  display: inline-block;
+  margin-left: .3em;
+  white-space: nowrap;
+}
+
+.finance-calculator .buyer-costs > summary > b {
+  flex: 0 0 auto;
+  margin-left: auto;
   white-space: nowrap;
 }
 
@@ -1759,11 +1791,15 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   color: #d5dece;
   font: 600 13px/1 var(--sans);
   vertical-align: baseline;
+  opacity: .75;
 }
 
 .finance-calculator .fact-source-button:hover,
-.finance-calculator .fact-source-button:focus-visible {
+.finance-calculator .fact-source-button:focus-visible,
+.finance-calculator .fact-source-button[aria-expanded="true"] {
   color: #f4efd9;
+  background: transparent;
+  opacity: 1;
 }
 
 .finance-calculator .buyer-costs > summary b,
@@ -2460,6 +2496,9 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
     padding-left: 16px;
     border-left: 1px solid var(--line);
   }
+
+  .facts > div:last-child:nth-child(n) { grid-column: auto; }
+  .facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
   .plans {
     grid-template-columns: 1fr;
