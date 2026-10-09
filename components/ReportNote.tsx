@@ -23,44 +23,53 @@ export function ReportNote({ reportId, locale }: { reportId: string; locale: Loc
   useEffect(() => {
     let active = true;
     const draft = localStorage.getItem(draftKey);
-    requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, { cache: 'no-store' })
-      .then(({ response, data }) => ({ response, result: data }))
-      .then(async ({ response, result }) => {
-        if (!active) return;
-        if (response.status === 401) {
-          setAuthenticated(false);
-          if (!editedBeforeLoad.current) setNote(draft ?? '');
-          return;
-        }
-        if (!response.ok) throw new Error(result.error || 'load_failed');
-        const serverNote = result.note || '';
-        setAuthenticated(true);
-        setSavedNote(serverNote);
-        if (!editedBeforeLoad.current) setNote(new URLSearchParams(window.location.search).has('saveNote') ? (draft ?? serverNote) : serverNote);
-        const params = new URLSearchParams(window.location.search);
-        if (!params.has('saveNote') || draft === null) return;
-        setSaveState('saving');
-        const { response: saveResponse, data: saved } = await requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ note: draft }),
-        });
-        if (!saveResponse.ok) throw new Error(saved.error || 'save_failed');
-        if (!active) return;
-        localStorage.removeItem(draftKey);
-        setSavedNote(saved.note || '');
-        setNote(saved.note || '');
-        setSaveState('saved');
-        params.delete('saveNote');
-        const query = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-      })
-      .catch(() => {
-        if (!active) return;
-        if (!editedBeforeLoad.current) setNote(draft ?? '');
-        setSaveState('error');
-        setError(de ? 'Deine Notiz konnte gerade nicht geladen werden.' : 'Your note could not be loaded right now.');
+    const useDraft = () => {
+      if (!editedBeforeLoad.current) setNote(draft ?? '');
+    };
+    const loadNote = async () => {
+      const session = await requestJson<{ user?: { email?: string } | null }>('/api/session', { cache: 'no-store' });
+      if (!active) return;
+      if (!session.response.ok || !session.data.user) {
+        setAuthenticated(false);
+        useDraft();
+        return;
+      }
+      const { response, data: result } = await requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, { cache: 'no-store' });
+      if (!active) return;
+      if (response.status === 401) {
+        setAuthenticated(false);
+        useDraft();
+        return;
+      }
+      if (!response.ok) throw new Error(result.error || 'load_failed');
+      const serverNote = result.note || '';
+      setAuthenticated(true);
+      setSavedNote(serverNote);
+      if (!editedBeforeLoad.current) setNote(new URLSearchParams(window.location.search).has('saveNote') ? (draft ?? serverNote) : serverNote);
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('saveNote') || draft === null) return;
+      setSaveState('saving');
+      const { response: saveResponse, data: saved } = await requestJson<NoteResponse>(`/api/reports/${encodeURIComponent(reportId)}/note`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ note: draft }),
       });
+      if (!saveResponse.ok) throw new Error(saved.error || 'save_failed');
+      if (!active) return;
+      localStorage.removeItem(draftKey);
+      setSavedNote(saved.note || '');
+      setNote(saved.note || '');
+      setSaveState('saved');
+      params.delete('saveNote');
+      const query = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    };
+    loadNote().catch(() => {
+      if (!active) return;
+      if (!editedBeforeLoad.current) setNote(draft ?? '');
+      setSaveState('error');
+      setError(de ? 'Deine Notiz konnte gerade nicht geladen werden.' : 'Your note could not be loaded right now.');
+    });
     return () => { active = false; };
   }, [de, draftKey, reportId]);
 

@@ -71,7 +71,7 @@ function saved(name) {
 
 const SCORES = {
   adlershof: { total: 5.77, confidence: 'high', price: 1.5 },
-  bochum: { total: 8.03, confidence: 'medium', price: null },
+  bochum: { total: 7.23, confidence: 'medium', price: null },
   chodowiecki: { total: 6.04, confidence: 'high', price: 2.5 },
   cologne: { total: 5.96, confidence: 'medium', price: 3.3 },
   erfde: { total: 7.58, confidence: 'medium', price: null },
@@ -87,7 +87,7 @@ const SCORES = {
 };
 
 test('saved reports keep the v2.2 totals, and a shown score is never Low', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100806);
+  assert.equal(EXTRACTION_VERSION, 2026100807);
   for (const [name, expected] of Object.entries(SCORES)) {
     const report = saved(name);
     const score = calculatePropertyScore(report);
@@ -141,25 +141,31 @@ test('tenancy scales with the end date, and a near free date does not cap confid
 
 test('an investment property has no move-in deduction and shows the gross yield', () => {
   const bochum = saved('bochum');
-  assert.equal(isInvestmentProperty(bochum), true);
-  assert.equal(calculatePropertyScore(bochum).adjustments.length, 0);
+  assert.equal(isInvestmentProperty(bochum), false);
+  assert.equal(calculatePropertyScore(bochum).adjustments[0].points, -RENTED_OCCUPIER_PENALTY);
   assert.equal(scoreAvailable(bochum), true);
   assert.equal(scoreConfidence(bochum).level, 'medium');
-  assert.doesNotMatch(comparisonScoreText(bochum, 'en'), /move in|Rented/i);
-  assert.doesNotMatch(comparisonScoreText(bochum, 'de'), /einziehen|Vermietet/);
 
-  const rentedHouse = shell({ tenancy: 'Rented', rooms: '4', area: 140 }, { propertyType: 'house', title: 'Einfamilienhaus' });
+  const rentedHouse = shell({ tenancy: 'Rented', rooms: '4', area: 140, grossYield: 4.2 }, { propertyType: 'house', title: 'Einfamilienhaus als Kapitalanlage' });
   assert.equal(isInvestmentProperty(rentedHouse), false);
   assert.equal(calculatePropertyScore(rentedHouse).adjustments[0].points, -RENTED_OCCUPIER_PENALTY);
+  assert.equal(grossYieldLine(rentedHouse, 'en'), 'Gross yield 4.20%.');
 
-  const flatInBlock = shell({ tenancy: 'Rented' }, { title: 'Wohnung im Mehrfamilienhaus' });
+  const flatInBlock = shell({ tenancy: 'Rented', grossYield: 4.2, investmentUse: true }, { title: 'Wohnung im Mehrfamilienhaus' });
   assert.equal(isInvestmentProperty(flatInBlock), false);
+  assert.equal(calculatePropertyScore(flatInBlock).adjustments[0].points, -RENTED_OCCUPIER_PENALTY);
+  assert.equal(grossYieldLine(flatInBlock, 'en'), 'Gross yield 4.20%.');
 
-  const kapital = shell({ tenancy: 'Rented', grossYield: 4.2, investmentUse: true }, { title: 'Kapitalanlage' });
-  assert.equal(calculatePropertyScore(kapital).adjustments.length, 0);
-  assert.equal(grossYieldLine(kapital, 'en'), 'Gross yield 4.20%.');
-  assert.equal(grossYieldLine(kapital, 'de').replace(/\u00a0/g, ' '), 'Bruttorendite 4,20 %.');
-  assert.doesNotMatch(`${grossYieldLine(kapital, 'en')} ${grossYieldLine(kapital, 'de')}`, /move in|einziehen|buyer who wants/i);
+  const block = shell({
+    tenancy: 'Rented', grossYield: 3.18, investmentUse: true, rooms: '17', area: 439, city: 'Berlin', district: 'Mitte',
+  }, { propertyType: 'house', title: 'Mehrfamilienhaus' });
+  assert.equal(isInvestmentProperty(block), true);
+  assert.equal(calculatePropertyScore(block).adjustments.length, 0);
+  assert.equal(scoreConfidence(block).level, 'medium');
+  assert.equal(grossYieldLine(block, 'en'), 'Gross yield 3.18%.');
+  assert.equal(grossYieldLine(block, 'de').replace(/\u00a0/g, ' '), 'Bruttorendite 3,18 %.');
+  assert.doesNotMatch(comparisonScoreText(block, 'en'), /Rented, open-ended/);
+  assert.doesNotMatch(`${grossYieldLine(block, 'en')} ${grossYieldLine(block, 'de')}`, /move in|einziehen|buyer who wants/i);
 });
 
 test('one energy class off demand cannot push a shown score below Medium', () => {
@@ -322,8 +328,7 @@ test('the method explains the scale and that Low withholds the score', () => {
   assert.match(en, /0\.8/);
   assert.match(en, /1\.0/);
   assert.match(en, /Low means four or fewer key facts, and the score is withheld/);
-  assert.match(en, /40% over scores lower than 15% over/);
-  assert.match(de, /40 % darüber liegt niedriger als 15 % darüber/);
+  assert.match(en, /15% over about 3 and 50% over about 1/);
   assert.match(en, /Kapitalanlage/);
   assert.doesNotMatch(en, /\bhome\b/i);
   assert.doesNotMatch(en, /for a buyer who wants to move in/);

@@ -1,9 +1,10 @@
 import type { Report, ScoreBreakdown } from './types';
 import { copy, type Locale } from './i18n.ts';
+import { geographyClause } from './method-copy.ts';
 import { validStreet } from './location-validation.ts';
 import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100806;
+export const EXTRACTION_VERSION = 2026100807;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
@@ -185,8 +186,18 @@ export function withholdReason(report: Report, locale: Locale) {
   return withholdSentences(report, locale).join(' ');
 }
 
+const GEOGRAPHY_OFF = {
+  en: 'Berlin and Cologne by area; the Munich price check is switched off',
+  de: 'Berlin und Köln nach Stadtteil; die München-Preisprüfung ist aus',
+};
+
+/** Score-panel sentence. Munich is described as switched off unless the price flag is on. */
+export function scoreExplainerText(locale: Locale) {
+  return copy[locale].report.scoreExplainer.replace(GEOGRAPHY_OFF[locale], geographyClause(locale));
+}
+
 export function scoreExplanation(report: Report, locale: Locale) {
-  if (scoreAvailable(report)) return copy[locale].report.scoreExplainer;
+  if (scoreAvailable(report)) return scoreExplainerText(locale);
   return withholdReason(report, locale);
 }
 

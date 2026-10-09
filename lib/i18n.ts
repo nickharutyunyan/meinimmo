@@ -68,7 +68,7 @@ export const copy = {
     },
     report: {
       brief: 'REVIEW A HOUSE / PROPERTY REPORT', copyLink: 'Copy share link', copied: 'Link copied', score: 'LISTING RUBRIC',
-      deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'A screening rubric based on the facts the listing states, not a valuation or a buying recommendation. Price counts only where we have official local sales prices (Berlin and Cologne by area; Munich citywide only, so only clear outliers count). Missing facts lower the confidence, and conflicting facts withhold the score.', scoreWithheld: 'No score while key facts are missing or conflicting.', conflictWithheld: 'Score withheld: the listing contradicts itself on {facts}.', addressWithheld: 'Score withheld: the extracted street is not a valid address.', sourceWithheld: 'Score withheld: this saved report needs a fresh source review.', figuresWithheld: 'Score withheld: the listing does not state a price and a living area.', placeWithheld: 'Score withheld: the listing does not name a town.', typeWithheld: 'Score withheld: the property type is not clear from the listing.', lowConfidence: 'Not enough stated facts for a score ({present} of 8). Ask the seller for the missing details.', missingFacts: 'Missing: {facts}.', priceNotScored: 'not scored (no local price data)', priceNotScoredCitywide: 'not scored (citywide price data only)', priceNotChecked: 'Price not checked: no local reference data yet', howWeReview: 'How we review', scoreAdjustment: { leasehold: 'Leasehold or leased land: −{points}. The land is not part of the purchase.', rented: 'Rented, open-ended: −{points}.' }, confidenceLevel: { high: 'High', medium: 'Medium', low: 'Low' }, confidenceLine: 'Confidence: {level} · {present} of {total} key facts', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', commission: "Buyer's commission", monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
+      deterministic: '', scoreDetails: 'View score details', scoreExplainer: 'A screening rubric based on the facts the listing states, not a valuation or a buying recommendation. Price counts only where we have official local sales prices (Berlin and Cologne by area; the Munich price check is switched off). Missing facts lower the confidence, and conflicting facts withhold the score.', scoreWithheld: 'No score while key facts are missing or conflicting.', conflictWithheld: 'Score withheld: the listing contradicts itself on {facts}.', addressWithheld: 'Score withheld: the extracted street is not a valid address.', sourceWithheld: 'Score withheld: this saved report needs a fresh source review.', figuresWithheld: 'Score withheld: the listing does not state a price and a living area.', placeWithheld: 'Score withheld: the listing does not name a town.', typeWithheld: 'Score withheld: the property type is not clear from the listing.', lowConfidence: 'Not enough stated facts for a score ({present} of 8). Ask the seller for the missing details.', missingFacts: 'Missing: {facts}.', priceNotScored: 'not scored (no local price data)', priceNotScoredCitywide: 'not scored (citywide price data only)', priceNotChecked: 'Price not checked: no local reference data yet', howWeReview: 'How we review', scoreAdjustment: { leasehold: 'Leasehold or leased land: −{points}. The land is not part of the purchase.', rented: 'Rented, open-ended: −{points}.' }, confidenceLevel: { high: 'High', medium: 'Medium', low: 'Low' }, confidenceLine: 'Confidence: {level} · {present} of {total} key facts', asking: 'Asking price', perSqm: 'Price per m²', living: 'Living space', usable: 'Usable space', rooms: 'Rooms', floor: 'Floor', use: 'Rental status', condition: 'Condition', commission: "Buyer's commission", monthly: '/ month', return: 'Advertised return', sun: 'Sun / orientation', daylight: 'Daylight', energy: 'Energy', heating: 'Heating', built: 'Built',
       atGlance: 'AT A GLANCE', profile: 'PROPERTY PROFILE', details: 'LISTING DETAILS', matters: 'WHAT MATTERS', notes: 'DATA NOTES', notDisclosed: 'Not disclosed',
       photosCaption: 'Photos from the listing · opens the original page',
       photoViewerLabel: 'Listing photos',
@@ -76,6 +76,9 @@ export const copy = {
       photoNext: 'Next photo',
       photoClose: 'Close',
       photoCredit: 'Photo from the listing',
+      photoStaged: 'AI visualisation (per listing)',
+      photoSample: 'Sample image (per listing)',
+      photosSampleCaption: 'Sample images (per listing) · opens the original page',
       photoOriginal: 'Open original listing',
       photoAlt: 'Photo {n} of {total}',
       photoCount: '{n} / {total}',
@@ -146,7 +149,7 @@ export const copy = {
     },
     report: {
       brief: 'REVIEW A HOUSE / IMMOBILIEN-BERICHT', copyLink: 'Link kopieren', copied: 'Link kopiert', score: 'ANGEBOTSRASTER',
-      deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Ein Prüfraster auf Basis der Angaben im Angebot, kein Wertgutachten und keine Kaufempfehlung. Der Preis zählt nur, wo amtliche lokale Kaufpreise vorliegen (Berlin und Köln nach Gebiet; München nur stadtweit, daher zählen nur deutliche Ausreißer). Fehlende Angaben senken die Verlässlichkeit, Widersprüche verhindern den Score.', scoreWithheld: 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.', conflictWithheld: 'Kein Score: Das Angebot widerspricht sich {facts}.', addressWithheld: 'Kein Score: Die erkannte Straße ist keine gültige Adresse.', sourceWithheld: 'Kein Score: Dieser gespeicherte Bericht braucht eine neue Quellenprüfung.', figuresWithheld: 'Kein Score: Das Angebot nennt keinen Kaufpreis und keine Wohnfläche.', placeWithheld: 'Kein Score: Das Angebot nennt keinen Ort.', typeWithheld: 'Kein Score: Die Objektart geht aus dem Angebot nicht klar hervor.', lowConfidence: 'Zu wenige Angaben für einen Score ({present} von 8). Frag beim Verkäufer nach den fehlenden Angaben.', missingFacts: 'Es fehlen: {facts}.', priceNotScored: 'nicht bewertet (keine lokalen Preisdaten)', priceNotScoredCitywide: 'nicht bewertet (nur stadtweite Preisdaten)', priceNotChecked: 'Preis nicht geprüft: noch keine lokalen Vergleichsdaten', howWeReview: 'So prüfen wir', scoreAdjustment: { leasehold: 'Erbbaurecht oder Pachtgrundstück: −{points}. Das Grundstück gehört nicht zum Kauf.', rented: 'Vermietet, unbefristet: −{points}.' }, confidenceLevel: { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }, confidenceLine: 'Verlässlichkeit: {level} · {present} von {total} Kernangaben', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', commission: 'Käuferprovision', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
+      deterministic: '', scoreDetails: 'Score-Details ansehen', scoreExplainer: 'Ein Prüfraster auf Basis der Angaben im Angebot, kein Wertgutachten und keine Kaufempfehlung. Der Preis zählt nur, wo amtliche lokale Kaufpreise vorliegen (Berlin und Köln nach Stadtteil; die München-Preisprüfung ist aus). Fehlende Angaben senken die Verlässlichkeit, Widersprüche verhindern den Score.', scoreWithheld: 'Kein Score, solange wichtige Angaben fehlen oder sich widersprechen.', conflictWithheld: 'Kein Score: Das Angebot widerspricht sich {facts}.', addressWithheld: 'Kein Score: Die erkannte Straße ist keine gültige Adresse.', sourceWithheld: 'Kein Score: Dieser gespeicherte Bericht braucht eine neue Quellenprüfung.', figuresWithheld: 'Kein Score: Das Angebot nennt keinen Kaufpreis und keine Wohnfläche.', placeWithheld: 'Kein Score: Das Angebot nennt keinen Ort.', typeWithheld: 'Kein Score: Die Objektart geht aus dem Angebot nicht klar hervor.', lowConfidence: 'Zu wenige Angaben für einen Score ({present} von 8). Frag beim Verkäufer nach den fehlenden Angaben.', missingFacts: 'Es fehlen: {facts}.', priceNotScored: 'nicht bewertet (keine lokalen Preisdaten)', priceNotScoredCitywide: 'nicht bewertet (nur stadtweite Preisdaten)', priceNotChecked: 'Preis nicht geprüft: noch keine lokalen Vergleichsdaten', howWeReview: 'So prüfen wir', scoreAdjustment: { leasehold: 'Erbbaurecht oder Pachtgrundstück: −{points}. Das Grundstück gehört nicht zum Kauf.', rented: 'Vermietet, unbefristet: −{points}.' }, confidenceLevel: { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }, confidenceLine: 'Verlässlichkeit: {level} · {present} von {total} Kernangaben', asking: 'Kaufpreis', perSqm: 'Preis pro m²', living: 'Wohnfläche', usable: 'Nutzfläche', rooms: 'Zimmer', floor: 'Etage', use: 'Mietstatus', condition: 'Zustand', commission: 'Käuferprovision', monthly: '/ Monat', return: 'Angegebene Rendite', sun: 'Sonne / Ausrichtung', daylight: 'Tageslicht', energy: 'Energie', heating: 'Heizung', built: 'Baujahr',
       atGlance: 'AUF EINEN BLICK', profile: 'IMMOBILIENPROFIL', details: 'ANGABEN IM EXPOSÉ', matters: 'WAS WICHTIG IST', notes: 'HINWEISE ZU DEN DATEN', notDisclosed: 'Nicht angegeben',
       photosCaption: 'Fotos aus dem Angebot · öffnet die Originalseite',
       photoViewerLabel: 'Fotos aus dem Angebot',
@@ -154,6 +157,9 @@ export const copy = {
       photoNext: 'Nächstes Foto',
       photoClose: 'Schließen',
       photoCredit: 'Foto aus dem Angebot',
+      photoStaged: 'KI-Visualisierung (laut Angebot)',
+      photoSample: 'Beispielbild (laut Angebot)',
+      photosSampleCaption: 'Beispielbilder (laut Angebot) · öffnet die Originalseite',
       photoOriginal: 'Originalangebot öffnen',
       photoAlt: 'Foto {n} von {total}',
       photoCount: '{n} / {total}',
@@ -222,6 +228,54 @@ const EXACT_ENERGY: Record<string, string> = {
   öl: 'Oil', oel: 'Oil', gas: 'Gas', strom: 'Electricity', holz: 'Wood', kohle: 'Coal', pellets: 'Pellets', solar: 'Solar',
 };
 
+const COMPASS_EN: Array<[RegExp, string]> = [
+  [/^(?:nordosten|nordost)$/i, 'North-east'],
+  [/^(?:südosten|suedosten|südost|suedost)$/i, 'South-east'],
+  [/^(?:südwesten|suedwesten|südwest|suedwest)$/i, 'South-west'],
+  [/^(?:nordwesten|nordwest)$/i, 'North-west'],
+  [/^(?:norden|nord)$/i, 'North'],
+  [/^(?:süden|sueden|süd|sued)$/i, 'South'],
+  [/^(?:osten|ost)$/i, 'East'],
+  [/^(?:westen|west)$/i, 'West'],
+];
+
+function compassEnglish(token: string) {
+  const clean = token.replace(/\s+/g, '').replace(/-/g, '');
+  return COMPASS_EN.find(([pattern]) => pattern.test(clean))?.[1] || '';
+}
+
+/**
+ * English compass phrase for a German orientation value.
+ * Empty when the text is not an orientation, so other labels stay untouched.
+ */
+export function translateOrientation(value: string) {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  if (!clean || clean.length > 80) return '';
+  const pair = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-\s*und\s+((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-?\s*Ausrichtung$/i);
+  if (pair) {
+    const first = compassEnglish(pair[1]);
+    const second = compassEnglish(pair[2]);
+    if (first && second) return `${first} and ${second.toLocaleLowerCase('en-GB')} facing`;
+  }
+  const slash = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-\s*\/\s*((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)$/i);
+  if (slash) {
+    const first = compassEnglish(slash[1]);
+    const second = compassEnglish(slash[2]);
+    if (first && second) return `${first} / ${second.toLocaleLowerCase('en-GB')}`;
+  }
+  const facing = clean.match(/^nach\s+((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?en)\s+ausgerichtet(?:e[nrms]?)?$/i);
+  if (facing) {
+    const direction = compassEnglish(facing[1]);
+    if (direction) return `${direction} facing`;
+  }
+  const labelled = clean.match(/^((?:Nord|Süd|Sued|Ost|West)(?:ost|west)?)\s*-?\s*Ausrichtung$/i);
+  if (labelled) {
+    const direction = compassEnglish(labelled[1]);
+    if (direction) return `${direction} facing`;
+  }
+  return compassEnglish(clean);
+}
+
 /** English gloss for a German heating or energy-carrier label. Empty when nothing matched. */
 export function translateEnergyPhrase(value: string) {
   const exact = EXACT_ENERGY[value.trim().toLocaleLowerCase('de-DE')];
@@ -265,7 +319,7 @@ export function localizedValue(value: string | undefined, locale: Locale) {
       'Timber frame': 'Timber frame',
       'Needs modernization': 'Needs modernisation',
     };
-    return englishTranslations[normalized] || translateEnergyPhrase(normalized) || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
+    return englishTranslations[normalized] || translateEnergyPhrase(normalized) || translateOrientation(normalized) || normalized.replace(/\binkl\.?\s*(?:gesetzl\.?)?\s*MwSt\.?/giu, 'incl. VAT');
   }
   const translations: Record<string, string> = {
     'First occupancy': 'Erstbezug',

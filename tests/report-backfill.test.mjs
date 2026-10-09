@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { backfillRejection } from '../cloudflare/backfill-gate.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { BACKFILL_BATCH_SIZE, BACKFILL_REPORT_RESERVE_MS, BACKFILL_WORK_BUDGET_MS, STALE_REPORT_BACKFILL_SQL, STALE_REPORT_COUNT_SQL, backfillAuthorized, configuredBackfillBatchSize, mergedBackfillReport, runBackfillBatch } from '../lib/report-backfill.ts';
+import { BACKFILL_BATCH_SIZE, STALE_REPORT_BACKFILL_SQL, STALE_REPORT_COUNT_SQL, backfillAuthorized, configuredBackfillBatchSize, mergedBackfillReport, runBackfillBatch } from '../lib/report-backfill.ts';
 import { parseListing } from '../lib/listing-parser.ts';
 import { EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { refreshFailureMarker } from '../lib/report-refresh.ts';
@@ -37,54 +37,46 @@ test('the backfill token is required and compared in full', () => {
   assert.equal(backfillAuthorized(`Basic ${token}`, token), false);
 });
 
-test('a backfill call stays within two reports and does not start work it cannot finish', async () => {
-  const candidates = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id }));
-  assert.equal(BACKFILL_BATCH_SIZE, 2);
-  assert.equal(BACKFILL_WORK_BUDGET_MS, 800);
-  assert.equal(BACKFILL_REPORT_RESERVE_MS, 400);
-  assert.equal(configuredBackfillBatchSize(undefined), 2);
-  assert.equal(configuredBackfillBatchSize(''), 2);
-  assert.equal(configuredBackfillBatchSize('0'), 2);
-  assert.equal(configuredBackfillBatchSize('2.5'), 2);
-  assert.equal(configuredBackfillBatchSize('9'), 2);
+test('the batch size is the only backfill guard and the response has no clock', async () => {
+  const candidates = ['a', 'b', 'c'].map(id => ({ id }));
+  assert.equal(BACKFILL_BATCH_SIZE, 1);
+  assert.equal(configuredBackfillBatchSize(undefined), 1);
+  assert.equal(configuredBackfillBatchSize(''), 1);
+  assert.equal(configuredBackfillBatchSize('0'), 1);
+  assert.equal(configuredBackfillBatchSize('2.5'), 1);
+  assert.equal(configuredBackfillBatchSize('6'), 1);
   assert.equal(configuredBackfillBatchSize('1'), 1);
-  assert.equal(configuredBackfillBatchSize('4'), 4);
+  assert.equal(configuredBackfillBatchSize('5'), 5);
 
   const seen = [];
   const open = await runBackfillBatch({
     candidates,
-    refresh: async (item, account) => {
+    refresh: async (item) => {
       seen.push(item.id);
-      account(100);
       return 'refreshed';
     },
   });
-  assert.deepEqual(seen, ['a', 'b']);
-  assert.equal(open.stoppedEarly, false);
-  assert.equal(open.processed.length, 2);
-  assert.equal(open.usedMs, 200);
+  assert.deepEqual(seen, ['a']);
+  assert.deepEqual(Object.keys(open).sort(), ['processed']);
 
   const paced = [];
-  const limited = await runBackfillBatch({
+  const sized = await runBackfillBatch({
     candidates,
-    batchSize: 4,
-    budgetMs: 800,
-    reserveMs: 400,
+    batchSize: 2,
     refresh: async (item, account) => {
       paced.push(item.id);
-      account(500);
-      return 'unavailable';
+      if (typeof account === 'function') account(10_000);
+      return 'refreshed';
     },
   });
-  assert.deepEqual(paced, ['a']);
-  assert.equal(limited.stoppedEarly, true);
-  assert.equal(limited.remainingBudgetMs, 300);
-  assert.deepEqual(limited.processed.map(item => item.status), ['unavailable']);
+  assert.deepEqual(paced, ['a', 'b']);
+  assert.deepEqual(Object.keys(sized).sort(), ['processed']);
 });
 
 test('a thrown refresh is recorded and does not continue as a queue', async () => {
   const result = await runBackfillBatch({
     candidates: [{ id: 'one' }, { id: 'two' }],
+    batchSize: 2,
     refresh: async (item) => {
       if (item.id === 'one') throw new Error('d1 down');
       return 'refreshed';
@@ -110,7 +102,7 @@ function backfillRows(records) {
 }
 
 test('backfill selects recent reports that only have an attempt timestamp', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100806);
+  assert.equal(EXTRACTION_VERSION, 2026100807);
   const attempted = '2026-10-08T12:00:00.000Z';
   const recent = {
     extractionVersion: 2026100802,
@@ -312,8 +304,8 @@ test('page, print, sitemap and metadata routes do not read archived HTML', async
   assert.match(backfill, /archivedListingAccepted\(source, lines\)/);
   assert.match(backfill, /htmlToLines\(source\)/);
   assert.match(backfill, /configuredBackfillBatchSize\(env\.BACKFILL_BATCH_SIZE\)/);
-  assert.match(backfill, /account\(performance\.now\(\) - started\)/);
   assert.match(backfill, /remaining/);
+  assert.doesNotMatch(backfill, /usedMs|performance\.now|BACKFILL_WORK_BUDGET/);
   assert.doesNotMatch(backfill, /looksLikePropertyListing/);
   assert.doesNotMatch(backfill, /fetchListing|report_notes|report-notes/);
   const prelude = backfill.slice(0, backfill.indexOf('export async function POST'));

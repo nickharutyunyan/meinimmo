@@ -16,40 +16,25 @@ export async function POST(request: NextRequest) {
     import('@/lib/store'),
   ]);
 
-  async function refreshArchivedReport(item: Report, account: (elapsedMs: number) => void): Promise<BackfillStatus> {
+  async function refreshArchivedReport(item: Report): Promise<BackfillStatus> {
     const attempted = new Date().toISOString();
     const markUnavailable = () => replaceReport(refreshFailureMarker({ ...item, facts: { ...item.facts } }, attempted));
     try {
       const source = await archivedListingSource(item.id);
-      const started = performance.now();
-      let recorded = false;
-      const record = () => {
-        if (recorded) return;
-        recorded = true;
-        account(performance.now() - started);
-      };
-      try {
-        const lines = source ? htmlToLines(source) : [];
-        const accepted = Boolean(source) && archivedListingAccepted(source, lines);
-        const parsed = accepted ? parseListing(source, item.source || item.id, lines) : undefined;
-        if (!parsed || (!parsed.facts.city && !parsed.location)) {
-          record();
-          await markUnavailable();
-          return 'unavailable';
-        }
-        const refreshed = item.aiEnriched ? parsed : {
-          ...parsed,
-          offerQuestions: defaultOfferQuestions(parsed),
-          offerQuestionsDe: defaultOfferQuestions(parsed, 'de'),
-        };
-        const merged = mergedBackfillReport(item, refreshed, attempted);
-        record();
-        await replaceReport(merged);
-        return 'refreshed';
-      } catch (error) {
-        record();
-        throw error;
+      const lines = source ? htmlToLines(source) : [];
+      const accepted = Boolean(source) && archivedListingAccepted(source, lines);
+      const parsed = accepted ? parseListing(source, item.source || item.id, lines) : undefined;
+      if (!parsed || (!parsed.facts.city && !parsed.location)) {
+        await markUnavailable();
+        return 'unavailable';
       }
+      const refreshed = item.aiEnriched ? parsed : {
+        ...parsed,
+        offerQuestions: defaultOfferQuestions(parsed),
+        offerQuestionsDe: defaultOfferQuestions(parsed, 'de'),
+      };
+      await replaceReport(mergedBackfillReport(item, refreshed, attempted));
+      return 'refreshed';
     } catch {
       try {
         await markUnavailable();

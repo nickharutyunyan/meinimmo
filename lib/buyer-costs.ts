@@ -157,6 +157,10 @@ const PLACES: ReadonlyArray<readonly [string, StateCode]> = [
   ['trier', 'RP'],
   ['coburg', 'BY'],
   ['jena', 'TH'],
+  ['neu-ulm', 'BY'],
+  ['norderstedt', 'SH'],
+  ['falkensee', 'BB'],
+  ['teltow', 'BB'],
   ['ulm', 'BW'],
   ['erfde', 'SH'],
   ['thüringen', 'TH'],
@@ -169,6 +173,34 @@ const PLACES: ReadonlyArray<readonly [string, StateCode]> = [
   ['hesse', 'HE'],
 ];
 
+/** Länder names. Berlin, Hamburg and Bremen are matched only as a whole field, so "bei Berlin" is not Berlin. */
+const LAND_NAMES: ReadonlyArray<readonly [string, StateCode]> = [
+  ['mecklenburg-vorpommern', 'MV'],
+  ['mecklenburg western pomerania', 'MV'],
+  ['nordrhein-westfalen', 'NW'],
+  ['north rhine-westphalia', 'NW'],
+  ['rheinland-pfalz', 'RP'],
+  ['rhineland-palatinate', 'RP'],
+  ['baden-württemberg', 'BW'],
+  ['schleswig-holstein', 'SH'],
+  ['sachsen-anhalt', 'ST'],
+  ['saxony-anhalt', 'ST'],
+  ['niedersachsen', 'NI'],
+  ['lower saxony', 'NI'],
+  ['bavaria', 'BY'],
+  ['bayern', 'BY'],
+  ['thüringen', 'TH'],
+  ['thuringia', 'TH'],
+  ['brandenburg', 'BB'],
+  ['saarland', 'SL'],
+  ['sachsen', 'SN'],
+  ['saxony', 'SN'],
+  ['hessen', 'HE'],
+  ['hesse', 'HE'],
+];
+
+const CITY_STATE: Record<string, StateCode> = { berlin: 'BE', hamburg: 'HH', bremen: 'HB' };
+
 export type StateBasis = 'city' | 'postal' | 'unknown';
 
 export type StateResolution = { state?: StateCode; basis: StateBasis };
@@ -180,10 +212,18 @@ type CostFacts = {
   buyerCommission?: string;
   city?: string;
   postalCode?: string;
+  /** Federal state named by the listing, for example "Bayern". */
+  statedState?: string;
   parkingPrice?: number;
 };
 
-export type CostSource = CostFacts | { facts?: CostFacts; address?: string; location?: string };
+export type CostSource = CostFacts | {
+  facts?: CostFacts;
+  address?: string;
+  location?: string;
+  /** A geocode result already stored on the report or read from geocode_cache. Not a new lookup. */
+  geocode?: { state?: StateCode; label?: string };
+};
 
 export type BuyerCostLine = {
   key: 'tax' | 'notary' | 'broker';
@@ -228,14 +268,59 @@ function fold(value: string) {
     .trim();
 }
 
-function matchPlace(text: string): StateCode | undefined {
-  const folded = ` ${fold(text)} `;
-  if (folded === '  ') return undefined;
-  const hits = PLACES.filter(([name]) => folded.includes(` ${fold(name)} `));
+const PLACE_BY_NAME = new Map(PLACES.map(([name, state]) => [fold(name), state]));
+
+function longestLand(text: string): StateCode | undefined {
+  const padded = ` ${fold(text)} `;
+  if (padded === '  ') return undefined;
+  const hits = LAND_NAMES.filter(([name]) => padded.includes(` ${fold(name)} `));
   if (!hits.length) return undefined;
   const longest = Math.max(...hits.map(([name]) => fold(name).length));
-  const states = new Set(hits.filter(([name]) => fold(name).length === longest).map(([, state]) => state));
+  const states = new Set(hits.filter(([name]) => fold(name).length === longest).map(([, code]) => code));
   return states.size === 1 ? [...states][0] : undefined;
+}
+
+/** A Land named in the text. City-states are not scanned here, so "bei Berlin" stays Brandenburg. */
+function explicitLand(text: string): StateCode | undefined {
+  return text ? longestLand(text) : undefined;
+}
+
+function cityQuery(value: string) {
+  return fold(value).replace(/\s+bei\s+.+$/, '').replace(/\s+berlin stadtrand$/, '').trim();
+}
+
+/** The city field as a whole. A Neu- or Bad- prefix does not select the inner town. */
+function matchCityField(value: string): StateCode | undefined {
+  const query = cityQuery(value);
+  if (!query) return undefined;
+  const exact = PLACE_BY_NAME.get(query);
+  if (exact) return exact;
+  if (/^(?:neu|bad)\s/.test(query)) return undefined;
+  const first = query.split(' ')[0];
+  if (!first || first === query) return undefined;
+  return PLACE_BY_NAME.get(first);
+}
+
+function matchAddressCity(address: string): StateCode | undefined {
+  const afterPostal = address.match(/\b\d{5}\s+(.+)$/u)?.[1];
+  if (afterPostal) {
+    const hit = matchCityField(afterPostal);
+    if (hit) return hit;
+  }
+  const pieces = address.split(',');
+  return matchCityField(pieces[pieces.length - 1] || '');
+}
+
+/** State named in a Nominatim label that is already stored. "Neu-Ulm, Bayern, Deutschland" is Bayern. */
+export function stateFromGeocodeLabel(label: string): StateCode | undefined {
+  const parts = label.split(',').map((part) => part.trim()).filter(Boolean);
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const folded = fold(parts[index]);
+    if (!folded || folded === 'deutschland' || folded === 'germany') continue;
+    const state = CITY_STATE[folded] || explicitLand(parts[index]);
+    if (state) return state;
+  }
+  return undefined;
 }
 
 function stateFromPostal(code?: string): StateCode | undefined {
@@ -246,11 +331,12 @@ function stateFromPostal(code?: string): StateCode | undefined {
 }
 
 function sourceParts(input: CostSource) {
+  const geocode = input && typeof input === 'object' && 'geocode' in input ? input.geocode : undefined;
   if (input && typeof input === 'object' && 'facts' in input && input.facts && typeof input.facts === 'object') {
-    return { facts: input.facts, address: input.address || '', location: input.location || '' };
+    return { facts: input.facts, address: input.address || '', location: input.location || '', geocode };
   }
   const facts = (input || {}) as CostFacts;
-  return { facts, address: '', location: '' };
+  return { facts, address: '', location: '', geocode };
 }
 
 export function stateName(state: StateCode, locale: Locale) {
@@ -261,13 +347,26 @@ export function transferTaxRate(state: StateCode) {
   return rateByState.get(state)?.rate ?? HIGHEST_RATE;
 }
 
-/** State from the city or postcode already stored on the report. No network lookup. */
+/**
+ * State from what the report already stores. A named Land comes first, then an
+ * unambiguous postcode, then a geocode result already on the report or in
+ * geocode_cache. The city is matched as a whole field after that. No network lookup.
+ */
 export function stateForReport(input: CostSource): StateResolution {
-  const { facts, address, location } = sourceParts(input);
-  const fromCity = matchPlace(facts.city || '') || matchPlace(address) || matchPlace(location);
-  if (fromCity) return { state: fromCity, basis: 'city' };
+  const { facts, address, location, geocode } = sourceParts(input);
+  const stated = facts.statedState || '';
+  const named = (CITY_STATE[fold(stated)] || explicitLand(stated))
+    || explicitLand(address)
+    || explicitLand(location)
+    || explicitLand(facts.city || '')
+    || CITY_STATE[fold(facts.city || '')];
+  if (named) return { state: named, basis: 'city' };
   const fromPostal = stateFromPostal(facts.postalCode) || stateFromPostal(address);
   if (fromPostal) return { state: fromPostal, basis: 'postal' };
+  const fromGeocode = geocode?.state || (geocode?.label ? stateFromGeocodeLabel(geocode.label) : undefined);
+  if (fromGeocode) return { state: fromGeocode, basis: 'city' };
+  const fromCity = matchCityField(facts.city || '') || matchAddressCity(address) || matchCityField(location);
+  if (fromCity) return { state: fromCity, basis: 'city' };
   return { basis: 'unknown' };
 }
 

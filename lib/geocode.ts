@@ -1,4 +1,5 @@
 import type { Report } from './types';
+import { stateFromGeocodeLabel, type StateCode } from './buyer-costs.ts';
 import { resolveLocation } from './display.ts';
 import { validReportId } from './report-note-validation.ts';
 import { hasStoredGeocode } from './osm-map.ts';
@@ -8,6 +9,8 @@ export type GermanPlace = {
   lon: number;
   label: string;
   neighborhood?: string;
+  /** Parsed from a Nominatim label or address.state already in hand. */
+  state?: StateCode;
 };
 
 export type GeocodePrecision = 'street' | 'postcode';
@@ -97,10 +100,15 @@ export function canPersistGeocode(report: Report, query: string) {
   return Boolean(expected) && expected === normalizeGeocodeQuery(query);
 }
 
+function placeState(place: GermanPlace): StateCode | undefined {
+  return place.state || stateFromGeocodeLabel(place.label);
+}
+
 export function applyStoredGeocode(report: Report, place: GermanPlace, precision: GeocodePrecision): Report {
   if (hasStoredGeocode(report.geocode)) return report;
   if (!Number.isFinite(place.lat) || !Number.isFinite(place.lon)) return report;
-  return { ...report, geocode: { lat: place.lat, lon: place.lon, precision } };
+  const state = placeState(place);
+  return { ...report, geocode: { lat: place.lat, lon: place.lon, precision, ...(state ? { state } : {}) } };
 }
 
 /**
@@ -140,7 +148,9 @@ export async function geocodeGermanLocation(query: string, city = '', country: '
   const lat = Number(place.lat);
   const lon = Number(place.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
-  return { lat, lon, label: place.display_name, neighborhood: neighborhood || undefined };
+  const label = place.display_name;
+  const state = stateFromGeocodeLabel(place.address?.state || label) || stateFromGeocodeLabel(label);
+  return { lat, lon, label, neighborhood: neighborhood || undefined, ...(state ? { state } : {}) };
 }
 
 export function createMemoryGeocodeCache(): GeocodeCacheStore {
@@ -198,6 +208,7 @@ export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
         if (!row || !Number.isFinite(Number(row.lat)) || !Number.isFinite(Number(row.lon))) return undefined;
         const cachedAt = Date.parse(row.cached_at);
         if (!Number.isFinite(cachedAt)) return undefined;
+        const state = stateFromGeocodeLabel(row.label);
         return {
           cachedAt,
           place: {
@@ -205,6 +216,7 @@ export function createD1GeocodeCache(db: SqlDatabase): GeocodeCacheStore {
             lon: Number(row.lon),
             label: row.label,
             neighborhood: row.neighborhood || undefined,
+            ...(state ? { state } : {}),
           },
         };
       } catch (error) {
@@ -333,7 +345,24 @@ export async function geocodeForView(allowed: GeocodeAllowance, deps: {
 }): Promise<{ place?: GermanPlace; persisted: boolean; cache: 'hit' | 'miss' }> {
   const current = allowed.reportId && deps.loadReport ? await deps.loadReport(allowed.reportId) : undefined;
   if (current && hasStoredGeocode(current.geocode) && normalizeGeocodeQuery(reportGeocodeQuery(current)) === normalizeGeocodeQuery(allowed.query)) {
-    return { place: { lat: current.geocode.lat, lon: current.geocode.lon, label: allowed.query }, persisted: false, cache: 'hit' };
+    if (!current.geocode.state) {
+      const cached = await deps.cache.get(geocodeCacheKey(allowed.query, allowed.country));
+      const state = cached?.place.state;
+      if (state && deps.saveReport) {
+        await deps.saveReport({ ...current, geocode: { ...current.geocode, state } });
+        return { place: { ...cached.place, state }, persisted: true, cache: 'hit' };
+      }
+    }
+    return {
+      place: {
+        lat: current.geocode.lat,
+        lon: current.geocode.lon,
+        label: allowed.query,
+        ...(current.geocode.state ? { state: current.geocode.state } : {}),
+      },
+      persisted: false,
+      cache: 'hit',
+    };
   }
   const city = current && current.country !== 'AM' ? resolveLocation(current).city : '';
   const looked = await lookupCachedGeocode({

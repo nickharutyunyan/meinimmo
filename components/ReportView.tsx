@@ -39,7 +39,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
   const [showPlans, setShowPlans] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/me', { cache: 'no-store' })
+    fetch('/api/access', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ billingAvailable?: boolean }> : null)
       .then((data) => setShowPlans(Boolean(data?.billingAvailable)))
       .catch(() => setShowPlans(false));
@@ -135,7 +135,7 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
         <div className="report-title-block"><div className="report-market-line"><p className="eyebrow">{text.brief}</p><CountrySwitch locale={locale}/></div><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
-      <ListingPhotos urls={facts.photoUrls} listingUrl={report.source} locale={locale} renderedAt={renderedAt} />
+      <ListingPhotos urls={facts.photoUrls} stagedIndexes={facts.photoStaging?.indexes} sampleIndexes={facts.photoStaging?.sampleIndexes} listingWideSample={facts.photoStaging?.listingWideSample} listingUrl={report.source} locale={locale} renderedAt={renderedAt} />
 
       <section className="verdict">
         <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreBasisLine(report, locale)}</span>{priceNote ? <span className="score-note">{priceNote}</span> : null}{adjustmentLines.map((line) => <span className="score-note" key={line}>{line}</span>)}{yieldNote ? <span className="score-note">{yieldNote}</span> : null}<span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {

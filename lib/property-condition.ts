@@ -4,10 +4,10 @@ export function canonicalCondition(value?: string) {
   if (/\b(?:renovierungsbed[uü]rftig|sanierungsbed[uü]rftig|renovation required|needs renovation)\b/i.test(clean)) return 'Needs renovation';
   if (/\b(?:modernisierungsbed[uü]rftig|needs moderni[sz]ation)\b/i.test(clean)) return 'Needs modernization';
   if (/\b(?:im bau|bauprojekt|projektiert|under construction)\b/i.test(clean)) return 'Under construction';
-  if (/\b(?:erstbezug nach (?:komplett)?sanierung|kernsaniert|vollst[aä]ndig saniert|saniert|renoviert|renovated|fully renovated)\b/i.test(clean)) return 'Renovated';
-  if (/\b(?:neuwertig|like new|as-new condition)\b/i.test(clean)) return 'Like new';
+  if (/\b(?:erstbezug nach (?:komplett)?sanierung|kernsaniert(?:e[nrms]?)?|vollst[aä]ndig saniert(?:e[nrms]?)?|saniert(?:e[nrms]?)?|renoviert(?:e[nrms]?)?|renovated|fully renovated)\b/i.test(clean)) return 'Renovated';
+  if (/\b(?:neuwertig(?:e[nrms]?)?|like new|as-new condition)\b/i.test(clean)) return 'Like new';
   if (/\b(?:neubau(?:wohnung|haus)?|new build)\b/i.test(clean)) return 'New build';
-  if (/\b(?:gepflegt|well maintained)\b/i.test(clean)) return 'Well maintained';
+  if (/\b(?:gepflegt(?:e[nrms]?)?|well maintained)\b/i.test(clean)) return 'Well maintained';
   return clean;
 }
 

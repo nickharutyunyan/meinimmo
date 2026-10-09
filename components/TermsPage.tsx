@@ -11,7 +11,7 @@ export function TermsPage({ locale }: { locale: Locale }) {
   const de = locale === 'de';
   const [paidPlansOffered, setPaidPlansOffered] = useState(false);
   useEffect(() => {
-    fetch('/api/auth/me', { cache: 'no-store' })
+    fetch('/api/access', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ paidPlansEnabled?: boolean }> : null)
       .then((data) => setPaidPlansOffered(Boolean(data?.paidPlansEnabled)))
       .catch(() => setPaidPlansOffered(false));

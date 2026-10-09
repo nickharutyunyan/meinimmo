@@ -36,7 +36,7 @@ Report pages, print pages, Open Graph metadata and the sitemap serve the facts a
 
 A visitor re-imports one listing through the normal import form. That is the only request path that parses a listing the visitor just submitted.
 
-To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call re-extracts at most 2 archived listings (`BACKFILL_BATCH_SIZE` may set 1–5) and does not start another once 800 ms of parse work is recorded, so the call stays under the Worker CPU limit. The response includes `remaining`. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
+To refresh reports already in D1, set a Worker secret of at least 24 characters and call the backfill route. Each call re-extracts one archived listing. `BACKFILL_BATCH_SIZE` may set 1–5, and that count is the guard. A Worker clock does not advance during synchronous parse work, so a millisecond budget never fires. The response includes `remaining` and does not include `usedMs`. A marked failure is not selected again. There is no cron, so this work does not run during ordinary traffic.
 
 ```bash
 npx wrangler secret put BACKFILL_TOKEN

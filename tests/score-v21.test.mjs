@@ -62,7 +62,9 @@ test('S11 leasehold and a sitting tenant move the score and cap confidence', () 
   assert.equal(osnabruck.facts.tenancy, 'Rented');
   assert.equal(osnabruck.facts.groundLease, true);
   assert.deepEqual(score.adjustments.map((item) => item.points), [-LEASEHOLD_PENALTY, -RENTED_SOON_PENALTY]);
-  assert.ok(score.total < 5.5, `Osnabrück scored ${score.total}`);
+  assert.equal(osnabruck.facts.neighborhood.transitMinutes, 2);
+  assert.equal(osnabruck.facts.neighborhood.dailyNeedsMinutes, 4);
+  assert.equal(score.total, 5.95);
   assert.notEqual(Number(score.total.toFixed(1)), 6.4);
   assert.equal(scoreConfidence(osnabruck).level, 'medium');
   assert.equal(scoreAvailable(osnabruck), true);
@@ -193,7 +195,7 @@ test('S8 price per square metre is whole euros', () => {
 });
 
 test('S10 a saved report with an empty score is filled at read time', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100806);
+  assert.equal(EXTRACTION_VERSION, 2026100807);
   const parsed = fixture('502750');
   const stored = { ...parsed, score: null, scoreBreakdown: undefined };
   const shown = attachCalculatedScore(stored);

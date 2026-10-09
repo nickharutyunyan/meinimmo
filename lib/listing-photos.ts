@@ -232,6 +232,91 @@ export function extractListingPhotoUrls(html: string) {
   return displayableListingPhotos([...openGraph, ...structured, ...gallery]);
 }
 
+const STAGING_PHRASE = String.raw`(?<![\p{L}\p{N}])(?:KI[-\s]+generiert(?:e[nrms]?)?|Visualisierung(?:en)?|virtuell\s+gestaged|virtual\s+staging)(?![\p{L}\p{N}])`;
+const SAMPLE_PHRASE = String.raw`(?<![\p{L}\p{N}])(?:Beispielbild(?:er)?|Musterbild(?:er)?|Symbolbild(?:er)?)(?![\p{L}\p{N}])`;
+
+function phraseMentioned(text: string, phrase: string) {
+  if (!text) return false;
+  const expression = new RegExp(phrase, 'giu');
+  for (const match of text.matchAll(expression)) {
+    const at = match.index ?? 0;
+    const before = text.slice(Math.max(0, at - 40), at);
+    if (!/(?:kein(?:e(?:m|n|r|s)?)?|nicht|ohne|\bno\b|\bnot\b)/i.test(before)) return true;
+  }
+  return false;
+}
+
+function stagingMentioned(text: string) {
+  return phraseMentioned(text, STAGING_PHRASE);
+}
+
+function sampleMentioned(text: string) {
+  return phraseMentioned(text, SAMPLE_PHRASE);
+}
+
+function visibleListingText(source: string) {
+  let out = '';
+  let cursor = 0;
+  while (cursor < source.length) {
+    const open = source.indexOf('<', cursor);
+    if (open < 0) {
+      out += source.slice(cursor);
+      break;
+    }
+    out += `${source.slice(cursor, open)} `;
+    const tag = readTag(source, open);
+    cursor = tag.next > open ? tag.next : open + 1;
+  }
+  return out;
+}
+
+/**
+ * Marks photos whose caption or alt text says they are an AI visualisation.
+ * Listing-wide is set only when that phrase is in the text and no displayed
+ * photo caption can be tied to it. Image pixels are not inspected.
+ */
+export function stagedPhotoMarks(html: string, photoUrls: readonly string[]) {
+  const indexes = new Set<number>();
+  const samples = new Set<number>();
+  const source = !html || html.length <= MAX_PHOTO_HTML_CHARS ? html || '' : html.slice(0, MAX_PHOTO_HTML_CHARS);
+  if (source.includes('<')) {
+    const slots = new Map<string, number>();
+    photoUrls.forEach((url, index) => {
+      if (!slots.has(url)) slots.set(url, index);
+    });
+    let cursor = 0;
+    while (cursor < source.length) {
+      const open = source.indexOf('<', cursor);
+      if (open < 0) break;
+      const tag = readTag(source, open);
+      cursor = tag.next > open ? tag.next : open + 1;
+      if (!tag.attrs || (tag.name !== 'img' && tag.name !== 'a')) continue;
+      const caption = tag.name === 'img'
+        ? `${tag.attrs.alt || ''} ${tag.attrs.title || ''}`
+        : `${tag.attrs['data-glightbox'] || ''} ${tag.attrs.title || ''}`;
+      const url = (tag.name === 'img'
+        ? preferredImageUrl(tag.attrs.src || '', tag.attrs.srcset || '')
+        : tag.attrs.href || '').trim();
+      const slot = slots.get(url);
+      if (!url || slot === undefined) continue;
+      if (stagingMentioned(caption)) indexes.add(slot);
+      if (sampleMentioned(caption)) samples.add(slot);
+    }
+  }
+  const ordered = [...indexes].sort((left, right) => left - right);
+  const sampleOrdered = [...samples].sort((left, right) => left - right);
+  const text = visibleListingText(source);
+  const marks: { indexes: number[]; listingWide: boolean; sampleIndexes?: number[]; listingWideSample?: boolean } = {
+    indexes: ordered,
+    listingWide: ordered.length ? false : stagingMentioned(text),
+  };
+  if (sampleOrdered.length || sampleMentioned(text)) {
+    marks.sampleIndexes = sampleOrdered;
+    marks.listingWideSample = sampleOrdered.length ? false : true;
+  }
+  return marks;
+}
+
 function mayContainListingPhotos(source: string) {
   return source.includes('<img') || source.includes('<IMG') || source.includes('<Img')
     || source.includes('og:image') || source.includes('og:Image')
@@ -242,7 +327,7 @@ function mayContainListingPhotos(source: string) {
 
 type StartTag = { name: string; attrs: Record<string, string> | null; next: number };
 
-const KEPT_ATTRS = new Set(['src', 'srcset', 'width', 'height', 'href', 'content', 'property', 'name', 'data-glightbox']);
+const KEPT_ATTRS = new Set(['src', 'srcset', 'width', 'height', 'href', 'content', 'property', 'name', 'data-glightbox', 'alt', 'title']);
 
 function readTag(source: string, open: number): StartTag {
   const marker = source.charCodeAt(open + 1);

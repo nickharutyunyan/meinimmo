@@ -20,6 +20,8 @@ export function PhotoViewer({
   now,
   listingUrl,
   locale,
+  sample = false,
+  staged = false,
   onClose,
   onSelect,
   onFail,
@@ -30,6 +32,8 @@ export function PhotoViewer({
   now: number;
   listingUrl: string;
   locale: Locale;
+  sample?: boolean;
+  staged?: boolean;
   onClose: () => void;
   onSelect: (index: number) => void;
   onFail: (url: string) => void;
@@ -177,9 +181,9 @@ export function PhotoViewer({
     onTouchMove={onTouchMove}
     onTouchEnd={onTouchEnd}
   >
-    <button ref={closeRef} type="button" className="photo-viewer-close" aria-label={text.photoClose} onClick={onClose}><span aria-hidden="true">×</span></button>
+    <button ref={closeRef} type="button" className="photo-viewer-close" aria-label={text.photoClose} title={text.photoClose} onClick={onClose}><span aria-hidden="true">×</span></button>
     <div className="photo-viewer-stage" onMouseDown={backdrop}>
-      <button type="button" className="photo-viewer-nav" aria-label={text.photoPrevious} onClick={() => move(-1)}><span aria-hidden="true">‹</span></button>
+      <button type="button" className="photo-viewer-nav" aria-label={text.photoPrevious} title={text.photoPrevious} onClick={() => move(-1)}><span aria-hidden="true">‹</span></button>
       <div className="photo-viewer-frame" onMouseDown={backdrop}>
         <img
           key={current}
@@ -199,7 +203,7 @@ export function PhotoViewer({
           }}
         />
       </div>
-      <button type="button" className="photo-viewer-nav" aria-label={text.photoNext} onClick={() => move(1)}><span aria-hidden="true">›</span></button>
+      <button type="button" className="photo-viewer-nav" aria-label={text.photoNext} title={text.photoNext} onClick={() => move(1)}><span aria-hidden="true">›</span></button>
     </div>
     <p className="photo-viewer-count" aria-live="polite">{photoCount(index + 1, total, locale, text.photoCount)}</p>
     <div className="photo-viewer-thumbs">
@@ -229,7 +233,7 @@ export function PhotoViewer({
       </button>)}
     </div>
     <p className="photo-viewer-credit">
-      <span>{text.photoCredit}</span>
+      <span>{sample ? text.photoSample : staged ? text.photoStaged : text.photoCredit}</span>
       <a href={listingUrl} target="_blank" rel="noopener noreferrer nofollow">{text.photoOriginal}{'\u00A0'}<span aria-hidden="true">↗</span></a>
     </p>
   </div>, document.body);

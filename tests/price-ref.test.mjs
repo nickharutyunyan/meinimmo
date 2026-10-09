@@ -452,11 +452,12 @@ test('method pages credit OpenStreetMap and the Cologne valuation board', () => 
   assert.match(text, /© OpenStreetMap contributors \(ODbL\)/);
   assert.match(text, /Gutachterausschuss für Grundstückswerte in der Stadt Köln/);
   assert.match(text, /Grundstücksmarktbericht 2026/);
-  assert.match(text, /Berlin and Cologne by area; Munich citywide only, so only clear outliers count/);
-  assert.match(text, /Berlin und Köln nach Gebiet; München nur stadtweit, daher zählen nur deutliche Ausreißer/);
+  assert.match(text, /Berlin and Cologne by area; the Munich price check is switched off/);
+  assert.match(text, /Berlin und Köln nach Stadtteil; die München-Preisprüfung ist aus/);
+  assert.doesNotMatch(text, /Munich citywide only|München nur stadtweit/);
   assert.doesNotMatch(text, /ImmoScout|Ohne-Makler|ohne-makler|Immowelt/i);
   const labels = [...methodCopy('en').sources, ...methodCopy('de').sources].map((source) => source.label).join('\n');
   assert.match(labels, /© OpenStreetMap contributors \(ODbL\)/);
   assert.match(labels, /Gutachterausschuss für Grundstückswerte in der Stadt Köln, Grundstücksmarktbericht 2026/);
-  assert.match(labels, /Gutachterausschuss München, Halbjahresreport 2026/);
+  assert.doesNotMatch(labels, /Halbjahresreport/);
 });
