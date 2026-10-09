@@ -438,6 +438,8 @@ export type BuyerCostView = {
   rows: BuyerCostRowView[];
   footnote: string;
   statedNote?: string;
+  /** The listing's own ancillary figure, formatted, when it states one. */
+  statedAmount?: string;
   totalAmount: string;
 };
 
@@ -464,6 +466,7 @@ export function buyerCostView(input: CostSource, locale: Locale): BuyerCostView 
   };
   if (breakdown.statedAncillary !== undefined) {
     const stated = money(breakdown.statedAncillary, locale);
+    view.statedAmount = stated;
     const estimate = moneySpan(breakdown.estimateLow, breakdown.estimateHigh, locale);
     view.statedNote = locale === 'de'
       ? `Das Angebot nennt ${stated} Kaufnebenkosten; unsere Schätzung liegt bei ${estimate}.`

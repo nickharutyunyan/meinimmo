@@ -18,3 +18,11 @@ test('the glance grid shows no duplicate usable-space row', () => {
   const labels = glanceFacts(report, 'en').map(([label]) => label);
   assert.ok(!labels.some(label => /usable/i.test(label)));
 });
+
+test('buyer-cost view keeps the listing figure separate from the estimate', async () => {
+  const { buyerCostView } = await import('../lib/buyer-costs.ts');
+  const view = buyerCostView({ facts: { price: 329000, buyerCosts: 24494, location: 'Berlin', buyerCommission: 'Commission-free' }, location: 'Berlin' }, 'en');
+  assert.equal(view.estimated, true);
+  assert.equal(view.statedAmount, '€24,494');
+  assert.notEqual(view.summaryAmount, view.statedAmount);
+});

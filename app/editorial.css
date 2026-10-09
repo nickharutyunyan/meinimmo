@@ -1824,6 +1824,8 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   left: auto;
   right: 0;
   width: min(240px, calc(100vw - 32px));
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .finance-calculator span.glossary-term[role='button'] > span.glossary-tooltip {

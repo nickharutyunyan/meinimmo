@@ -46,11 +46,23 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
     return start === end ? start : `${start}–${end}`;
   };
   const initialEquity = defaultEquity(sliderMax);
-  const buyerCostsProvenance: FactProvenance = report.factEvidence?.buyerCosts?.excerpt
-    ? { field: 'buyerCosts', kind: 'stated', quotes: [report.factEvidence.buyerCosts.excerpt], reportedValue: costView.summaryAmount }
-    : costView.estimated
-      ? { field: 'buyerCosts', kind: 'estimated', quotes: [], basis: factSourceCopy[locale].buyerCostsUnstated, reportedValue: costView.summaryAmount }
+  // The header amount is always our itemised estimate. The listing's own
+  // ancillary figure belongs to the comparison note, never to this number.
+  const statedCostsQuote = report.factEvidence?.buyerCosts?.excerpt;
+  const buyerCostsProvenance: FactProvenance = costView.estimated
+    ? {
+      field: 'buyerCosts',
+      kind: 'estimated',
+      quotes: [],
+      basis: statedCostsQuote || costView.statedNote ? factSourceCopy[locale].buyerCostsItemised : factSourceCopy[locale].buyerCostsUnstated,
+      reportedValue: costView.summaryAmount,
+    }
+    : statedCostsQuote
+      ? { field: 'buyerCosts', kind: 'stated', quotes: [statedCostsQuote], reportedValue: costView.summaryAmount }
       : { field: 'buyerCosts', kind: 'stated', quotes: [], reportedValue: costView.summaryAmount };
+  const statedNoteProvenance: FactProvenance | undefined = costView.estimated && statedCostsQuote && costView.statedNote
+    ? { field: 'buyerCosts', kind: 'stated', quotes: [statedCostsQuote], reportedValue: costView.statedAmount || costView.summaryAmount }
+    : undefined;
   const totalProvenance: FactProvenance = report.facts.price > 0
     ? { field: 'totalCost', kind: 'calculated', quotes: [], formula: `${money(report.facts.price, locale)} + ${costView.summaryAmount}`, reportedValue: costView.totalAmount }
     : provenanceForField(report, 'totalCost', costView.totalAmount, locale);
@@ -150,7 +162,7 @@ export function FinanceCalculator({ report, locale, initialRate, reportingEnable
             <small>{row.basis}</small>
           </div>)}
         </div>
-        {costView.statedNote ? <p className="buyer-cost-note">{costView.statedNote}</p> : null}
+        {costView.statedNote ? <p className="buyer-cost-note">{costView.statedNote}{statedNoteProvenance ? <>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={costView.title} provenance={statedNoteProvenance} reportingEnabled={reportingEnabled} /></> : null}</p> : null}
         <p className="buyer-cost-note">{costView.footnote}</p>
       </details>
       <span><span className="finance-inline-label"><GlossaryText locale={locale}>{text.total}</GlossaryText>{'\u2060'}<FactSource reportId={report.id} locale={locale} label={text.total} provenance={totalProvenance} reportingEnabled={reportingEnabled} /></span> <b>{costView.totalAmount}</b></span>
