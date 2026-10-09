@@ -5,6 +5,7 @@ import { socialMetadata } from '@/lib/page-meta';
 import { marketCopy } from '@/lib/market/copy';
 import { MARKET_CITIES, isMarketSlug } from '@/lib/market/cities';
 import { getListing } from '@/lib/market/store';
+import { isPublic } from '@/lib/market/moderation';
 import { MARKET_SLUGS } from '@/lib/market/cities';
 
 export const cityParams = () => MARKET_SLUGS.map(city => ({ city }));
@@ -60,7 +61,7 @@ export function CityPage({ locale, slug }: { locale: Locale; slug: string }) {
 
 async function publishedListing(id: string) {
   const listing = await getListing(id).catch(() => undefined);
-  return listing && listing.status === 'published' ? listing : undefined;
+  return listing && isPublic(listing) ? listing : undefined;
 }
 
 export async function listingMetadata(locale: Locale, id: string): Promise<Metadata> {

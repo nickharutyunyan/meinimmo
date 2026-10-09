@@ -42,6 +42,7 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
   const [justPublished, setJustPublished] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [verify, setVerify] = useState<{ email: string; code: string; busy: boolean; error: string; resent: boolean } | null>(null);
   const pending = useRef<ListingPatch | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const inFlight = useRef<Promise<unknown> | null>(null);
@@ -87,10 +88,16 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
     setSave('saving');
     const request = fetch(`/api/listings/${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) })
       .then(async response => {
-        const body = await response.json() as { listing?: Listing };
+        const body = await response.json() as { listing?: Listing; code?: string; error?: string };
         if (!response.ok) {
           // A live listing refused an edit that would leave it incomplete; show the stored version again.
-          if (response.status === 422 && body.listing) { setListing(body.listing); setShowMissing(true); setSave('saved'); return; }
+          if (response.status === 422 && body.listing) {
+            setListing(body.listing);
+            if (body.code === 'email_locked' && body.error) setNotes([body.error]);
+            else setShowMissing(true);
+            setSave('saved');
+            return;
+          }
           throw new Error('save');
         }
         if (!pending.current && body.listing) setListing(body.listing);
@@ -155,14 +162,46 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
     setPublishing(true);
     try {
       const response = await fetch(`/api/listings/${id}/publish`, { method: live ? 'POST' : 'DELETE', headers: headers(false) });
-      const body = await response.json() as { listing?: Listing; error?: string };
+      const body = await response.json() as { listing?: Listing; error?: string; code?: string };
+      // First publish from this address: prove the email, then publish continues from the code form.
+      if (live && response.status === 409 && body.code === 'verify_email') { await requestCode(false); return; }
       if (!response.ok || !body.listing) throw new Error(body.error || 'publish');
       setListing(body.listing);
+      setVerify(null);
       if (live) setJustPublished(true);
     } catch (error) {
       setNotes([error instanceof Error && error.message !== 'publish' ? error.message : text.editor.saveFailed]);
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function requestCode(resend: boolean) {
+    if (!listing) return;
+    const email = listing.contact.email.trim().toLowerCase();
+    setVerify(current => ({ email, code: current?.code || '', busy: true, error: '', resent: false }));
+    try {
+      const response = await fetch(`/api/listings/${id}/verify-email`, { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'send' }) });
+      const body = await response.json() as { sent?: boolean; verified?: boolean; error?: string };
+      if (body.verified) { setVerify(null); await publish(true); return; }
+      if (!response.ok) throw new Error(body.error || 'send');
+      setVerify(current => ({ email, code: current?.code || '', busy: false, error: '', resent: resend }));
+    } catch (error) {
+      setVerify(current => ({ email, code: current?.code || '', busy: false, error: error instanceof Error && error.message !== 'send' ? error.message : text.editor.saveFailed, resent: false }));
+    }
+  }
+
+  async function confirmCode() {
+    if (!verify) return;
+    setVerify({ ...verify, busy: true, error: '' });
+    try {
+      const response = await fetch(`/api/listings/${id}/verify-email`, { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'check', code: verify.code }) });
+      const body = await response.json() as { verified?: boolean; error?: string };
+      if (!response.ok || !body.verified) throw new Error(body.error || 'check');
+      setListing(current => current ? { ...current, verifiedEmail: verify.email } : current);
+      await publish(true);
+    } catch (error) {
+      setVerify(current => current ? { ...current, busy: false, error: error instanceof Error && error.message !== 'check' ? error.message : text.editor.saveFailed } : current);
     }
   }
 
@@ -183,6 +222,9 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
   const missing = missingForPublish(listing);
   const done = READINESS.length - missing.length;
   const live = listing.status === 'published';
+  const moderation = listing.moderation?.state || 'none';
+  const visible = live && (moderation === 'none' || moderation === 'approved');
+  const statusLabel = !live ? text.editor.draft : moderation === 'pending' ? text.editor.statusReview : moderation === 'rejected' ? text.editor.statusRejected : moderation === 'hidden' ? text.editor.statusHidden : text.editor.live;
   const pageUrl = localePath(locale, `/l/${listing.id}`);
   const privateLink = typeof window === 'undefined' ? '' : `${window.location.origin}${localePath(locale, `/sell/${listing.id}`)}#k=${token}`;
   const emailOk = validEmail(listing.contact.email);
@@ -203,7 +245,12 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
       <div className="editor-progress" aria-label={text.editor.ready(done, READINESS.length)}>
         <span style={{ width: `${(done / READINESS.length) * 100}%` }} />
       </div>
-      <p className="editor-progress-label">{live ? text.editor.update : text.editor.ready(done, READINESS.length)}</p>
+      <p className="editor-progress-label">{visible ? text.editor.update : live ? statusLabel : text.editor.ready(done, READINESS.length)}</p>
+      {live && !visible ? <div className={`editor-moderation is-${moderation}`} role="status">
+        <p>{moderation === 'pending' ? text.editor.reviewText : moderation === 'rejected' ? text.editor.rejectedText : text.editor.hiddenText}</p>
+        {moderation === 'rejected' && listing.moderation?.note ? <blockquote>{listing.moderation.note}</blockquote> : null}
+        {listing.moderation?.flags.length ? <><p className="editor-moderation-intro">{text.editor.flagsIntro}</p><ul>{listing.moderation.flags.map(flag => <li key={flag}>{text.editor.flags[flag]}</li>)}</ul></> : null}
+      </div> : null}
       {missing.length && (showMissing || done >= 4) ? <div className="editor-missing">
         <p>{text.editor.stillMissing}</p>
         <ul>{missing.map(item => <li key={item}><button type="button" onClick={() => focusField(item)}>{text.editor.missing[item]}</button></li>)}</ul>
@@ -212,8 +259,31 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
         <input type="checkbox" checked={listing.consent} onChange={event => patch({ consent: event.target.checked })} />
         <span>{text.editor.consent}</span>
       </label>
-      {live ? <div className="editor-live-actions">
-        <Link className="market-button is-block" href={pageUrl} target="_blank">{text.editor.view} ↗</Link>
+      {verify && !live ? <div className="editor-verify" id="field-verify">
+        <h3>{text.editor.verifyTitle}</h3>
+        <p>{text.editor.verifySent(verify.email)}</p>
+        <label className="editor-input">
+          <span>{text.editor.verifyCode}</span>
+          <input
+            className="ed-field editor-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={verify.code}
+            onChange={event => setVerify({ ...verify, code: event.target.value.replace(/\D/g, '').slice(0, 6), error: '' })}
+            onKeyDown={event => { if (event.key === 'Enter' && verify.code.length === 6) void confirmCode(); }}
+            autoFocus
+          />
+        </label>
+        {verify.error ? <p className="editor-verify-error" role="alert">{verify.error}</p> : null}
+        {verify.resent ? <p className="listing-side-note" role="status">{text.editor.verifyResent}</p> : null}
+        <button type="button" className="market-button is-block is-large" onClick={confirmCode} disabled={verify.busy || verify.code.length !== 6}>
+          {verify.busy || publishing ? text.editor.publishing : text.editor.verifyConfirm}
+        </button>
+        <button type="button" className="market-link-button editor-resend" onClick={() => requestCode(true)} disabled={verify.busy}>{text.editor.verifyResend}</button>
+        <p className="listing-side-note">{text.editor.verifyWhy}</p>
+      </div> : live ? <div className="editor-live-actions">
+        {visible ? <Link className="market-button is-block" href={pageUrl} target="_blank">{text.editor.view} ↗</Link> : null}
         <button type="button" className="market-link-button" onClick={() => publish(false)} disabled={publishing}>{text.editor.unpublish}</button>
       </div> : <button type="button" className="market-button is-block is-large" onClick={() => publish(true)} disabled={publishing}>
         {publishing ? text.editor.publishing : text.editor.publishFree}
@@ -234,15 +304,15 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
 
   return <div className="editor-shell">
     <div className="editor-bar">
-      <span className={`editor-status${live ? ' is-live' : ''}`}>{live ? text.editor.live : text.editor.draft}</span>
+      <span className={`editor-status${visible ? ' is-live' : live ? ' is-held' : ''}`}>{statusLabel}</span>
       <span className={`editor-save is-${save}`} aria-live="polite">{save === 'saving' ? text.editor.saving : save === 'failed' ? text.editor.saveFailed : text.editor.saved}</span>
       <div className="editor-bar-actions">
         <div className="market-segment is-small" role="radiogroup">
           <button type="button" role="radio" aria-checked={!preview} className={!preview ? 'is-on' : ''} onClick={() => setPreview(false)}>{text.editor.edit}</button>
           <button type="button" role="radio" aria-checked={preview} className={preview ? 'is-on' : ''} onClick={() => setPreview(true)}>{text.editor.preview}</button>
         </div>
-        {live ? <Link className="market-button is-small" href={pageUrl} target="_blank">{text.editor.view} ↗</Link>
-          : <button type="button" className="market-button is-small" onClick={() => publish(true)} disabled={publishing}>{text.editor.publish}</button>}
+        {visible ? <Link className="market-button is-small" href={pageUrl} target="_blank">{text.editor.view} ↗</Link>
+          : live ? null : <button type="button" className="market-button is-small" onClick={() => publish(true)} disabled={publishing}>{text.editor.publish}</button>}
       </div>
     </div>
     {notes.length ? <div className="editor-notes" role="status">{notes.map(note => <p key={note}>{note}</p>)}<button type="button" onClick={() => setNotes([])} aria-label={text.editor.close}>×</button></div> : null}
@@ -253,12 +323,12 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
 
     {justPublished ? <div className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="published-title" onClick={event => { if (event.target === event.currentTarget) setJustPublished(false); }}>
       <div className="editor-modal-card">
-        <p className="editor-modal-mark" aria-hidden="true">✓</p>
-        <h2 id="published-title">{text.editor.liveTitle}</h2>
-        <p>{text.editor.liveText}</p>
-        <ShareLinks url={pageUrl} title={displayTitle(listing, locale)} locale={locale} />
+        <p className="editor-modal-mark" aria-hidden="true">{visible ? '✓' : '⏳'}</p>
+        <h2 id="published-title">{visible ? text.editor.liveTitle : text.editor.reviewTitle}</h2>
+        <p>{visible ? text.editor.liveText : text.editor.reviewText}</p>
+        {visible ? <ShareLinks url={pageUrl} title={displayTitle(listing, locale)} locale={locale} /> : null}
         <div className="editor-modal-actions">
-          <Link className="market-button" href={pageUrl}>{text.editor.view}</Link>
+          {visible ? <Link className="market-button" href={pageUrl}>{text.editor.view}</Link> : null}
           <button type="button" className="market-link-button" onClick={() => setJustPublished(false)}>{text.editor.close}</button>
         </div>
       </div>

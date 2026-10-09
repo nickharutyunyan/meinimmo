@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { requireSameOrigin } from '@/lib/auth';
 import { missingForPublish } from '@/lib/market/validate';
-import { getListing, saveListing, takeDailySlot } from '@/lib/market/store';
+import { getListing, recentListingsForEmail, saveListing, takeDailySlot } from '@/lib/market/store';
+import { moderationOnPublish, spamFlags } from '@/lib/market/moderation';
 import { reviewSellerListing } from '@/lib/market/pipeline';
 import { authorizedEditor, clientSubject, json } from '@/lib/market/http';
 import type { Listing } from '@/lib/market/types';
@@ -24,9 +25,20 @@ export async function POST(request: NextRequest, { params }: Context) {
   if (listing.status !== 'published' && !await takeDailySlot(await clientSubject(request), 'publish', PUBLISHES_PER_DAY)) {
     return json({ error: listing.locale === 'de' ? 'Heute wurden von diesem Anschluss schon viele Angebote veröffentlicht.' : 'Too many listings published from this connection today.' }, 429);
   }
+  // The contact email must be the one the seller proved with a code.
+  if (listing.verifiedEmail !== listing.contact.email.trim().toLowerCase()) {
+    return json({ error: listing.locale === 'de' ? 'Bitte bestätige zuerst deine E-Mail-Adresse.' : 'Confirm your email address first.', code: 'verify_email' }, 409);
+  }
+  const flags = spamFlags(listing, { recentListingsForEmail: await recentListingsForEmail(listing.contact.email, listing.id) });
   const reviewed = await reviewSellerListing(listing);
   const now = new Date().toISOString();
-  const next: Listing = { ...reviewed, status: 'published', publishedAt: listing.publishedAt || now, updatedAt: now };
+  const next: Listing = {
+    ...reviewed,
+    status: 'published',
+    moderation: moderationOnPublish(listing, flags),
+    publishedAt: listing.publishedAt || now,
+    updatedAt: now,
+  };
   await saveListing(next);
   return json({ listing: next, missing: [] });
 }
