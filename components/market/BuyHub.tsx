@@ -8,6 +8,7 @@ import { MARKET_CITIES, MARKET_SLUGS } from '@/lib/market/cities';
 import { priceShort } from '@/lib/market/format';
 import { ListingCard } from './ListingCard';
 import { useMarketListings } from './useMarketListings';
+import { CityPostcard } from '../Illustrations';
 
 /** The hub body. The page around it is static; listings load from /api/market. */
 export function BuyHub({ locale }: { locale: Locale }) {
@@ -17,9 +18,8 @@ export function BuyHub({ locale }: { locale: Locale }) {
   const listings = loaded || [];
   const cities = MARKET_SLUGS.map(slug => {
     const own = listings.filter(listing => listing.market === slug);
-    const covers = own.filter(listing => listing.photos.length).slice(0, 3).map(listing => listing.photos[0]);
     const prices = own.map(listing => listing.price).filter(price => price > 0);
-    return { slug, count: own.length, covers, from: prices.length ? Math.min(...prices) : 0 };
+    return { slug, count: own.length, from: prices.length ? Math.min(...prices) : 0 };
   });
   const elsewhere = listings.filter(listing => !listing.market);
   // Alternate cities so the newest strip is not one city's latest import.
@@ -40,10 +40,7 @@ export function BuyHub({ locale }: { locale: Locale }) {
         <h2 id="market-cities" className="market-section-label">{text.hub.cities}</h2>
         <div className="market-city-grid">
           {cities.map(city => <Link key={city.slug} href={localePath(locale, `/buy/${city.slug}`)} className="market-city-tile">
-            <div className={`market-city-collage is-${Math.min(city.covers.length, 3)}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {city.covers.map(url => <img key={url} src={url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />)}
-            </div>
+            <CityPostcard city={city.slug} />
             <div className="market-city-meta">
               <h3>{MARKET_CITIES[city.slug].name[locale]}</h3>
               <p>{loading ? '\u00a0' : <>{text.hub.homes(city.count)}{city.from ? <> · {text.hub.from} {priceShort(city.from, locale)}</> : null}</>}</p>

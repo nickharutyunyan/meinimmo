@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
+import '@fontsource-variable/fraunces/full.css';
+import '@fontsource-variable/fraunces/full-italic.css';
+import '@fontsource-variable/figtree';
 import './globals.css';
 import './sidebar.css';
 import './report-extras.css';
@@ -11,6 +14,7 @@ import './account.css';
 import './print-report.css';
 import './countries.css';
 import './market.css';
+import './theme.css';
 import { ANALYTICS_CONFIG_SCRIPT } from '@/lib/identity/analytics';
 export const metadata: Metadata = {
   metadataBase: new URL('https://reviewahouse.com'),

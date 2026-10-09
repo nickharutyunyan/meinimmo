@@ -53,21 +53,21 @@ nav.site-nav { display:grid; }
 .am-evidence dt { color:var(--muted); }
 .am-report details { margin-top:20px; }
 .am-report summary { cursor:pointer; }
-.am-finance { background:var(--ink,#19352e); color:#f4f2e9; padding:30px; border-radius:4px; }
+.am-finance { background:var(--ink,#22301e); color:#f5eee8; padding:30px; border-radius:4px; }
 .am-finance h2 { font:400 29px/1.2 var(--serif); margin:15px 0 25px; }
-.am-finance .eyebrow { color:#d9e3bc; }
+.am-finance .eyebrow { color:#ead0b5; }
 .am-monthly { padding-bottom:24px; border-bottom:1px solid #ffffff30; }
 .am-monthly strong { display:block; font-size:clamp(24px,2.5vw,34px); font-weight:500; overflow-wrap:anywhere; }
-.am-monthly span { font-size:13px; color:#c6d0ca; }
+.am-monthly span { font-size:13px; color:#e8cbae; }
 .am-slider { display:block; margin:24px 0; }
 .am-slider>span { display:flex; justify-content:space-between; align-items:baseline; font-size:15px; gap:14px; }
-.am-slider input { display:block; width:100%; accent-color:#dfe7a7; margin:16px 0 8px; }
-.am-slider small { color:#c6d0ca; }
+.am-slider input { display:block; width:100%; accent-color:#f5db99; margin:16px 0 8px; }
+.am-slider small { color:#e8cbae; }
 .am-rate-input { display:block; margin:22px 0 12px; }
 .am-rate-input>span { display:block; font-size:14px; margin-bottom:10px; }
 .am-rate-input input { width:100%; border:1px solid #ffffff60; border-radius:3px; padding:12px; color:inherit; background:#ffffff0b; font:inherit; }
-.am-rate-input input::placeholder { color:#bdc7c0; font-size:13px; }
-.am-rate-source,.am-finance-note { font-size:12px; line-height:1.7; color:#c6d0ca; }
+.am-rate-input input::placeholder { color:#e4c2a0; font-size:13px; }
+.am-rate-source,.am-finance-note { font-size:12px; line-height:1.7; color:#e8cbae; }
 .am-rate-source a { text-decoration:underline; text-underline-offset:4px; }
 .am-finance dl>div { display:flex; justify-content:space-between; gap:16px; padding:13px 0; border-bottom:1px solid #ffffff30; font-size:14px; }
 .am-finance dd { margin:0; text-align:right; }
@@ -111,5 +111,5 @@ nav.site-nav { display:grid; }
 .helper-guide p { margin: 18px 0; }
 .helper-guide ol { padding-left: 24px; }
 .helper-guide li { margin: 12px 0; padding-left: 6px; }
-.helper-guide .primary-button { display: inline-flex; margin-top: 12px; padding: 14px 20px; background: #1d352d; color: #fff; border-radius: 8px; text-decoration: none; }
+.helper-guide .primary-button { display: inline-flex; margin-top: 12px; padding: 14px 20px; background: #24331f; color: #fff; border-radius: 8px; text-decoration: none; }
 .helper-guide code { overflow-wrap: anywhere; }

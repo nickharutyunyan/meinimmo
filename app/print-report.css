@@ -1,8 +1,8 @@
 .print-report-page {
   min-height: 100vh;
   padding: 34px 20px 60px;
-  background: #e8e6df;
-  color: #20342e;
+  background: #f0e3d7;
+  color: #302a24;
 }
 
 .print-controls {
@@ -13,7 +13,7 @@
   margin: 0 auto 16px;
 }
 
-.print-controls a { color: #405a51; font-size: 13px; text-decoration: none; }
+.print-controls a { color: #554d45; font-size: 13px; text-decoration: none; }
 .print-controls button {
   min-height: 40px;
   padding: 9px 15px;
@@ -30,7 +30,7 @@
   margin: 0 auto;
   padding: 14mm 15mm 12mm;
   background: #fff;
-  box-shadow: 0 18px 60px rgb(30 48 42 / 15%);
+  box-shadow: 0 18px 60px rgb(43 36 32 / 15%);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -46,11 +46,11 @@
 .print-header {
   align-items: center;
   padding-bottom: 8mm;
-  border-bottom: 1px solid #cfcbbf;
+  border-bottom: 1px solid #e6c7a8;
 }
 
-.print-header > div:last-child { display: grid; gap: 3px; justify-items: end; color: #687a73; font-size: 10px; }
-.print-header > div:last-child b { color: #314b42; letter-spacing: .13em; }
+.print-header > div:last-child { display: grid; gap: 3px; justify-items: end; color: #7c7166; font-size: 10px; }
+.print-header > div:last-child b { color: #473e35; letter-spacing: .13em; }
 .print-brand { display: flex; gap: 9px; align-items: center; color: var(--ink); font: 600 17px var(--serif); text-decoration: none; }
 .print-brand .home-mark { width: 27px; height: 27px; color: var(--ink); }
 
@@ -66,38 +66,38 @@
 .print-section > h3,
 .print-split h3 {
   margin: 0;
-  color: #6b7b75;
+  color: #7f7367;
   font: 700 9px/1.2 var(--sans);
   letter-spacing: .14em;
   text-transform: uppercase;
 }
 
 .print-hero h1 { margin: 4mm 0 2mm; font: 400 27px/1.05 var(--serif); letter-spacing: -.018em; }
-.print-hero h2 { margin: 0; color: #63736d; font: 400 12px/1.4 var(--sans); }
+.print-hero h2 { margin: 0; color: #766b60; font: 400 12px/1.4 var(--sans); }
 
-.print-score { padding: 5mm; border: 1px solid #b9c3bd; border-radius: 3px; background: #f2f2ec; }
-.print-score > span { display: block; color: #64756e; font: 700 8px var(--sans); letter-spacing: .13em; text-transform: uppercase; }
+.print-score { padding: 5mm; border: 1px solid #e2be9a; border-radius: 3px; background: #f5efe9; }
+.print-score > span { display: block; color: #776c62; font: 700 8px var(--sans); letter-spacing: .13em; text-transform: uppercase; }
 .print-score strong { display: block; margin: 2mm 0 1mm; font: 400 30px/1 var(--serif); }
-.print-score strong small { margin-left: 2px; color: #788780; font: 12px var(--sans); }
-.print-score em { display: block; color: #4f625a; font-size: 10px; font-style: normal; }
-.print-confidence { display: block; margin-top: 2mm; color: #4f625a; font-size: 10px; line-height: 1.4; }
+.print-score strong small { margin-left: 2px; color: #8c8073; font: 12px var(--sans); }
+.print-score em { display: block; color: #615850; font-size: 10px; font-style: normal; }
+.print-confidence { display: block; margin-top: 2mm; color: #615850; font-size: 10px; line-height: 1.4; }
 
 .print-summary { max-width: 168mm; padding: 7mm 0 2mm; }
 .print-summary p { margin: 0 0 3mm; font: 14px/1.55 var(--serif); }
 
-.print-section { padding: 7mm 0; border-top: 1px solid #d8d4ca; break-inside: avoid; }
+.print-section { padding: 7mm 0; border-top: 1px solid #ead1b8; break-inside: avoid; }
 .print-section > h3 { margin-bottom: 4mm; }
 
-.print-facts { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #d9d6cd; border-right: 0; border-bottom: 0; }
-.print-facts > div { min-height: 18mm; padding: 3.2mm; border-right: 1px solid #d9d6cd; border-bottom: 1px solid #d9d6cd; }
+.print-facts { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #ebd3bb; border-right: 0; border-bottom: 0; }
+.print-facts > div { min-height: 18mm; padding: 3.2mm; border-right: 1px solid #ebd3bb; border-bottom: 1px solid #ebd3bb; }
 .print-facts small,
-.print-finance-grid small { display: block; margin-bottom: 2mm; color: #718079; font-size: 8.5px; }
+.print-finance-grid small { display: block; margin-bottom: 2mm; color: #85786c; font-size: 8.5px; }
 .print-facts strong { font-size: 11px; line-height: 1.35; }
 .print-facts sup { margin-left: .5px; font-size: 8px; }
 .print-sources { margin-top: 4mm; }
 .print-sources h3 { margin: 0 0 2mm; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .print-sources ol { margin: 0; padding-left: 5mm; }
-.print-sources li { margin: 0 0 1.5mm; color: #3e4e48; font-size: 10px; line-height: 1.4; }
+.print-sources li { margin: 0 0 1.5mm; color: #50463c; font-size: 10px; line-height: 1.4; }
 
 .print-split { gap: 10mm; }
 .print-split h3 { margin-bottom: 4mm; }
@@ -108,43 +108,43 @@
 .print-numbered p { margin: .5mm 0 0; font-size: 10.5px; line-height: 1.45; }
 .print-questions { counter-reset: questions; }
 .print-questions li { position: relative; margin-bottom: 3mm; padding-left: 6mm; font-size: 10.5px; line-height: 1.45; counter-increment: questions; }
-.print-questions li::before { position: absolute; left: 0; color: #718079; content: counter(questions) '.'; }
+.print-questions li::before { position: absolute; left: 0; color: #85786c; content: counter(questions) '.'; }
 
-.print-finance { display: grid; grid-template-columns: 44mm minmax(0, 1fr); gap: 8mm; padding: 7mm; background: var(--ink); color: #f7f4ec; }
+.print-finance { display: grid; grid-template-columns: 44mm minmax(0, 1fr); gap: 8mm; padding: 7mm; background: var(--ink); color: #f6f2ed; }
 .print-finance-total { display: flex; flex-direction: column; justify-content: center; }
-.print-finance-total > span { color: #b9c6c0; font-size: 8.5px; }
-.print-finance-total > strong { margin: 2mm 0 1mm; color: #f4efd9; font: 400 25px var(--serif); }
-.print-finance-total > small { color: #bdc9c3; font-size: 8px; line-height: 1.4; }
+.print-finance-total > span { color: #e2c09d; font-size: 8.5px; }
+.print-finance-total > strong { margin: 2mm 0 1mm; color: #fbefd2; font: 400 25px var(--serif); }
+.print-finance-total > small { color: #e4c3a2; font-size: 8px; line-height: 1.4; }
 .print-finance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
 .print-finance-grid > div { padding: 3mm; background: rgb(255 255 255 / 8%); }
-.print-finance-grid small { color: #aebcb5; }
+.print-finance-grid small { color: #deb58c; }
 .print-finance-grid strong { font-size: 10px; }
-.print-finance > p { grid-column: 1 / -1; margin: 0; padding-top: 3mm; border-top: 1px solid rgb(255 255 255 / 16%); color: #aebcb5; font-size: 7.5px; line-height: 1.45; }
-.print-buyer-costs { grid-column: 1 / -1; width: 100%; border-collapse: collapse; color: #f7f4ec; font-size: 8px; line-height: 1.35; }
+.print-finance > p { grid-column: 1 / -1; margin: 0; padding-top: 3mm; border-top: 1px solid rgb(255 255 255 / 16%); color: #deb58c; font-size: 7.5px; line-height: 1.45; }
+.print-buyer-costs { grid-column: 1 / -1; width: 100%; border-collapse: collapse; color: #f6f2ed; font-size: 8px; line-height: 1.35; }
 .print-buyer-costs caption { caption-side: top; margin: 0 0 2mm; padding-top: 3mm; border-top: 1px solid rgb(255 255 255 / 16%); text-align: left; font-weight: 700; }
 .print-buyer-costs th, .print-buyer-costs td { padding: 1.4mm 2mm 1.4mm 0; border-top: 1px solid rgb(255 255 255 / 12%); vertical-align: top; text-align: left; font-weight: 400; }
 .print-buyer-costs th { width: 38%; }
 .print-buyer-costs td:nth-child(2) { width: 24%; white-space: nowrap; }
 
-.print-bottom p { margin: 0 0 2mm; color: #65766f; font-size: 10px; line-height: 1.45; }
+.print-bottom p { margin: 0 0 2mm; color: #786e63; font-size: 10px; line-height: 1.45; }
 .print-bottom p strong { color: var(--ink); }
-.print-bottom p strong a { color: inherit; text-decoration: underline; text-decoration-color: #9aa69f; text-decoration-thickness: .5px; text-underline-offset: 2px; }
-.print-bottom p strong a span { margin-left: 1.2mm; color: #6f7f78; font-size: 8px; }
+.print-bottom p strong a { color: inherit; text-decoration: underline; text-decoration-color: #aaa096; text-decoration-thickness: .5px; text-underline-offset: 2px; }
+.print-bottom p strong a span { margin-left: 1.2mm; color: #83776b; font-size: 8px; }
 .print-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5mm 4mm; }
-.print-score-grid span { display: flex; justify-content: space-between; padding-bottom: 1.5mm; border-bottom: 1px solid #e1ded6; color: #66766f; font-size: 9px; }
+.print-score-grid span { display: flex; justify-content: space-between; padding-bottom: 1.5mm; border-bottom: 1px solid #eedcc9; color: #796e63; font-size: 9px; }
 .print-score-grid span.is-unscored { grid-column: 1 / -1; flex-wrap: wrap; }
-.print-score-grid span.is-unscored em { flex-basis: 100%; color: #66766f; font-style: normal; }
+.print-score-grid span.is-unscored em { flex-basis: 100%; color: #796e63; font-style: normal; }
 .print-score-grid b { color: var(--ink); }
 
 .print-warnings ul { columns: 2; gap: 8mm; margin: 0; padding-left: 4mm; }
-.print-warnings li { margin-bottom: 2mm; color: #66766f; font-size: 9px; line-height: 1.4; }
+.print-warnings li { margin-bottom: 2mm; color: #796e63; font-size: 9px; line-height: 1.4; }
 
 .print-footer { grid-template-columns: minmax(0, 1fr) auto; gap: 6mm; align-items: end; padding-top: 6mm; border-top: 2px solid var(--ink); break-inside: avoid; }
 .print-footer > div { display: grid; gap: 1.5mm; min-width: 0; }
-.print-footer b { color: #6d7c76; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.print-footer b { color: #807469; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .print-footer a,
-.print-footer span { overflow-wrap: anywhere; color: #314f45; font-size: 8px; line-height: 1.35; }
-.print-footer p { margin: 0; color: #7b8883; font-size: 8px; line-height: 1.4; text-align: right; white-space: nowrap; }
+.print-footer span { overflow-wrap: anywhere; color: #494037; font-size: 8px; line-height: 1.35; }
+.print-footer p { margin: 0; color: #8e8275; font-size: 8px; line-height: 1.4; text-align: right; white-space: nowrap; }
 .print-footer p a { color: inherit; text-decoration: none; }
 
 @media (max-width: 700px) {
@@ -156,7 +156,7 @@
 
 .print-price-check {
   margin: 3mm 0 0;
-  color: #2c4038;
+  color: #3e362e;
   font-size: 10.5px;
   line-height: 1.45;
 }
@@ -165,7 +165,7 @@
 
 .print-flags ul { margin: 2mm 0 0; padding-left: 4mm; }
 .print-flags li { margin: 2mm 0; font-size: 11px; line-height: 1.45; }
-.print-flags blockquote { margin: 1mm 0 2mm; padding-left: 3mm; border-left: 1px solid #cfcbbf; color: #5c6b65; font-size: 10px; overflow-wrap: anywhere; }
+.print-flags blockquote { margin: 1mm 0 2mm; padding-left: 3mm; border-left: 1px solid #e6c7a8; color: #6d645a; font-size: 10px; overflow-wrap: anywhere; }
 .print-flags p { margin: 2mm 0 0; font-size: 11px; }
 
 @page { size: A4; margin: 12mm 13mm; }

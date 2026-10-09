@@ -53,9 +53,9 @@
 }
 
 .red-flag-high .red-flag-dot { background: #b42318; }
-.red-flag-high .red-flag-label { color: #9c3418; }
-.red-flag-caution .red-flag-dot { background: #b8860b; }
-.red-flag-caution .red-flag-label { color: #8a5a12; }
+.red-flag-high .red-flag-label { color: #9c3518; }
+.red-flag-caution .red-flag-dot { background: #b87e0b; }
+.red-flag-caution .red-flag-label { color: #8a6212; }
 
 .red-flag blockquote {
   margin: 8px 0 0;
@@ -86,7 +86,7 @@
 .data-notes p:not(.eyebrow)::before {
   position: absolute;
   left: 3px;
-  color: #8aa046;
+  color: #7f7367;
   content: '·';
 }
 

@@ -6,6 +6,7 @@ import { guideCopy } from '../lib/guide';
 import { localePath, type Locale } from '../lib/i18n';
 import { SiteFooter } from './SiteFooter';
 import { GlossaryText } from './GlossaryText';
+import { GuideCover } from './Illustrations';
 import { OSM_ATTRIBUTION, OSM_COPYRIGHT_URL } from '../lib/osm-map';
 
 function osmEmbed(lat: number, lon: number) {
@@ -72,8 +73,8 @@ export default function GuideArticleView({ article, locale }: { article: GuideAr
         <p className="guide-dek">{copy.dek}</p>
         <div className="guide-byline"><span>{de ? 'Von Review a House' : 'By Review a House'}</span><span>{copy.readTime}</span><time dateTime={article.published}>{new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${article.published}T00:00:00Z`))}</time></div>
       </header>
-      <figure className={`guide-hero-placeholder guide-accent-${article.accent}`}>
-        <span>{de ? 'PLATZ FÜR DEIN FOTO' : 'PLACE FOR YOUR PHOTOGRAPH'}</span>
+      <figure className={`guide-cover-frame guide-accent-${article.accent}`}>
+        <GuideCover kind={article.cover} />
         <figcaption>{copy.photoLabel}</figcaption>
       </figure>
       <div className="guide-body">

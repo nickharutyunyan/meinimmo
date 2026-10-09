@@ -12,7 +12,7 @@
   flex: 0 0 auto;
   color: var(--ink);
   overflow: visible;
-  filter: drop-shadow(0 3px 8px rgb(25 51 45 / 11%));
+  filter: drop-shadow(0 3px 8px rgb(43 36 32 / 11%));
   transition: filter 180ms ease, transform 180ms ease;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .brand-mark:hover .home-mark {
-  filter: drop-shadow(0 5px 11px rgb(25 51 45 / 16%));
+  filter: drop-shadow(0 5px 11px rgb(43 36 32 / 16%));
   transform: translateY(-1px);
 }
 
