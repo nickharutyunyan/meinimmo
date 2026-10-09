@@ -4,7 +4,7 @@ import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { REPORT_HTML_CACHE_TTL_SECONDS } from '../lib/report-html-cache.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
 import { backfillRejection } from './backfill-gate.mjs';
-import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, isPersonalDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
+import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, isPersonalDocument, reportDocumentId, reportHtmlIsShared, cachedDocumentId } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
 
@@ -123,8 +123,9 @@ export default {
     let response;
     if (isPersonalDocument(url.pathname)) response = await fetchNext(request, env, ctx);
     else if (isCacheableDocument(request.method, url.pathname, request.headers, url.searchParams)) {
-      if (request.method === 'GET' && reportDocumentId(url.pathname)) response = await serveReport(request, env, ctx);
-      else if (!reportDocumentId(url.pathname)) {
+      // Reports and listings render once per location and five minutes, then come from the cache.
+      if (request.method === 'GET' && cachedDocumentId(url.pathname)) response = await serveReport(request, env, ctx);
+      else if (!cachedDocumentId(url.pathname)) {
         const asset = await fetchAsset(request, env, url.pathname);
         response = asset || await fetchNext(request, env, ctx);
       } else response = await fetchNext(request, env, ctx);

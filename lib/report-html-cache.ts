@@ -39,3 +39,25 @@ export async function invalidateReportHtml(id: string) {
     }
   }));
 }
+
+/** Listing pages share the report document cache; a seller's save clears this location's copy. */
+export function listingHtmlUrls(id: string, buildId = reportCacheBuildId()) {
+  if (!/^[0-9a-f]{12}$/.test(id)) return [];
+  return REPORT_HTML_ORIGINS.flatMap(origin => [
+    reportCacheRequest(`${origin}/l/${id}`, buildId).url,
+    reportCacheRequest(`${origin}/de/l/${id}`, buildId).url,
+  ]);
+}
+
+export async function invalidateListingHtml(id: string) {
+  const cache = (globalThis.caches as { default?: Cache } | undefined)?.default;
+  if (!cache) return;
+  const buildId = reportCacheBuildId();
+  await Promise.all(listingHtmlUrls(id, buildId).map(async (url) => {
+    try {
+      await cache.delete(reportCacheRequest(url, buildId));
+    } catch {
+      // Purging a colo cache must not fail the D1 write.
+    }
+  }));
+}

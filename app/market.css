@@ -493,6 +493,9 @@
 .market-card-title a::after { content: ''; position: absolute; inset: auto 0 0; height: 56px; }
 .market-card-title a:hover { color: var(--ink); }
 
+.market-card.is-skeleton .market-card-media { animation: market-pulse 1.4s ease-in-out infinite; }
+.market-card.is-skeleton .market-card-facts { width: 60%; border-radius: 6px; background: rgb(29 48 43 / 8%); }
+
 /* ---------- City search ---------- */
 
 .market-page.is-app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }

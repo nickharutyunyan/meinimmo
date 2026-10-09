@@ -3,6 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { withTimeout } from '../io-timeout.ts';
 import { constantTimeEqual, randomToken, sha256Hex } from '../security.ts';
 import { berlinDay } from '../berlin-time.ts';
+import { invalidateListingHtml } from '../report-html-cache.ts';
 import type { Listing, ListingSummary, MarketSlug } from './types.ts';
 import { listingSummary } from './validate.ts';
 
@@ -84,6 +85,7 @@ export async function saveListing(listing: Listing) {
       source_url = ?10, report_id = ?11, data = ?12, updated_at = ?13, published_at = ?14
     WHERE id = ?1
   `).bind(listing.id, ...columns(listing)).run();
+  await invalidateListingHtml(listing.id);
 }
 
 /** Every published listing in one city, newest first. A city holds hundreds, not millions, so the client filters. */
