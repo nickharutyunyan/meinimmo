@@ -70,7 +70,7 @@ export default function GuideArticleView({ article, locale }: { article: GuideAr
         <p className="eyebrow">{copy.kicker}</p>
         <h1>{copy.title}</h1>
         <p className="guide-dek">{copy.dek}</p>
-        <div className="guide-byline"><span>{de ? 'Von Review a House' : 'By Review a House'}</span><span>{copy.readTime}</span><time dateTime={article.published}>{de ? '24. August 2026' : '24 August 2026'}</time></div>
+        <div className="guide-byline"><span>{de ? 'Von Review a House' : 'By Review a House'}</span><span>{copy.readTime}</span><time dateTime={article.published}>{new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${article.published}T00:00:00Z`))}</time></div>
       </header>
       <figure className={`guide-hero-placeholder guide-accent-${article.accent}`}>
         <span>{de ? 'PLATZ FÜR DEIN FOTO' : 'PLACE FOR YOUR PHOTOGRAPH'}</span>
