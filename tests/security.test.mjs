@@ -43,6 +43,11 @@ test('OAuth return paths cannot leave this site', () => {
   assert.equal(safeReturnTo('//attacker.example'), '/account');
   assert.equal(safeReturnTo('https://attacker.example'), '/account');
   assert.equal(safeReturnTo('/account\r\nLocation: https://attacker.example'), '/account');
+  assert.equal(safeReturnTo('/\\evil.com'), '/account');
+  assert.equal(safeReturnTo('/%5Cevil.com'), '/account');
+  assert.equal(safeReturnTo('/%2F%2Fevil.com'), '/account');
+  assert.equal(safeReturnTo('/%0A/evil.com'), '/account');
+  assert.equal(safeReturnTo('/account/reset'), '/account/reset');
 });
 
 test('listing imports accept public web URLs and reject private-network fetch targets', () => {

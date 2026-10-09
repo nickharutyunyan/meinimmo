@@ -1,6 +1,7 @@
 import 'server-only';
 import { authDatabase } from './auth-db';
-import { hashPassword, randomToken, sha256Hex, validPassword, validPasswordResetToken } from './security';
+import { applyResetPassword } from './identity/mailbox';
+import { randomToken, sha256Hex, validPassword, validPasswordResetToken } from './security';
 
 const RESET_MINUTES = 30;
 
@@ -48,13 +49,8 @@ export async function resetPassword(token: string, password: string) {
   `).bind(tokenHash, now).first<{ token_hash: string; user_id: string }>();
   if (!reset) throw new Error('invalid_token');
 
-  const passwordData = await hashPassword(password);
-  await db.batch([
-    db.prepare('UPDATE password_credentials SET salt = ?1, password_hash = ?2, iterations = ?3, created_at = ?4 WHERE user_id = ?5')
-      .bind(passwordData.salt, passwordData.hash, passwordData.iterations, now, reset.user_id),
-    db.prepare('UPDATE password_reset_tokens SET used_at = ?1 WHERE user_id = ?2 AND used_at IS NULL').bind(now, reset.user_id),
-    db.prepare('DELETE FROM sessions WHERE user_id = ?1').bind(reset.user_id),
-    db.prepare('UPDATE users SET updated_at = ?1 WHERE id = ?2').bind(now, reset.user_id),
-  ]);
+  await applyResetPassword(db, reset.user_id, password, now);
+  await db.prepare('UPDATE password_reset_tokens SET used_at = ?1 WHERE user_id = ?2 AND used_at IS NULL')
+    .bind(now, reset.user_id).run();
   return reset.user_id;
 }

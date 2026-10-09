@@ -93,10 +93,7 @@ export async function verifyStripeSignature(payload: string, header: string, sec
   return signatures.some((signature) => constantTimeEqual(signature, expected));
 }
 
-export function safeReturnTo(value: string | null | undefined, fallback = '/account') {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\r\n]/.test(value)) return fallback;
-  return value;
-}
+export { safeReturnTo } from './return-to.ts';
 
 function privateIpv4(hostname: string) {
   const parts = hostname.split('.');

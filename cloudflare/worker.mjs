@@ -4,7 +4,7 @@ import { reportCacheRequest } from '../lib/report-cache-key.ts';
 import { REPORT_HTML_CACHE_TTL_SECONDS } from '../lib/report-html-cache.ts';
 import { applySecurityHeaders } from '../lib/security-headers.ts';
 import { backfillRejection } from './backfill-gate.mjs';
-import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
+import { applyDocumentLanguage, assetPathForPathname, documentLanguage, isCacheableDocument, isPersonalDocument, reportDocumentId, reportHtmlIsShared } from './routes.mjs';
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache };
 
@@ -121,13 +121,20 @@ export default {
     if (rejected) return rejected;
     const url = new URL(request.url);
     let response;
-    if (isCacheableDocument(request.method, url.pathname, request.headers, url.searchParams)) {
+    if (isPersonalDocument(url.pathname)) response = await fetchNext(request, env, ctx);
+    else if (isCacheableDocument(request.method, url.pathname, request.headers, url.searchParams)) {
       if (request.method === 'GET' && reportDocumentId(url.pathname)) response = await serveReport(request, env, ctx);
       else if (!reportDocumentId(url.pathname)) {
         const asset = await fetchAsset(request, env, url.pathname);
         response = asset || await fetchNext(request, env, ctx);
       } else response = await fetchNext(request, env, ctx);
     } else response = await fetchNext(request, env, ctx);
+    if (isPersonalDocument(url.pathname)) {
+      const headers = new Headers(response.headers);
+      headers.set('cache-control', 'private, no-store, max-age=0');
+      headers.set('x-worker-path', headers.get('x-worker-path') || 'personal');
+      response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
     return withDocumentLanguage(response, url.pathname, request.method);
   },
 };
