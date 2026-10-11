@@ -178,8 +178,7 @@ textarea:focus-visible {
 .market-nav-actions .market-nav-sell { border: 2px solid var(--ink); border-radius: 12px; background: var(--butter); box-shadow: 0 2px 0 var(--ink); }
 .market-nav-actions .market-nav-sell[aria-current='page'] { background: var(--ink); color: var(--paper); }
 
-.language-switch select,
-.country-switch select { font-family: var(--sans); font-weight: 700; }
+.language-switch select { font-family: var(--sans); font-weight: 700; }
 
 /* ---------- Footer: an evening street ---------- */
 
