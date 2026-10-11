@@ -1145,6 +1145,8 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
 }
 
 .score-details summary::-webkit-details-marker { display: none; }
+/* The label always sits above the stamp, even when the column is wide enough to share a line. */
+.score-details summary > small { display: block; }
 
 .score-details summary:hover,
 .score-details summary:focus-visible {

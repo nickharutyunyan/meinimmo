@@ -62,9 +62,16 @@ test('country picker width follows the selected label in English and German', as
   assert.match(countries, /US: 'USA'/);
   assert.match(countries, /CA: 'Kanada'/);
   assert.match(countries, /Land der Immobilie/);
-  assert.match(css, /\.country-switch\s*\{[^}]*display:\s*inline-grid/);
-  assert.match(css, /\.country-switch-value\s*\{[^}]*visibility:\s*hidden;[^}]*white-space:\s*nowrap/);
-  assert.match(css, /\.country-switch select\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0/);
+  const theme = await readFile(new URL('../app/theme.css', import.meta.url), 'utf8');
+  // The visible label sizes the control; the select is an invisible hit area on top,
+  // so a font mismatch between the two can never clip the last letter again.
+  assert.match(css, /\.country-switch-value\s*\{[^}]*white-space:\s*nowrap/);
+  assert.doesNotMatch(css, /\.country-switch-value\s*\{[^}]*visibility:\s*hidden/);
+  assert.match(css, /\.country-switch select\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*opacity:\s*0/);
+  assert.doesNotMatch(theme, /\.country-switch select/);
+  // Beside the report eyebrow: no stray margin pushes the eyebrow off the switch's centre line.
+  assert.match(css, /\.report-market-line\s*\{[^}]*align-items:\s*center/);
+  assert.match(css, /\.report-market-line \.eyebrow\s*\{\s*margin:\s*0/);
   assert.doesNotMatch(css, /country-switch[^{]*\{[^}]*max-width/);
   assert.match(css, /\.country-switch svg\s*\{[^}]*top:\s*50%;[^}]*transform:\s*translateY\(-50%\)/);
 });
