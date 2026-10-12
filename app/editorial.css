@@ -1742,6 +1742,42 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   border-color: rgb(255 255 255 / 15%);
 }
 
+/* Simple view: two summary rows around the one slider that matters most. */
+.finance-summary { margin: 0; }
+.finance-summary > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid rgb(255 255 255 / 13%);
+}
+.finance-summary dt { color: #ddb38a; font-size: 13px; }
+.finance-summary dd { margin: 0; color: #f4ede6; font-size: 15px; font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+.finance-summary dd small { display: block; margin-top: 3px; color: #ddb38a; font-size: 11px; font-weight: 400; }
+.finance-simple .finance-equity { margin: 0; padding: 13px 0 16px; border-top: 1px solid rgb(255 255 255 / 13%); }
+.finance-simple .finance-note { margin-top: 2px; }
+
+.finance-mode-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: calc(100% + 16px);
+  margin: 16px -8px -8px;
+  padding: 11px 8px;
+  border: 0;
+  border-top: 1px solid rgb(255 255 255 / 15%);
+  border-radius: 0 0 4px 4px;
+  background: transparent;
+  color: #fbefd2;
+  font: 650 12px/1.2 var(--sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.finance-mode-toggle > span:last-child { font-size: 17px; font-weight: 400; line-height: 1; }
+.finance-mode-toggle:hover { background: rgb(255 255 255 / 6%); }
+
 .offer-questions,
 .source {
   padding-top: 22px;

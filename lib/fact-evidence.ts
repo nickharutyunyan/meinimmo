@@ -248,6 +248,9 @@ function snippets(lines: string[]) {
     if (!line || isContactLine(line)) continue;
     const next = lines[index + 1] || '';
     const joined = line.length < 35 && next && !isContactLine(next) ? tidy(`${line} ${next}`) : line;
+    // A short line that states its own fact ("~193 m² Wohnfläche") is a candidate by
+    // itself; joined with the next line it would quote a neighbouring figure too.
+    if (joined !== line && !PRIVATE_CONTACT.test(line)) found.push(line);
     if (!joined || PRIVATE_CONTACT.test(joined) || isContactLine(joined)) continue;
     found.push(joined.slice(0, 650));
   }

@@ -560,7 +560,7 @@ test('terrace and garden advice follows what the listing actually states', () =>
 });
 
 test('keeps a multi-unit house room total and a stated energy class that disagrees with demand', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100807);
+  assert.equal(EXTRACTION_VERSION, 2026101201);
   const html = `<html><head><title>NEUWERTIGES MEHRFAMILIENHAUS IN BOCHUM-LINDEN – ATTRAKTIVE KAPITALANLAGE MIT 6 WOHNEINHEITEN</title></head><body><main>
     <div>44879 Bochum (Linden) – Nordrhein-Westfalen</div>
     <div>Kaufpreis: 1.180.000 €</div>
@@ -580,7 +580,7 @@ test('keeps a multi-unit house room total and a stated energy class that disagre
     <div>Endenergiebedarf</div><div>24,00 kWh/(m²a)</div>
   </main></body></html>`;
   const report = parseListing(html, 'https://example.test/bochum-linden');
-  assert.equal(report.extractionVersion, 2026100807);
+  assert.equal(report.extractionVersion, 2026101201);
   assert.equal(report.propertyType, 'house');
   assert.equal(report.facts.rooms, '17');
   assert.equal(report.facts.area, 439.12);
@@ -594,4 +594,40 @@ test('keeps a multi-unit house room total and a stated energy class that disagre
   assert.notEqual(report.score, null);
   assert.ok(report.qualityWarnings.some(warning => /one step off the stated demand/i.test(warning)));
   assert.equal(report.qualityWarnings.some(warning => /energy class and consumption/i.test(warning)), false);
+});
+
+test('reads label-then-value fact lists and skips the similar-listings carousel (Engel & Völkers layout)', () => {
+  const fact = (label, value) => `<li><div>${label}</div><p>${value}</p></li>`;
+  const card = (rooms, area) => `<li><div>Lichterfelde, Berlin</div><div>Preis</div><div>1.190.000 €</div><div>${rooms} Zimmer</div><div>~${area} m² Wohnfläche</div></li>`;
+  const html = `
+    <html><head><title>Modernes Architektenhaus mit Garten</title></head><body><main>
+      <h1>Modernes Architektenhaus mit Garten, Terrassen und Balkon</h1>
+      <div>995.000 €</div>
+      <ul><li><div>5 Zimmer</div></li><li><div>~276 m² Gesamtfläche</div></li><li><div>~193 m² Wohnfläche</div></li><li><div>~500 m² Grundstücksfläche</div></li></ul>
+      <h2>Objektdetails</h2>
+      <ul>
+        ${fact('Objektart', 'Einfamilienhaus')}${fact('Zimmer', '5')}${fact('Schlafzimmer', '3')}${fact('Badezimmer', '2')}
+        ${fact('Gesamtfläche', '~276 m²')}${fact('Wohnfläche', '~193 m²')}${fact('Grundstücksfläche', '~500 m²')}
+        ${fact('Terrassenfläche', '~30 m²')}${fact('Nutzfläche', '~82 m²')}${fact('Baujahr', '2004')}
+        ${fact('Energieeffizienzklasse', 'D')}${fact('Endenergieverbrauch', '105,53 kWh/m²a')}
+        ${fact('Heizungsart', 'Heizkörper')}${fact('Energieträger', 'Zentralheizung, Gasheizung')}
+      </ul>
+      <div>Ort: Rosenthal, Berlin</div>
+      <section data-testid="expose-similar-properties"><h2>Diese Immobilien könnten Sie ebenfalls interessieren</h2><ul>${card(13, 178)}${card(8, 276)}</ul></section>
+    </main></body></html>`;
+  const report = parseListing(html, 'https://www.engelvoelkers.com/de/de/exposes/example');
+  assert.equal(report.facts.price, 995000);
+  assert.equal(report.facts.area, 193);
+  assert.equal(report.facts.usableArea, 82);
+  assert.equal(report.facts.plotArea, 500);
+  assert.equal(report.facts.rooms, '5');
+  assert.match(report.title, /^5-room house · /);
+  assert.notEqual(report.score, null);
+  assert.equal(localizedValue(report.facts.heating, 'en'), 'Radiators');
+  assert.equal(localizedValue(report.facts.energySource, 'en'), 'Gas central heating');
+});
+
+test('a seven-digit price with a one-digit million group is read whole', () => {
+  const html = `<html><body><main><h1>4-Zimmer-Altbauwohnung in Mitte</h1><div>1.150.000 €</div><div>4 Zimmer</div><div>~130 m² Wohnfläche</div><div>10115 Berlin</div></main></body></html>`;
+  assert.equal(parseListing(html, 'https://example.test/mitte').facts.price, 1150000);
 });

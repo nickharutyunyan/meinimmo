@@ -11,12 +11,9 @@ nav.site-nav { display:grid; }
 .site-nav .country-note { display:flex; align-items:center; gap:8px; position:static; white-space:nowrap; }
 .site-nav .country-note span::before { content:none; }
 .country-descriptor { font-size:11px; letter-spacing:.08em; }
-/* Same type as the eyebrow beside it; margins off so both centre on one line.
-   The negative margin lines the country name up with the eyebrow when it wraps. */
-.report-market-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 21px; margin-top:8px; }
-.report-market-line .eyebrow { margin:0; }
-.report-market-line .country-switch { margin-left:-9px; }
-.report-market-line .country-switch-value { font-size:15px; font-weight:750; letter-spacing:.09em; }
+/* Report toolbar: a quiet setting beside the action buttons, same height as them. */
+.report-action-controls .country-switch { min-height:36px; }
+.report-action-controls .country-switch-value { padding:0 25px 0 9px; font:650 11px/34px var(--sans); letter-spacing:.08em; }
 .market-language { font-size:13px; padding:12px; border:1px solid var(--line); }
 .country-landing .nav-links>a,.am-report .nav-links>a,.am-comparison .nav-links>a { display:inline-flex; }
 .market-workspace { margin-left:280px; width:calc(100% - 280px); max-width:none; }
@@ -101,7 +98,16 @@ nav.site-nav { display:grid; }
 @media(max-width:800px) { .market-workspace,.sidebar.collapsed + .market-workspace { margin-left:0; width:100%; } }
 @media(max-width:600px) {
   .country-switch-value { font-size:11px; }
-  .report-market-line .eyebrow,.report-market-line .country-switch-value { font-size:12px; }
+  /* Phones: the country stays in the toolbar, so the print button drops to its icon
+     (its aria-label still names it) and spacing tightens. Very narrow screens wrap. */
+  .report-actions { flex-wrap:wrap; gap:10px 8px; }
+  .report-action-controls { flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+  .report-action-controls .country-switch-value { padding:0 20px 0 6px; font-size:10px; letter-spacing:.06em; }
+  .report-action-controls .country-switch svg { right:6px; }
+  .report-head .share-button,.report-head .print-report-button { gap:6px; padding:8px 9px; }
+  .report-head .print-report-button .action-label-short { display:none; }
+  .report-action-controls .language-switch select { padding:0 28px 0 10px; }
+  .report-action-controls .language-switch > .nav-chevron { right:9px; }
   .country-landing .hero { padding-top:30px; }
   .country-landing .intake { display:flex; flex-direction:column; gap:12px; background:none; border:0; }
   .country-landing .intake label { width:100%; border:1px solid var(--line); background:#fff6; padding:15px; }

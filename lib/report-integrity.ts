@@ -4,7 +4,7 @@ import { geographyClause } from './method-copy.ts';
 import { validStreet } from './location-validation.ts';
 import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidence, scoreConfidenceLabel } from './property-score.ts';
 
-export const EXTRACTION_VERSION = 2026100807;
+export const EXTRACTION_VERSION = 2026101201;
 
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 

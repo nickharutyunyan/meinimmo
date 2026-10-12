@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { CONTENT_SECURITY_POLICY } from '../lib/content-security-policy.ts';
+import { copy } from '../lib/i18n.ts';
 
 function sources(csp, name) {
   const part = csp.split(';').map(item => item.trim()).find(item => item === name || item.startsWith(`${name} `));
@@ -69,9 +70,31 @@ test('country picker width follows the selected label in English and German', as
   assert.doesNotMatch(css, /\.country-switch-value\s*\{[^}]*visibility:\s*hidden/);
   assert.match(css, /\.country-switch select\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*opacity:\s*0/);
   assert.doesNotMatch(theme, /\.country-switch select/);
-  // Beside the report eyebrow: no stray margin pushes the eyebrow off the switch's centre line.
-  assert.match(css, /\.report-market-line\s*\{[^}]*align-items:\s*center/);
-  assert.match(css, /\.report-market-line \.eyebrow\s*\{\s*margin:\s*0/);
+  // On reports the switch lives in the top toolbar, never hidden at any width.
+  const report = await readFile(new URL('../components/ReportView.tsx', import.meta.url), 'utf8');
+  assert.match(report, /className="report-action-controls"><CountrySwitch locale=\{locale\}\/>/);
+  assert.doesNotMatch(css, /\.country-switch[^{]*\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /country-switch[^{]*\{[^}]*max-width/);
   assert.match(css, /\.country-switch svg\s*\{[^}]*top:\s*50%;[^}]*transform:\s*translateY\(-50%\)/);
+});
+
+test('financing card opens simple and toggles the full calculation', async () => {
+  const component = await readFile(new URL('../components/FinanceCalculator.tsx', import.meta.url), 'utf8');
+  assert.match(component, /const \[detailed, setDetailed\] = useState\(false\)/);
+  assert.match(component, /className="finance-mode-toggle" aria-expanded=\{detailed\} aria-controls=\{detailsId\}/);
+  // The equity slider is the one control in both views.
+  assert.equal(component.match(/\{equityControl\}/g)?.length, 2);
+  for (const locale of ['en', 'de']) {
+    for (const key of ['includesBuyerCosts', 'loanTerms', 'simpleNote', 'showDetailed', 'showSimple']) assert.ok(copy[locale].finance[key], `${locale}.${key}`);
+  }
+});
+
+test('footer sits after the page column on sidebar pages, so it never overflows', async () => {
+  for (const file of ['ReportView.tsx', 'ArmeniaReport.tsx', 'CountryLanding.tsx']) {
+    const source = await readFile(new URL(`../components/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /<\/main>\s*<SiteFooter/, file);
+  }
+  const css = await readFile(new URL('../app/sidebar.css', import.meta.url), 'utf8');
+  assert.match(css, /\.sidebar ~ \.site-footer\{margin-left:280px;margin-right:0\}/);
+  assert.match(css, /\.sidebar\.collapsed ~ \.site-footer\{margin-left:68px\}/);
 });

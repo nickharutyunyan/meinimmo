@@ -46,6 +46,6 @@ export function ArmeniaReport({ report }: { report: Report }) {
       </section><ReportNote reportId={report.id} locale="en"/>
       {am.importMethod === 'pdf' && !report.sourceFile && <p className="am-source-note">The PDF was read to create this report. Original-file storage is not available, so keep your own copy; a download is not retained here.</p>}
       <section className="card"><p className="eyebrow">Source</p>{report.sourceFile ? <a href={`/api/reports/${report.id}/source`}>{report.sourceFile.displayName} ↓</a> : /^https:\/\//.test(report.source) ? <a href={report.source} target="_blank" rel="noreferrer">View original listing ↗</a> : <span>{report.source}</span>}<p className="am-source-note">{am.importMethod === 'text' ? 'Based on pasted listing text' : am.importMethod === 'browser' ? 'Based on browser-provided listing text' : am.importMethod === 'pdf' ? 'Exposé PDF' : 'Imported listing'} · Report saved {report.createdAt.slice(0,10)}{am.sourceUpdated ? ` · Listing renewed ${am.sourceUpdated}` : ''}</p><details><summary>Extracted source facts</summary><dl className="am-evidence">{Object.entries(am.evidence).map(([key,value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></details></section>
-    </div><ArmeniaFinance price={f.price} land={land}/></div><SiteFooter locale="en"/>
-  </main></>;
+    </div><ArmeniaFinance price={f.price} land={land}/></div>
+  </main><SiteFooter locale="en"/></>;
 }

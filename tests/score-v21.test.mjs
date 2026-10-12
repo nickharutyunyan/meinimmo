@@ -195,7 +195,7 @@ test('S8 price per square metre is whole euros', () => {
 });
 
 test('S10 a saved report with an empty score is filled at read time', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100807);
+  assert.equal(EXTRACTION_VERSION, 2026101201);
   const parsed = fixture('502750');
   const stored = { ...parsed, score: null, scoreBreakdown: undefined };
   const shown = attachCalculatedScore(stored);
