@@ -1,6 +1,7 @@
 import type { Locale } from '@/lib/i18n';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
 import type { Report } from '@/lib/types';
+import { PriceRangeBar } from './PriceRangeBar';
 
 export function PriceCheckCard({ report, locale }: { report: Report; locale: Locale }) {
   const view = priceCheckPresentation(report, locale);
@@ -9,6 +10,7 @@ export function PriceCheckCard({ report, locale }: { report: Report; locale: Loc
     <p className="eyebrow">{view.eyebrow}</p>
     {view.kind === 'unmatched' ? <p>{view.message}</p> : <>
       <p>{view.lead}</p>
+      <PriceRangeBar bar={view.bar} />
       {view.positionNote ? <p>{view.positionNote}</p> : null}
       {view.notes.map((note) => <p className="price-check-note" key={note}>{note}</p>)}
       <p className="price-check-source"><a href={view.sourceUrl} target="_blank" rel="noreferrer">{view.sourceLabel}</a></p>
