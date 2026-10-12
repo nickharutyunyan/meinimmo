@@ -46,7 +46,8 @@ export function ListingGallery({ photos, thumbs, locale, overlay, sourceUrl }: {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  if (!visible.length) return <div className="listing-stage is-empty"><div className="listing-stage-overlay">{overlay}</div></div>;
+  // No photos: a short band with the price, inside the gallery so the page keeps its spacing below.
+  if (!visible.length) return <section className="listing-gallery" aria-label={text.listing.gallery}><div className="listing-stage is-empty"><div className="listing-stage-overlay">{overlay}</div></div></section>;
 
   return <section className="listing-gallery" aria-label={text.listing.gallery}>
     <div className="listing-stage">

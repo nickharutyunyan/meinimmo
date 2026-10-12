@@ -753,7 +753,7 @@
   width: 100%;
 }
 
-.listing-stage.is-empty { min-height: 260px; background: var(--ink); }
+.listing-stage.is-empty { aspect-ratio: auto; height: clamp(200px, 22vw, 280px); background: var(--ink); }
 
 .listing-stage-strip {
   display: flex;
@@ -938,7 +938,11 @@ button.listing-feature.is-on { border-color: var(--ink); background: var(--ink);
 .listing-location-note { margin: 12px 0 0; font-size: 15px; }
 .listing-location-note small { color: var(--muted); font-size: 13px; }
 
-.listing-side { position: sticky; top: 84px; }
+/* Sticky offsets follow the real bar heights; the fallbacks are the desktop sizes. */
+.listing-side { position: sticky; top: calc(var(--market-nav-h, 74px) + 20px); }
+.editor-shell .listing-side { top: calc(var(--market-nav-h, 74px) + var(--editor-bar-h, 58px) + 20px); }
+/* While editing, the side panel is a long form: pinned, its lower half would be out of reach. */
+.listing-page.is-editing .listing-side { position: static; }
 .listing-side-stack { display: grid; gap: 14px; }
 
 .listing-card {
@@ -1028,7 +1032,7 @@ button.listing-feature.is-on { border-color: var(--ink); background: var(--ink);
   align-items: start;
 }
 
-.market-hero.is-sell { position: sticky; top: 64px; }
+.market-hero.is-sell { position: sticky; top: var(--market-nav-h, 74px); }
 
 .sell-how { display: grid; gap: 14px; margin: 32px 0 0; padding: 0; list-style: none; counter-reset: how; }
 
@@ -1182,7 +1186,7 @@ button.listing-feature.is-on { border-color: var(--ink); background: var(--ink);
 .editor-bar {
   position: sticky;
   z-index: 30;
-  top: 64px;
+  top: var(--market-nav-h, 74px);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1354,7 +1358,9 @@ select.ed-field { cursor: pointer; }
   place-content: center;
   justify-items: center;
   gap: 6px;
-  min-height: 110px;
+  /* Size comes from the grid column and the 4:3 ratio. A minimum height would force
+     the tile wider than a phone's three-column grid. */
+  min-width: 0;
   border: 1.5px dashed #b6aea6;
   border-radius: 10px;
   background: var(--cream);

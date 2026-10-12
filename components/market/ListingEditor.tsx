@@ -215,6 +215,23 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
     }, 60);
   }
 
+  // The editor bar sticks under the market nav, and the listing's side card under both.
+  // Their real heights (the nav wraps on narrow screens) set those offsets.
+  const stickyOffsets = useCallback((shell: HTMLDivElement | null) => {
+    if (!shell) return;
+    const nav = document.querySelector<HTMLElement>('.market-nav');
+    const bar = shell.querySelector<HTMLElement>('.editor-bar');
+    const update = () => {
+      if (nav) shell.style.setProperty('--market-nav-h', `${nav.offsetHeight}px`);
+      if (bar) shell.style.setProperty('--editor-bar-h', `${bar.offsetHeight}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    if (nav) observer.observe(nav);
+    if (bar) observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
   if (failed) return <main className="editor-empty"><p>{text.editor.notFound}</p><Link className="market-button" href={localePath(locale, '/sell')}>{text.sell.create}</Link></main>;
   if (!listing) return <main className="editor-empty is-loading"><span className="market-spinner" aria-hidden="true" /></main>;
   if (listing.status === 'archived') return <main className="editor-empty"><p>{text.editor.deleted}</p></main>;
@@ -302,7 +319,7 @@ export function ListingEditor({ id, locale }: { id: string; locale: Locale }) {
     </section>
   </div>;
 
-  return <div className="editor-shell">
+  return <div className="editor-shell" ref={stickyOffsets}>
     <div className="editor-bar">
       <span className={`editor-status${visible ? ' is-live' : live ? ' is-held' : ''}`}>{statusLabel}</span>
       <span className={`editor-save is-${save}`} aria-live="polite">{save === 'saving' ? text.editor.saving : save === 'failed' ? text.editor.saveFailed : text.editor.saved}</span>
