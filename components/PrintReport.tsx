@@ -12,6 +12,7 @@ import { cleanPdfDisplayName } from '@/lib/pdf-source';
 import { HomeMark } from './Brand';
 import { PrintControls } from './PrintControls';
 import { priceCheckPresentation } from '@/lib/price-check-copy';
+import { PriceRangeBar } from './PriceRangeBar';
 import { area, money, moneyPerSqm, percent } from '@/lib/format';
 import { printSourceNotes } from '@/lib/fact-provenance';
 import { factSourceCopy } from '@/lib/fact-source-copy';
@@ -94,7 +95,7 @@ export function PrintReport({ report, locale, finance, autoPrint }: { report: Re
         <h3>{labels.overview}</h3>
         <div className="print-facts">{facts.map(([label, value, field]) => <div key={`${field}-${label}`}><small>{label}</small><strong>{value}{sourceMarks(field).map(n => <sup key={n}>{n}</sup>)}</strong></div>)}</div>
         {sources.length ? <div className="print-sources"><h3>{factSourceCopy[locale].sources}</h3><ol>{sources.map(note => <li key={note.field}><b>{note.label}.</b> {note.excerpt}</li>)}</ol></div> : null}
-        {priceView.kind === 'matched' ? <p className="print-price-check">{priceView.lead} <a href={priceView.sourceUrl}>{priceView.sourceLabel}</a></p> : priceView.kind === 'unmatched' ? <p className="print-price-check">{priceView.message}</p> : null}
+        {priceView.kind === 'matched' ? <><p className="print-price-check">{priceView.lead} <a href={priceView.sourceUrl}>{priceView.sourceLabel}</a></p><PriceRangeBar bar={priceView.bar} className="is-print" /></> : priceView.kind === 'unmatched' ? <p className="print-price-check">{priceView.message}</p> : null}
       </section>
 
       <section className="print-section print-flags">

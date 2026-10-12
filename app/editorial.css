@@ -2453,6 +2453,87 @@ span.glossary-term[role='button'] > span.glossary-tooltip.is-open {
   text-underline-offset: 3px;
 }
 
+/* Price range bar: below the area's range in sage, inside it in butter,
+   above it in brick; a tick for the average and a pinned dot for this home. */
+.price-bar { max-width: 68ch; margin: 18px 0 4px; font-size: 15px; }
+.price-bar-plot { position: relative; padding-top: 34px; }
+.price-bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--oat);
+  box-shadow: inset 0 0 0 1px rgb(43 36 32 / 8%);
+}
+.price-bar-zone { position: absolute; top: 0; bottom: 0; }
+.price-bar-zone.is-below { left: 0; border-radius: 999px 0 0 999px; background: var(--sage-soft); }
+.price-bar-zone.is-range { background: var(--butter-soft); box-shadow: inset 1px 0 0 var(--line-strong), inset -1px 0 0 var(--line-strong); }
+.price-bar-zone.is-above { right: 0; border-radius: 0 999px 999px 0; background: #f6d8cb; }
+.price-bar-mean {
+  position: absolute;
+  /* Taller than the dot with its ring, so the average stays visible when the price sits on it. */
+  top: -10px;
+  bottom: -10px;
+  left: var(--at);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+.price-bar.is-on-mean .price-bar-mean { top: 50%; }
+.price-bar-dot {
+  position: absolute;
+  top: 50%;
+  left: var(--at);
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px var(--paper);
+}
+.price-bar-pin {
+  position: absolute;
+  top: 0;
+  left: var(--at);
+  padding: 4px 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  background: var(--butter);
+  color: var(--ink);
+  font: 700 12px/1.2 var(--sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+/* Near either end the pin hangs inward so it never leaves the card. */
+.price-bar-pin.is-start { transform: translateX(-12px); }
+.price-bar-pin.is-end { transform: translateX(calc(-100% + 12px)); }
+.price-bar-pin::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1.5px;
+  height: 9px;
+  margin-left: -.75px;
+  background: var(--ink);
+}
+.price-bar-pin.is-start::after { left: 12px; }
+.price-bar-pin.is-end::after { left: calc(100% - 12px); }
+.price-bar-ends { position: relative; height: 18px; margin-top: 12px; color: var(--muted); font: 600 11.5px/1.2 var(--sans); font-variant-numeric: tabular-nums; }
+.price-bar-ends span { position: absolute; top: 0; left: var(--at); white-space: nowrap; }
+.price-bar-ends .is-low { transform: translateX(-2px); }
+.price-bar-ends .is-high { transform: translateX(calc(-100% + 2px)); }
+.price-bar-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; color: var(--muted); font-size: 12.5px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+/* Without edge labels the legend clears the average tick, which reaches 10px below the track. */
+.price-bar.no-ends .price-bar-legend { margin-top: 20px; }
+/* Keys sit beside the first line when an item wraps (line height ≈ 17px). */
+.price-bar-legend > span { display: inline-flex; align-items: flex-start; gap: 7px; }
+.price-bar-key { flex: none; display: inline-block; }
+.price-bar-key.is-home { width: 10px; height: 10px; margin-top: 3.5px; border-radius: 50%; background: var(--ink); }
+.price-bar-key.is-mean { width: 2px; height: 13px; margin-top: 2px; border-radius: 1px; background: var(--ink); }
+.price-bar-key.is-range { width: 16px; height: 9px; margin-top: 4px; border-radius: 3px; background: var(--butter-soft); box-shadow: inset 0 0 0 1px var(--line-strong); }
+
 @media (max-width: 350px) {
   .nav-links a:nth-child(3) { display: none; }
 }

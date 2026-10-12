@@ -231,6 +231,7 @@ export type PriceCheckPresentation =
     notes: string[];
     sourceLabel: string;
     sourceUrl: string;
+    bar: PriceBar;
     compareLabel: string;
     compareValue: string;
   };
@@ -311,6 +312,63 @@ export function priceCheckCitation(report: Report, locale: Locale) {
   return source?.[locale].replace(/^(?:Source|Quelle):\s*/, '');
 }
 
+/** Positions (0–100 % of the bar) and labels for the price range bar. */
+export type PriceBar = {
+  asking: number;
+  mean: number;
+  /** The area's range; absent when the source publishes only an average (Munich). */
+  range?: { low: number; high: number; lowLabel: string; highLabel: string; showEnds: boolean };
+  pinAlign: 'start' | 'center' | 'end';
+  /** The dot sits on the average tick; the tick then shows only below it, clear of the pin. */
+  onMean: boolean;
+  askingLabel: string;
+  homeKey: string;
+  meanKey: string;
+  rangeKey?: string;
+};
+
+export function priceBar(check: PriceCheck, locale: Locale): PriceBar {
+  const de = locale === 'de';
+  const hasRange = check.rangeKind !== 'none' && check.tier !== 'city' && check.low > 0 && check.high > check.low;
+  const mean = shownMean(check);
+  const points = [mean, check.askingPerSqm, ...(hasRange ? [check.low, check.high] : [])];
+  let from = Math.min(...points);
+  let to = Math.max(...points);
+  // A bar needs some width even when asking and average almost meet.
+  const minimumSpan = mean * 0.3;
+  if (to - from < minimumSpan) {
+    const centre = (from + to) / 2;
+    from = centre - minimumSpan / 2;
+    to = centre + minimumSpan / 2;
+  }
+  const pad = (to - from) * 0.12;
+  from = Math.max(0, from - pad);
+  to += pad;
+  const at = (value: number) => Math.round(((value - from) / (to - from)) * 1000) / 10;
+  const asking = at(check.askingPerSqm);
+  const minmax = check.rangeKind === 'minmax' || check.city === 'Köln';
+  const cityWide = check.tier === 'city';
+  return {
+    asking,
+    mean: at(mean),
+    range: hasRange ? {
+      low: at(check.low),
+      high: at(check.high),
+      lowLabel: formatEuro(check.low, locale),
+      highLabel: formatEuro(check.high, locale),
+      // Edge labels need room on a 300px phone bar too (two labels plus the average
+      // tick between them); the legend always carries the numbers.
+      showEnds: at(check.high) - at(check.low) >= 40,
+    } : undefined,
+    pinAlign: asking < 14 ? 'start' : asking > 86 ? 'end' : 'center',
+    onMean: Math.abs(asking - at(mean)) < 3,
+    askingLabel: formatPerSqm(check.askingPerSqm, locale),
+    homeKey: `${de ? 'Dieses Objekt' : 'This home'} ${formatPerSqm(check.askingPerSqm, locale)}`,
+    meanKey: `${cityWide ? (de ? 'Stadtweites Mittel' : 'City-wide average') : (de ? 'Gebietsmittel' : 'Area average')} ${formatPerSqm(mean, locale)}`,
+    rangeKey: hasRange ? `${minmax ? (de ? 'Niedrigster–höchster Verkauf' : 'Lowest–highest sale') : (de ? 'Übliche Spanne' : 'Typical range')} ${formatRange(check.low, check.high, locale)}` : undefined,
+  };
+}
+
 export function priceCheckPresentation(report: Report, locale: Locale): PriceCheckPresentation {
   const availability = localPriceAvailability(report);
   const eyebrow = locale === 'de' ? 'PREISCHECK' : 'PRICE CHECK';
@@ -334,6 +392,7 @@ export function priceCheckPresentation(report: Report, locale: Locale): PriceChe
     sourceUrl: source.url,
     compareLabel: compareLabel(check, locale),
     compareValue: formatSignedAreaDelta(check.deltaPct, locale),
+    bar: priceBar(check, locale),
   };
 }
 
