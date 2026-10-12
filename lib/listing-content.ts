@@ -53,15 +53,21 @@ export function listingContent(raw: string) {
     if (node.nodeName === '#text') return (node as DefaultTreeAdapterMap['textNode']).value;
     if (!('tagName' in node) && !('childNodes' in node)) return '';
     const tag = 'tagName' in node ? node.tagName : '';
-    const identity = `${attr(node, 'id')} ${attr(node, 'class')}`;
+    const identity = `${attr(node, 'id')} ${attr(node, 'class')} ${attr(node, 'data-testid')}`;
     if (omittedTags.has(tag) || attr(node, 'role') === 'navigation'
-      || /(?:^|[\s_-])(?:related|recommendations|contact-seller|breadcrumb|passt)(?:[\s_-]|$)/i.test(identity)
+      || /(?:^|[\s_-])(?:related|recommendations|similar|contact-seller|breadcrumb|passt)(?:[\s_-]|$)/i.test(identity)
       || attr(node, 'aria-hidden') === 'true') return '\n';
     if (tag === 'br') return '\n';
     const children = ('childNodes' in node ? node.childNodes : []).map(child => walk(child, depth + 1)).join('');
     // Preserve label/value association inside a table row. Adjacent rows cannot
     // donate a purchase price to an acquisition-cost field.
     if (tag === 'tr') return `\n${children.replace(/\s+/g, ' ').trim()}\n`;
+    // A list item holding one short label and one value is a fact row too
+    // ("Wohnfläche" / "~193 m²"). Kept apart, the next row's label reads the value above it.
+    if (tag === 'li') {
+      const parts = children.split('\n').map(part => part.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      if (parts.length === 2 && parts[0].length <= 40 && parts[1].length <= 60 && !/\d/.test(parts[0])) return `\n${parts[0]} ${parts[1]}\n`;
+    }
     return blocks.has(tag) ? `\n${children}\n` : children;
   };
   return walk(root);

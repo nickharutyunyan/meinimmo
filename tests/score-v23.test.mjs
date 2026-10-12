@@ -58,10 +58,10 @@ function shell(facts = {}, extra = {}) {
 }
 
 test('extraction v2.3 is the single newer version and only older reports are stale', () => {
-  assert.equal(EXTRACTION_VERSION, 2026100807);
-  assert.equal(reportIsStale({ extractionVersion: 2026100807, country: 'DE' }), false);
+  assert.equal(EXTRACTION_VERSION, 2026101201);
+  assert.equal(reportIsStale({ extractionVersion: 2026101201, country: 'DE' }), false);
   assert.equal(reportIsStale({ extractionVersion: 2026100806, country: 'DE' }), true);
-  assert.equal(reportIsStale({ extractionVersion: 2026100808, country: 'DE' }), false);
+  assert.equal(reportIsStale({ extractionVersion: 2026101202, country: 'DE' }), false);
 });
 
 test('Lage-Check pairs a label line with the next bare distance', () => {

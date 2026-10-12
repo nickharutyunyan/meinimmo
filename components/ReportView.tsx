@@ -6,7 +6,7 @@ import { displayedPropertyScore, scoreAvailable, reportVerdict, scoreBasisLine, 
 import type { Report } from '@/lib/types';
 import type { MortgageRateSnapshot } from '@/lib/fmh-mortgage-rate';
 import { canonicalSource, reportSubtitle, reportTitle, resolveLocation } from '@/lib/display';
-import { formatScore, grossYieldLine, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
+import { formatScore, grossYieldLine, scoreConfidence, priceNotCheckedLine, priceUnscoredLabel, scoreAdjustmentLine } from '@/lib/property-score';
 import { copy, localePath, localizedFeatures, type Locale } from '@/lib/i18n';
 import { clarifyBeforeDecision, glanceFacts, localizedConsiderations, localizedSummary, localizedWarnings } from '@/lib/report-copy';
 import { redFlagSentence } from '@/lib/red-flags';
@@ -131,14 +131,14 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
     <Sidebar locale={locale} />
     <main className="workspace" lang={locale}>
       <header className="report-head">
-        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink} aria-label={copied ? text.copied : text.copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span className="action-label-long" aria-live="polite">{copied ? text.copied : text.copyLink}</span><span className="action-label-short" aria-hidden="true">{copied ? (locale === 'de' ? 'Kopiert' : 'Copied') : (locale === 'de' ? 'Link' : 'Copy')}</span></button><ReportPrintButton reportId={report.id} locale={locale}/><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
-        <div className="report-title-block"><div className="report-market-line"><p className="eyebrow">{text.brief}</p><CountrySwitch locale={locale}/></div><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
+        <div className="report-actions"><Brand className="report-brand" locale={locale}/><div className="report-action-controls"><CountrySwitch locale={locale}/><button className={copied ? 'share-button copied' : 'share-button'} onClick={copyLink} aria-label={copied ? text.copied : text.copyLink}><span aria-hidden="true">{copied ? '✓' : '↗'}</span><span className="action-label-long" aria-live="polite">{copied ? text.copied : text.copyLink}</span><span className="action-label-short" aria-hidden="true">{copied ? (locale === 'de' ? 'Kopiert' : 'Copied') : (locale === 'de' ? 'Link' : 'Copy')}</span></button><ReportPrintButton reportId={report.id} locale={locale}/><AccountNav locale={locale}/><LanguageSwitch locale={locale}/></div></div>
+        <div className="report-title-block"><p className="eyebrow">{text.brief}</p><h1>{reportTitle(report, locale)}</h1>{subtitle && <p><a className="report-address-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.mapQuery || subtitle)}`} target="_blank" rel="noreferrer" aria-label={`${subtitle} — Google Maps`}>{subtitle}<span aria-hidden="true">↗</span></a></p>}</div>
       </header>
 
       <ListingPhotos urls={facts.photoUrls} stagedIndexes={facts.photoStaging?.indexes} sampleIndexes={facts.photoStaging?.sampleIndexes} listingWideSample={facts.photoStaging?.listingWideSample} listingUrl={report.source} locale={locale} renderedAt={renderedAt} />
 
       <section className="verdict">
-        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span><span className="score-basis">{scoreBasisLine(report, locale)}</span>{priceNote ? <span className="score-note">{priceNote}</span> : null}{adjustmentLines.map((line) => <span className="score-note" key={line}>{line}</span>)}{yieldNote ? <span className="score-note">{yieldNote}</span> : null}<span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {
+        <div className="score-column"><details className="score-details"><summary><small>{text.score}</small><span className="score-display"><strong>{showScore ? formatScore(propertyScore.total, locale) : '—'}</strong>{showScore ? <i>/ 10</i> : null}</span>{showScore ? <ScoreConfidenceLine line={scoreBasisLine(report, locale)} confidence={scoreConfidence(report)} /> : <span className="score-basis">{scoreBasisLine(report, locale)}</span>}{priceNote ? <span className="score-note">{priceNote}</span> : null}{adjustmentLines.map((line) => <span className="score-note" key={line}>{line}</span>)}{yieldNote ? <span className="score-note">{yieldNote}</span> : null}<span className="score-details-prompt">{text.scoreDetails} <b>＋</b></span></summary><div className="score-popover">{showScore ? <p>{scoreExplanation(report, locale)}</p> : null}<div className="score-method">{Object.entries(text.components).map(([key, label]) => {
           const value = breakdown[key as keyof typeof breakdown];
           const unscored = value === null;
           const figure = unscored || !showScore ? '—' : formatScore(value, locale);
@@ -174,7 +174,19 @@ export function ReportView({ report: initialReport, locale, mortgageRate, render
         <article><span>PRO</span><strong>€10<small>{text.perMonth}</small></strong><p>{text.proLimit}</p><PlanButton plan="pro" locale={locale}>{text.proButton}</PlanButton></article>
         <article className="ultra"><span>ULTRA</span><strong>€20<small>{text.perMonth}</small></strong><p>{text.ultraLimit}</p><PlanButton plan="ultra" locale={locale}>{text.ultraButton}</PlanButton></article>
       </section> : null}
-      <SiteFooter locale={locale} />
     </main>
+    <SiteFooter locale={locale} />
   </>;
+}
+
+/** "Confidence: High · 7 of 8 key facts" as two lines, with one mark per key fact. */
+function ScoreConfidenceLine({ line, confidence }: { line: string; confidence: { present: number; total: number; level: string } }) {
+  const [level, facts] = line.split(' · ');
+  return <span className="score-basis score-confidence">
+    <span className="score-confidence-level">{level}</span>
+    {facts ? <span className="score-confidence-facts">
+      <span className="score-fact-meter" aria-hidden="true">{Array.from({ length: confidence.total }, (_, index) => <i key={index} className={index < confidence.present ? 'is-present' : undefined} />)}</span>
+      {facts}
+    </span> : null}
+  </span>;
 }

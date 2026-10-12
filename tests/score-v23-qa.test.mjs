@@ -64,7 +64,7 @@ test('Neu-Ulm, Norderstedt, Falkensee and Teltow take their own state', () => {
 test('Munich wording says the check is switched off unless the flag is on', () => {
   const previous = process.env.PRICE_REF_MUENCHEN_ENABLED;
   const scored = {
-    extractionVersion: 2026100807,
+    extractionVersion: 2026101201,
     country: 'DE',
     address: 'Hauptstraße 1, 10115 Berlin',
     location: 'Mitte',

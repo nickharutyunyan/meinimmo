@@ -315,7 +315,8 @@ function purchasePrice(lines: string[]) {
 
   for (const line of lines.slice(0, 100)) {
     if (/\/(?:m²|qm)|\b(?:mtl\.?|monat|hausgeld|nebenkosten|gesamtkosten|eigenkapital|stellplatz|garage)\b/i.test(line)) continue;
-    const rawAmount = line.match(/\b([\d]{2,3}(?:[.\s]\d{3})+)\s*(?:€|EUR)/i)?.[1];
+    // Whole grouped amounts only: "1.150.000 €" must not be read from its "150.000" tail.
+    const rawAmount = line.match(/(?<![\d.,])(\d{1,3}(?:[.\s]\d{3})+)\s*(?:€|EUR)/i)?.[1];
     const amount = rawAmount ? plausiblePurchasePrice(rawAmount) : 0;
     if (amount) return amount;
   }
@@ -1144,14 +1145,14 @@ export function parseListing(raw: string, source: string, preparedLines?: string
   const areaValue = /(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i;
 
   const price = purchasePrice(lines);
-  const headerArea = number(firstMatch(lines, /\b(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
+  const headerArea = number(firstMatch(lines, /\b(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*[~≈]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Wohnfl[aä]che|Living area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 3, 3)
     || firstMatch(lines, /\b(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)\s+(?:Wohnfl[aä]che|Living area)/i));
   const livingPreference = preferStatedLivingArea(lines, headerArea);
   const area = livingPreference?.area || headerArea;
-  const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
+  const usableArea = number(firstMatch(lines, /\b(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*[~≈]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm|sq\.?\s*m)/i)
     || aroundLabel(lines, /^(?:Nutzfl[aä]che|Usable area)(?:\s+(?:ca\.?|approx\.?))?$/i, areaValue, 1, 3));
-  const plotArea = number(firstMatch(lines, /\bGrundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm)/i)
+  const plotArea = number(firstMatch(lines, /\bGrundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?\s*[:\-]?\s*[~≈]?\s*(\d[\d.,]*)\s*(?:m²|qm|sqm)/i)
     || aroundLabel(lines, /^Grundst[uü]cksfl[aä]che(?:\s+(?:ca\.?|approx\.?))?$/i, /(\d[\d.,]*)\s*(?:m²|qm|sqm)/i, 4, 2));
   const labelledRooms = labelledRoomTokens(lines);
   const unitRooms = [title, ...lines].flatMap(unitRoomTokens);
