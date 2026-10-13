@@ -82,7 +82,7 @@ textarea:focus-visible {
 
 /* Numbers line up in tables, prices and facts. */
 .listing-keyfacts dd, .market-card-price, .market-card-facts, .listing-side-price, .score-display, .facts b,
-.finance-calculator b, .listing-details dd, .market-select select { font-variant-numeric: tabular-nums; }
+.finance-calculator b, .listing-specs dd, .market-select select { font-variant-numeric: tabular-nums; }
 
 .eyebrow,
 .market-eyebrow,

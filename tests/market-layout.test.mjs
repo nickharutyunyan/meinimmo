@@ -33,3 +33,26 @@ test('the add-photo tile takes its size from the grid column, so phones do not s
   assert.match(tile, /aspect-ratio:\s*4 \/ 3/);
   assert.doesNotMatch(tile, /min-height/);
 });
+
+test('marketplace styles never target a class the report pages use', async () => {
+  // The marketplace's facts grid was once also called .listing-details and turned the
+  // report's "Listing details" card into a three-column grid.
+  const reportFiles = ['ReportView', 'PriceCheckCard', 'PriceRangeBar', 'FinanceCalculator', 'OfferQuestions', 'PrintReport', 'ComparisonView', 'ListingPhotos', 'Sidebar', 'SiteFooter', 'SiteNav', 'ArmeniaReport', 'CountryLanding'];
+  const used = new Set();
+  for (const name of reportFiles) {
+    const source = await readFile(new URL(`../components/${name}.tsx`, import.meta.url), 'utf8').catch(() => '');
+    for (const match of source.matchAll(/className=\{?[`"']([^`"']+)/g)) {
+      for (const token of match[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]*$/.test(token)) used.add(token);
+    }
+  }
+  const clashes = [];
+  for (const block of css.matchAll(/(?:^|\})\s*([^{}@]+)\{/g)) {
+    for (const selector of block[1].split(',')) {
+      const first = selector.trim().match(/^\.([\w-]+)/)?.[1];
+      if (first && used.has(first)) clashes.push(selector.trim());
+    }
+  }
+  assert.deepEqual(clashes, []);
+  const view = await readFile(new URL('../components/market/ListingView.tsx', import.meta.url), 'utf8');
+  assert.match(view, /<dl className="listing-specs">/);
+});
