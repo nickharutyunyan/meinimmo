@@ -112,7 +112,7 @@ export function ListingView({ listing, locale, edit }: { listing: Listing; local
         </section>
 
         {hasDetails || edit ? <section className="listing-section">
-          <dl className="listing-details">
+          <dl className="listing-specs">
             {!isLand ? <Fact label={text.listing.year}>{edit ? <TextField value={facts.year} label={text.listing.year} placeholder="1912" maxLength={4} onCommit={value => set({ year: value })} /> : facts.year || '—'}</Fact> : null}
             {!isLand ? <Fact label={text.listing.condition}>{edit ? <select className="ed-field" value={facts.condition.toLowerCase()} aria-label={text.listing.condition} onChange={event => set({ condition: event.target.value })}>
               <option value="">—</option>

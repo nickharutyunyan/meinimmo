@@ -888,15 +888,16 @@
 
 .listing-description p { max-width: 680px; margin: 0 0 14px; font-size: 16.5px; line-height: 1.65; }
 
-.listing-details {
+/* The marketplace facts list. Named apart from the report's .listing-details card, which this grid once took over. */
+.listing-specs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px 24px;
   margin: 0;
 }
 
-.listing-details dt { color: var(--muted); font: 500 12px/1.3 var(--sans); letter-spacing: .04em; text-transform: uppercase; }
-.listing-details dd { margin: 5px 0 0; font: 500 16px/1.35 var(--sans); }
+.listing-specs dt { color: var(--muted); font: 500 12px/1.3 var(--sans); letter-spacing: .04em; text-transform: uppercase; }
+.listing-specs dd { margin: 5px 0 0; font: 500 16px/1.35 var(--sans); }
 
 .listing-energy {
   display: inline-grid;
@@ -1495,7 +1496,7 @@ select.ed-field { cursor: pointer; }
 
   .listing-layout { grid-template-columns: 1fr; }
   .listing-side { position: static; }
-  .listing-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .listing-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sell-start { grid-template-columns: 1fr; }
   .market-hero.is-sell { position: static; padding-bottom: 0; }
   .sell-panel { margin-top: 8px; }
