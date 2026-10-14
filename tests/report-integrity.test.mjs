@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseListing } from '../lib/listing-parser.ts';
-import { displayedPropertyScore, presentStoredReport, renderStoredReport, reportConflicts, reportIsStale, scoreAvailable, EXTRACTION_VERSION } from '../lib/report-integrity.ts';
+import { displayedPropertyScore, presentStoredReport, renderStoredReport, reportConflicts, reportIsStale, scoreAvailable, EXTRACTION_VERSION, MIN_TRUSTED_EXTRACTION_VERSION } from '../lib/report-integrity.ts';
 import { needsArchivedRefresh } from '../lib/report-refresh.ts';
 import { guardEnrichment, openRouterFactCheckAccepted } from '../lib/verification-guard.ts';
 import { fetchListing } from '../lib/listing-fetch.ts';
@@ -44,7 +44,7 @@ test('older, current and newer stored versions: only an older version is stale, 
   scoreBreakdown: { ...parsed.scoreBreakdown, futurePart: 4, energy: 1.1 },
  };
 
- const older = { ...base, extractionVersion: EXTRACTION_VERSION - 1, score: 9.1 };
+ const older = { ...base, extractionVersion: MIN_TRUSTED_EXTRACTION_VERSION - 1, score: 9.1 };
  assert.equal(reportIsStale(older), true);
  assert.equal(needsArchivedRefresh(older), true);
  const olderShown = renderStoredReport(older);
@@ -53,6 +53,16 @@ test('older, current and newer stored versions: only an older version is stale, 
  assert.match(olderShown.qualityWarnings.join(' '), /fresh source review/);
  assert.equal(olderShown.futureNote.keep, true);
  assert.equal(olderShown.facts.futureDetail.ignored, true);
+
+ // A version the rubric still trusts keeps its score on screen; only the backfill upgrades it.
+ const trusted = { ...base, extractionVersion: MIN_TRUSTED_EXTRACTION_VERSION, score: 9.1 };
+ assert.ok(MIN_TRUSTED_EXTRACTION_VERSION < EXTRACTION_VERSION);
+ assert.equal(reportIsStale(trusted), false);
+ assert.equal(needsArchivedRefresh(trusted), true);
+ const trustedShown = renderStoredReport(trusted);
+ assert.equal(trustedShown.score, parsed.score);
+ assert.equal(scoreAvailable(trustedShown), true);
+ assert.doesNotMatch((trustedShown.qualityWarnings || []).join(' '), /fresh source review/);
 
  const current = { ...base, extractionVersion: EXTRACTION_VERSION, score: parsed.score };
  assert.equal(reportIsStale(current), false);
