@@ -6,6 +6,18 @@ import { calculatePropertyScore, energyClassGap, missingKeyFacts, scoreConfidenc
 
 export const EXTRACTION_VERSION = 2026101201;
 
+/**
+ * The oldest extraction whose facts the current rubric still trusts on screen.
+ * New parses are stamped with EXTRACTION_VERSION, and the backfill still upgrades
+ * everything older than it. Raise this only when a parser change alters facts on
+ * listings already saved — and run the production backfill in the same deploy,
+ * or every older report loses its score until then.
+ * 2026101201 changed how Engel & Völkers fact lists and seven-figure prices are
+ * read; the 69 archived listings in the local store re-parsed identically, so 2026100807
+ * stays trusted.
+ */
+export const MIN_TRUSTED_EXTRACTION_VERSION = 2026100807;
+
 export const STALE_REPORT_WARNING = 'This saved report needs a fresh source review. Re-import the listing or upload its Exposé.';
 
 /** A rollback must not treat a newer saved extraction as stale or re-score it. */
@@ -14,7 +26,7 @@ export function storedVersionIsNewer(version: number | null | undefined) {
 }
 
 /**
- * Only a strictly older extraction is stale. A missing version is older.
+ * Only an extraction older than the oldest trusted one is stale. A missing version is older.
  * A newer version is fresh: its stored score stays, and backfill must not select it.
  * Armenian reports use their own rubric.
  */
@@ -23,7 +35,7 @@ export function reportIsStale(report: Pick<Report, 'country' | 'extractionVersio
   if (report.sourceUnavailable) return true;
   if (report.country === 'AM') return false;
   if (typeof report.extractionVersion !== 'number' || !Number.isFinite(report.extractionVersion)) return true;
-  return report.extractionVersion < EXTRACTION_VERSION;
+  return report.extractionVersion < MIN_TRUSTED_EXTRACTION_VERSION;
 }
 
 /** Attach the stale warning for this response. Does not read archived HTML or write D1. */
